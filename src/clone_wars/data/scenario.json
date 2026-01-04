@@ -1,0 +1,17 @@
+{
+  "seed": 1,
+  "planet": {
+    "name": "Key Planet",
+    "objectives": [
+      {"id": "foundry", "name": "Droid Foundry"},
+      {"id": "comms", "name": "Communications Array"},
+      {"id": "power", "name": "Power Plant"}
+    ],
+    "enemy": {
+      "strength_range": [1.2, 2.0],
+      "confidence": 0.7,
+      "fortification": 1.0,
+      "reinforcement_rate": 0.1
+    }
+  }
+}

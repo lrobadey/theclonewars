@@ -1,0 +1,146 @@
+/* Global Terminal Theme */
+Screen {
+    layout: vertical;
+    background: #050505;
+    color: #00ff00;  /* Phosphor Green */
+}
+
+/* --- Global Elements --- */
+Button {
+    background: #000000;
+    color: #00aa00;
+    border: none;
+    min-width: 0;
+    padding: 0 1; 
+    height: 1;
+    margin-right: 2;
+}
+
+Button:hover {
+    background: #00ff00;
+    color: #000000;
+    text-style: bold;
+}
+
+/* --- Layout Grid --- */
+#dashboard-grid {
+    layout: grid;
+    grid-size: 2 3;
+    grid-columns: 2fr 1fr;
+    grid-rows: 50% 25% 25%;
+    height: 1fr;
+    margin-bottom: 0;
+}
+
+/* --- Panel Styling --- */
+.box {
+    border: round #00ff00;
+    padding: 0 1;
+    background: #050505;
+}
+
+/* Panel layout adjustments */
+#logistics-panel {
+    column-span: 2;
+}
+
+/* --- Planet Map --- */
+#planet-title {
+    margin-bottom: 1;
+}
+
+#planet-layer {
+    height: 17;
+    width: 100%;
+}
+
+#planet-art {
+    color: #00aa00;
+}
+
+.planet-node {
+    position: absolute;
+    width: 1;
+    height: 1;
+    padding: 0 0;
+    background: #001100;
+    color: #00ff00;
+    border: round #00ff00;
+}
+
+.planet-node:hover {
+    background: #00ff00;
+    color: #000000;
+}
+
+#map-foundry {
+    offset: 14 5;
+}
+
+#map-comms {
+    offset: 10 8;
+}
+
+#map-power {
+    offset: 18 10;
+}
+
+.planet-node--enemy {
+    background: #330000;
+    border: round #ff3333;
+    color: #ff3333;
+}
+
+.planet-node--contested {
+    background: #332200;
+    border: round #ffcc00;
+    color: #ffcc00;
+}
+
+.planet-node--secured {
+    background: #003300;
+    border: round #00ff66;
+    color: #00ff66;
+}
+
+.planet-node--active {
+    text-style: bold;
+    border: heavy #ffffff;
+}
+
+#planet-legend {
+    margin-top: 1;
+}
+
+#planet-stats {
+    margin-top: 1;
+}
+
+/* --- Header --- */
+.header-bar {
+    dock: top;
+    height: 1;
+    background: #00aa00;
+    color: #000000;
+    text-style: bold;
+    content-align: center middle;
+}
+
+/* --- Bottom Console --- */
+.command-console {
+    dock: bottom;
+    height: auto;
+    min-height: 8;
+    border-top: double #00ff00;
+    background: #050505;
+    padding: 1 2;
+}
+
+/* Console Internal Elements */
+#console-content {
+    height: auto;
+}
+
+.command-console Static {
+    margin-bottom: 1;
+}

@@ -1,0 +1,32 @@
+{
+  "classes": [
+    {
+      "id": "ammo",
+      "name": "Ammunition",
+      "shortage_effects": {
+        "progress_penalty": -0.30,
+        "loss_multiplier": 1.15,
+        "readiness_degradation": -0.05
+      }
+    },
+    {
+      "id": "fuel",
+      "name": "Fuel/Energy",
+      "shortage_effects": {
+        "progress_penalty": -0.30,
+        "loss_multiplier": 1.10,
+        "readiness_degradation": -0.03
+      }
+    },
+    {
+      "id": "med_spares",
+      "name": "Medical+Spares",
+      "shortage_effects": {
+        "progress_penalty": -0.20,
+        "loss_multiplier": 1.20,
+        "readiness_degradation": -0.08
+      }
+    }
+  ]
+}
+

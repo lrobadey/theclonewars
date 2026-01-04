@@ -1,0 +1,8 @@
+Metadata-Version: 2.4
+Name: clone-wars-war-sim
+Version: 0.0.1
+Summary: Clone Wars War Sim MVP (terminal TUI)
+Requires-Python: >=3.11
+Requires-Dist: textual>=0.50.0
+Provides-Extra: dev
+Requires-Dist: pytest>=7.0.0; extra == "dev"

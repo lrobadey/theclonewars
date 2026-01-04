@@ -1,0 +1,23 @@
+{
+  "objectives": [
+    {
+      "id": "foundry",
+      "name": "Droid Foundry",
+      "type": "industrial",
+      "base_difficulty": 1.0
+    },
+    {
+      "id": "comms",
+      "name": "Communications Array",
+      "type": "strategic",
+      "base_difficulty": 1.1
+    },
+    {
+      "id": "power",
+      "name": "Power Plant",
+      "type": "infrastructure",
+      "base_difficulty": 1.05
+    }
+  ]
+}
+

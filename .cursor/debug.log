@@ -1,0 +1,283 @@
+{"sessionId": "debug-session", "timestamp": 1767563749733, "location": "console.py", "message": "on_mount entry", "data": {}, "hypothesisId": "B"}
+{"sessionId": "debug-session", "timestamp": 1767563749734, "location": "console.py", "message": "watch_mode entry: menu", "data": {}, "hypothesisId": "A"}
+{"sessionId": "debug-session", "timestamp": 1767563749735, "location": "console.py", "message": "_refresh_content entry: mode=menu", "data": {}, "hypothesisId": "A"}
+{"sessionId": "debug-session", "timestamp": 1767563749735, "location": "console.py", "message": "Mounting idle menu", "data": {}, "hypothesisId": "C"}
+{"sessionId": "debug-session", "timestamp": 1767563749748, "location": "console.py", "message": "watch_mode exit: menu", "data": {}, "hypothesisId": "A"}
+{"sessionId": "debug-session", "timestamp": 1767563749748, "location": "console.py", "message": "_refresh_content entry: mode=menu", "data": {}, "hypothesisId": "A"}
+{"sessionId": "debug-session", "timestamp": 1767563749749, "location": "console.py", "message": "Mounting idle menu", "data": {}, "hypothesisId": "C"}
+{"sessionId": "debug-session", "timestamp": 1767563751038, "location": "dashboard.py", "message": "DashboardScreen.on_mount", "data": {}, "hypothesisId": "B"}
+{"sessionId": "debug-session", "timestamp": 1767563802772, "location": "console.py", "message": "on_mount entry (skipping refresh to avoid duplication)", "data": {"runId": "post-fix"}, "hypothesisId": "B"}
+{"sessionId": "debug-session", "timestamp": 1767563802776, "location": "console.py", "message": "on_mount exit", "data": {"runId": "post-fix"}, "hypothesisId": "B"}
+{"sessionId": "debug-session", "timestamp": 1767563802778, "location": "console.py", "message": "watch_mode entry: menu", "data": {"runId": "post-fix"}, "hypothesisId": "A"}
+{"sessionId": "debug-session", "timestamp": 1767563802778, "location": "console.py", "message": "_refresh_content entry: mode=menu", "data": {"runId": "post-fix"}, "hypothesisId": "A"}
+{"sessionId": "debug-session", "timestamp": 1767563802779, "location": "console.py", "message": "Mounting idle menu", "data": {}, "hypothesisId": "C"}
+{"sessionId": "debug-session", "timestamp": 1767563802792, "location": "console.py", "message": "watch_mode exit: menu", "data": {"runId": "post-fix"}, "hypothesisId": "A"}
+{"sessionId": "debug-session", "timestamp": 1767563802803, "location": "dashboard.py", "message": "DashboardScreen.on_mount", "data": {}, "hypothesisId": "B"}
+{"sessionId": "debug-session", "timestamp": 1767563820627, "location": "console.py", "message": "watch_mode entry: plan:target", "data": {"runId": "post-fix"}, "hypothesisId": "A"}
+{"sessionId": "debug-session", "timestamp": 1767563820628, "location": "console.py", "message": "_refresh_content entry: mode=plan:target", "data": {"runId": "post-fix"}, "hypothesisId": "A"}
+{"sessionId": "debug-session", "timestamp": 1767563820641, "location": "console.py", "message": "watch_mode exit: plan:target", "data": {"runId": "post-fix"}, "hypothesisId": "A"}
+{"sessionId": "debug-session", "timestamp": 1767563823224, "location": "console.py", "message": "watch_mode entry: plan:axis", "data": {"runId": "post-fix"}, "hypothesisId": "A"}
+{"sessionId": "debug-session", "timestamp": 1767563823224, "location": "console.py", "message": "_refresh_content entry: mode=plan:axis", "data": {"runId": "post-fix"}, "hypothesisId": "A"}
+{"sessionId": "debug-session", "timestamp": 1767563823237, "location": "console.py", "message": "watch_mode exit: plan:axis", "data": {"runId": "post-fix"}, "hypothesisId": "A"}
+{"sessionId": "debug-session", "timestamp": 1767563835272, "location": "console.py", "message": "watch_mode entry: plan:prep", "data": {"runId": "post-fix"}, "hypothesisId": "A"}
+{"sessionId": "debug-session", "timestamp": 1767563835273, "location": "console.py", "message": "_refresh_content entry: mode=plan:prep", "data": {"runId": "post-fix"}, "hypothesisId": "A"}
+{"sessionId": "debug-session", "timestamp": 1767563835277, "location": "console.py", "message": "watch_mode exit: plan:prep", "data": {"runId": "post-fix"}, "hypothesisId": "A"}
+{"sessionId": "debug-session", "timestamp": 1767563837440, "location": "console.py", "message": "watch_mode entry: plan:posture", "data": {"runId": "post-fix"}, "hypothesisId": "A"}
+{"sessionId": "debug-session", "timestamp": 1767563837441, "location": "console.py", "message": "_refresh_content entry: mode=plan:posture", "data": {"runId": "post-fix"}, "hypothesisId": "A"}
+{"sessionId": "debug-session", "timestamp": 1767563837454, "location": "console.py", "message": "watch_mode exit: plan:posture", "data": {"runId": "post-fix"}, "hypothesisId": "A"}
+{"sessionId": "debug-session", "timestamp": 1767563841375, "location": "console.py", "message": "watch_mode entry: plan:risk", "data": {"runId": "post-fix"}, "hypothesisId": "A"}
+{"sessionId": "debug-session", "timestamp": 1767563841377, "location": "console.py", "message": "_refresh_content entry: mode=plan:risk", "data": {"runId": "post-fix"}, "hypothesisId": "A"}
+{"sessionId": "debug-session", "timestamp": 1767563841386, "location": "console.py", "message": "watch_mode exit: plan:risk", "data": {"runId": "post-fix"}, "hypothesisId": "A"}
+{"sessionId": "debug-session", "timestamp": 1767563842916, "location": "console.py", "message": "watch_mode entry: plan:exploit", "data": {"runId": "post-fix"}, "hypothesisId": "A"}
+{"sessionId": "debug-session", "timestamp": 1767563842918, "location": "console.py", "message": "_refresh_content entry: mode=plan:exploit", "data": {"runId": "post-fix"}, "hypothesisId": "A"}
+{"sessionId": "debug-session", "timestamp": 1767563842927, "location": "console.py", "message": "watch_mode exit: plan:exploit", "data": {"runId": "post-fix"}, "hypothesisId": "A"}
+{"sessionId": "debug-session", "timestamp": 1767563845674, "location": "console.py", "message": "watch_mode entry: plan:end", "data": {"runId": "post-fix"}, "hypothesisId": "A"}
+{"sessionId": "debug-session", "timestamp": 1767563845675, "location": "console.py", "message": "_refresh_content entry: mode=plan:end", "data": {"runId": "post-fix"}, "hypothesisId": "A"}
+{"sessionId": "debug-session", "timestamp": 1767563845682, "location": "console.py", "message": "watch_mode exit: plan:end", "data": {"runId": "post-fix"}, "hypothesisId": "A"}
+{"sessionId": "debug-session", "timestamp": 1767563848908, "location": "console.py", "message": "watch_mode entry: menu", "data": {"runId": "post-fix"}, "hypothesisId": "A"}
+{"sessionId": "debug-session", "timestamp": 1767563848908, "location": "console.py", "message": "_refresh_content entry: mode=menu", "data": {"runId": "post-fix"}, "hypothesisId": "A"}
+{"sessionId": "debug-session", "timestamp": 1767563848910, "location": "console.py", "message": "Mounting active operation view", "data": {}, "hypothesisId": "C"}
+{"sessionId": "debug-session", "timestamp": 1767563848911, "location": "console.py", "message": "watch_mode exit: menu", "data": {"runId": "post-fix"}, "hypothesisId": "A"}
+{"sessionId": "debug-session", "timestamp": 1767564049072, "location": "console.py", "message": "_refresh_content entry", "data": {"mode": "menu", "has_operation": false, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564049073, "location": "console.py", "message": "Showing idle menu", "data": {}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564049087, "location": "console.py", "message": "Console refresh called", "data": {"mode": "menu", "has_operation": false, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564049088, "location": "console.py", "message": "_refresh_content entry", "data": {"mode": "menu", "has_operation": false, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564049088, "location": "console.py", "message": "Showing idle menu", "data": {}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564120393, "location": "console.py", "message": "_refresh_content entry", "data": {"mode": "menu", "has_operation": false, "has_aar": false, "state_id": 4351712096}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564120394, "location": "console.py", "message": "Showing idle menu", "data": {}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564120406, "location": "console.py", "message": "Console refresh called", "data": {"mode": "menu", "has_operation": false, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564120406, "location": "console.py", "message": "_refresh_content entry", "data": {"mode": "menu", "has_operation": false, "has_aar": false, "state_id": 4351712096}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564120407, "location": "console.py", "message": "Showing idle menu", "data": {}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564202583, "location": "console.py", "message": "_refresh_content entry", "data": {"mode": "menu", "has_operation": false, "has_aar": false, "state_id": 4327136208}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564202585, "location": "console.py", "message": "Showing idle menu", "data": {}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564202601, "location": "console.py", "message": "Console refresh called", "data": {"mode": "menu", "has_operation": false, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564202603, "location": "console.py", "message": "_refresh_content entry", "data": {"mode": "menu", "has_operation": false, "has_aar": false, "state_id": 4327136208}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564202604, "location": "console.py", "message": "Showing idle menu", "data": {}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564244207, "location": "console.py", "message": "_refresh_content entry", "data": {"mode": "menu", "has_operation": false, "has_aar": false, "state_id": 4477541440}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564244208, "location": "console.py", "message": "Showing idle menu", "data": {}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564244219, "location": "console.py", "message": "Console refresh called", "data": {"mode": "menu", "has_operation": false, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564244220, "location": "console.py", "message": "_refresh_content entry", "data": {"mode": "menu", "has_operation": false, "has_aar": false, "state_id": 4477541440}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564244221, "location": "console.py", "message": "Showing idle menu", "data": {}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564246176, "location": "console.py", "message": "Console refresh called", "data": {"mode": "menu", "has_operation": false, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564246177, "location": "console.py", "message": "_refresh_content entry", "data": {"mode": "menu", "has_operation": false, "has_aar": false, "state_id": 4477541440}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564246178, "location": "console.py", "message": "Showing idle menu", "data": {}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564453748, "location": "console.py", "message": "_refresh_content entry", "data": {"mode": "menu", "has_operation": false, "has_aar": false, "state_id": 4527905744}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564453750, "location": "console.py", "message": "Showing idle menu", "data": {}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564504342, "location": "console.py", "message": "_refresh_content entry", "data": {"mode": "menu", "has_operation": false, "has_aar": false, "state_id": 4414610384}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564504345, "location": "console.py", "message": "Showing idle menu", "data": {}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564504870, "location": "dashboard.py", "message": "refresh_dashboard cycle", "data": {"day": 1, "has_op": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564504874, "location": "console.py", "message": "update_view called", "data": {"mode": "menu", "has_operation": false, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564504875, "location": "console.py", "message": "_refresh_content entry", "data": {"mode": "menu", "has_operation": false, "has_aar": false, "state_id": 4414610384}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564504877, "location": "console.py", "message": "Showing idle menu", "data": {}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564783164, "location": "console.py", "message": "_refresh_content entry", "data": {"mode": "menu", "has_operation": false, "has_aar": false, "state_id": 4534656064, "content_key": "menu:False:-1:False"}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564783165, "location": "console.py", "message": "Showing idle menu", "data": {}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564783700, "location": "dashboard.py", "message": "refresh_dashboard cycle", "data": {"day": 1, "has_op": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564783702, "location": "console.py", "message": "update_view called", "data": {"mode": "menu", "has_operation": false, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564784200, "location": "dashboard.py", "message": "refresh_dashboard cycle", "data": {"day": 1, "has_op": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564784201, "location": "console.py", "message": "update_view called", "data": {"mode": "menu", "has_operation": false, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564784700, "location": "dashboard.py", "message": "refresh_dashboard cycle", "data": {"day": 1, "has_op": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564784701, "location": "console.py", "message": "update_view called", "data": {"mode": "menu", "has_operation": false, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564785200, "location": "dashboard.py", "message": "refresh_dashboard cycle", "data": {"day": 1, "has_op": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564785211, "location": "console.py", "message": "update_view called", "data": {"mode": "menu", "has_operation": false, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564785700, "location": "dashboard.py", "message": "refresh_dashboard cycle", "data": {"day": 1, "has_op": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564785701, "location": "console.py", "message": "update_view called", "data": {"mode": "menu", "has_operation": false, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564786200, "location": "dashboard.py", "message": "refresh_dashboard cycle", "data": {"day": 1, "has_op": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564786203, "location": "console.py", "message": "update_view called", "data": {"mode": "menu", "has_operation": false, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564786700, "location": "dashboard.py", "message": "refresh_dashboard cycle", "data": {"day": 1, "has_op": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564786703, "location": "console.py", "message": "update_view called", "data": {"mode": "menu", "has_operation": false, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564787200, "location": "dashboard.py", "message": "refresh_dashboard cycle", "data": {"day": 1, "has_op": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564787201, "location": "console.py", "message": "update_view called", "data": {"mode": "menu", "has_operation": false, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564787700, "location": "dashboard.py", "message": "refresh_dashboard cycle", "data": {"day": 1, "has_op": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564787701, "location": "console.py", "message": "update_view called", "data": {"mode": "menu", "has_operation": false, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564788200, "location": "dashboard.py", "message": "refresh_dashboard cycle", "data": {"day": 1, "has_op": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564788201, "location": "console.py", "message": "update_view called", "data": {"mode": "menu", "has_operation": false, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564788700, "location": "dashboard.py", "message": "refresh_dashboard cycle", "data": {"day": 1, "has_op": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564788701, "location": "console.py", "message": "update_view called", "data": {"mode": "menu", "has_operation": false, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564789200, "location": "dashboard.py", "message": "refresh_dashboard cycle", "data": {"day": 1, "has_op": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564789201, "location": "console.py", "message": "update_view called", "data": {"mode": "menu", "has_operation": false, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564789700, "location": "dashboard.py", "message": "refresh_dashboard cycle", "data": {"day": 1, "has_op": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564789702, "location": "console.py", "message": "update_view called", "data": {"mode": "menu", "has_operation": false, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564790200, "location": "dashboard.py", "message": "refresh_dashboard cycle", "data": {"day": 1, "has_op": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564790204, "location": "console.py", "message": "update_view called", "data": {"mode": "menu", "has_operation": false, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564790700, "location": "dashboard.py", "message": "refresh_dashboard cycle", "data": {"day": 1, "has_op": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564790704, "location": "console.py", "message": "update_view called", "data": {"mode": "menu", "has_operation": false, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564791200, "location": "dashboard.py", "message": "refresh_dashboard cycle", "data": {"day": 1, "has_op": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564791203, "location": "console.py", "message": "update_view called", "data": {"mode": "menu", "has_operation": false, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564791700, "location": "dashboard.py", "message": "refresh_dashboard cycle", "data": {"day": 1, "has_op": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564791703, "location": "console.py", "message": "update_view called", "data": {"mode": "menu", "has_operation": false, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564792200, "location": "dashboard.py", "message": "refresh_dashboard cycle", "data": {"day": 1, "has_op": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564792201, "location": "console.py", "message": "update_view called", "data": {"mode": "menu", "has_operation": false, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564792700, "location": "dashboard.py", "message": "refresh_dashboard cycle", "data": {"day": 1, "has_op": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564792703, "location": "console.py", "message": "update_view called", "data": {"mode": "menu", "has_operation": false, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564793200, "location": "dashboard.py", "message": "refresh_dashboard cycle", "data": {"day": 1, "has_op": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564793204, "location": "console.py", "message": "update_view called", "data": {"mode": "menu", "has_operation": false, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564793700, "location": "dashboard.py", "message": "refresh_dashboard cycle", "data": {"day": 1, "has_op": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564793701, "location": "console.py", "message": "update_view called", "data": {"mode": "menu", "has_operation": false, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564794200, "location": "dashboard.py", "message": "refresh_dashboard cycle", "data": {"day": 1, "has_op": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564794202, "location": "console.py", "message": "update_view called", "data": {"mode": "menu", "has_operation": false, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564794701, "location": "dashboard.py", "message": "refresh_dashboard cycle", "data": {"day": 1, "has_op": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564794703, "location": "console.py", "message": "update_view called", "data": {"mode": "menu", "has_operation": false, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564795200, "location": "dashboard.py", "message": "refresh_dashboard cycle", "data": {"day": 1, "has_op": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564795202, "location": "console.py", "message": "update_view called", "data": {"mode": "menu", "has_operation": false, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564795700, "location": "dashboard.py", "message": "refresh_dashboard cycle", "data": {"day": 1, "has_op": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564795702, "location": "console.py", "message": "update_view called", "data": {"mode": "menu", "has_operation": false, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564796200, "location": "dashboard.py", "message": "refresh_dashboard cycle", "data": {"day": 1, "has_op": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564796202, "location": "console.py", "message": "update_view called", "data": {"mode": "menu", "has_operation": false, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564796700, "location": "dashboard.py", "message": "refresh_dashboard cycle", "data": {"day": 1, "has_op": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564796703, "location": "console.py", "message": "update_view called", "data": {"mode": "menu", "has_operation": false, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564797200, "location": "dashboard.py", "message": "refresh_dashboard cycle", "data": {"day": 1, "has_op": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564797203, "location": "console.py", "message": "update_view called", "data": {"mode": "menu", "has_operation": false, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564797700, "location": "dashboard.py", "message": "refresh_dashboard cycle", "data": {"day": 1, "has_op": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564797703, "location": "console.py", "message": "update_view called", "data": {"mode": "menu", "has_operation": false, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564798200, "location": "dashboard.py", "message": "refresh_dashboard cycle", "data": {"day": 1, "has_op": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564798202, "location": "console.py", "message": "update_view called", "data": {"mode": "menu", "has_operation": false, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564798700, "location": "dashboard.py", "message": "refresh_dashboard cycle", "data": {"day": 1, "has_op": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564798721, "location": "console.py", "message": "update_view called", "data": {"mode": "menu", "has_operation": false, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564798881, "location": "console.py", "message": "Button pressed: btn-plan", "data": {}, "hypothesisId": "1"}
+{"sessionId": "debug-session", "timestamp": 1767564798882, "location": "console.py", "message": "_refresh_content entry", "data": {"mode": "plan:target", "has_operation": false, "has_aar": false, "state_id": 4534656064, "content_key": "plan:target:False:-1:False"}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564799200, "location": "dashboard.py", "message": "refresh_dashboard cycle", "data": {"day": 1, "has_op": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564799203, "location": "console.py", "message": "update_view called", "data": {"mode": "plan:target", "has_operation": false, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564799700, "location": "dashboard.py", "message": "refresh_dashboard cycle", "data": {"day": 1, "has_op": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564799703, "location": "console.py", "message": "update_view called", "data": {"mode": "plan:target", "has_operation": false, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564800200, "location": "dashboard.py", "message": "refresh_dashboard cycle", "data": {"day": 1, "has_op": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564800202, "location": "console.py", "message": "update_view called", "data": {"mode": "plan:target", "has_operation": false, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564800745, "location": "dashboard.py", "message": "refresh_dashboard cycle", "data": {"day": 1, "has_op": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564800795, "location": "console.py", "message": "update_view called", "data": {"mode": "plan:target", "has_operation": false, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564801207, "location": "dashboard.py", "message": "refresh_dashboard cycle", "data": {"day": 1, "has_op": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564801211, "location": "console.py", "message": "update_view called", "data": {"mode": "plan:target", "has_operation": false, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564801700, "location": "dashboard.py", "message": "refresh_dashboard cycle", "data": {"day": 1, "has_op": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564801705, "location": "console.py", "message": "update_view called", "data": {"mode": "plan:target", "has_operation": false, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564802200, "location": "dashboard.py", "message": "refresh_dashboard cycle", "data": {"day": 1, "has_op": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564802203, "location": "console.py", "message": "update_view called", "data": {"mode": "plan:target", "has_operation": false, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564802700, "location": "dashboard.py", "message": "refresh_dashboard cycle", "data": {"day": 1, "has_op": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564802702, "location": "console.py", "message": "update_view called", "data": {"mode": "plan:target", "has_operation": false, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564803200, "location": "dashboard.py", "message": "refresh_dashboard cycle", "data": {"day": 1, "has_op": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564803202, "location": "console.py", "message": "update_view called", "data": {"mode": "plan:target", "has_operation": false, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564803702, "location": "dashboard.py", "message": "refresh_dashboard cycle", "data": {"day": 1, "has_op": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564803735, "location": "console.py", "message": "update_view called", "data": {"mode": "plan:target", "has_operation": false, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564804200, "location": "dashboard.py", "message": "refresh_dashboard cycle", "data": {"day": 1, "has_op": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564804202, "location": "console.py", "message": "update_view called", "data": {"mode": "plan:target", "has_operation": false, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564804700, "location": "dashboard.py", "message": "refresh_dashboard cycle", "data": {"day": 1, "has_op": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564804701, "location": "console.py", "message": "update_view called", "data": {"mode": "plan:target", "has_operation": false, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564805200, "location": "dashboard.py", "message": "refresh_dashboard cycle", "data": {"day": 1, "has_op": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564805202, "location": "console.py", "message": "update_view called", "data": {"mode": "plan:target", "has_operation": false, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564805700, "location": "dashboard.py", "message": "refresh_dashboard cycle", "data": {"day": 1, "has_op": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564805702, "location": "console.py", "message": "update_view called", "data": {"mode": "plan:target", "has_operation": false, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564806199, "location": "dashboard.py", "message": "refresh_dashboard cycle", "data": {"day": 1, "has_op": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564806201, "location": "console.py", "message": "update_view called", "data": {"mode": "plan:target", "has_operation": false, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564806700, "location": "dashboard.py", "message": "refresh_dashboard cycle", "data": {"day": 1, "has_op": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564806702, "location": "console.py", "message": "update_view called", "data": {"mode": "plan:target", "has_operation": false, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564807200, "location": "dashboard.py", "message": "refresh_dashboard cycle", "data": {"day": 1, "has_op": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564807201, "location": "console.py", "message": "update_view called", "data": {"mode": "plan:target", "has_operation": false, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564807700, "location": "dashboard.py", "message": "refresh_dashboard cycle", "data": {"day": 1, "has_op": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564807701, "location": "console.py", "message": "update_view called", "data": {"mode": "plan:target", "has_operation": false, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564808200, "location": "dashboard.py", "message": "refresh_dashboard cycle", "data": {"day": 1, "has_op": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564808202, "location": "console.py", "message": "update_view called", "data": {"mode": "plan:target", "has_operation": false, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564808700, "location": "dashboard.py", "message": "refresh_dashboard cycle", "data": {"day": 1, "has_op": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564808702, "location": "console.py", "message": "update_view called", "data": {"mode": "plan:target", "has_operation": false, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564809200, "location": "dashboard.py", "message": "refresh_dashboard cycle", "data": {"day": 1, "has_op": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564809202, "location": "console.py", "message": "update_view called", "data": {"mode": "plan:target", "has_operation": false, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564809700, "location": "dashboard.py", "message": "refresh_dashboard cycle", "data": {"day": 1, "has_op": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564809702, "location": "console.py", "message": "update_view called", "data": {"mode": "plan:target", "has_operation": false, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564810200, "location": "dashboard.py", "message": "refresh_dashboard cycle", "data": {"day": 1, "has_op": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564810202, "location": "console.py", "message": "update_view called", "data": {"mode": "plan:target", "has_operation": false, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564810700, "location": "dashboard.py", "message": "refresh_dashboard cycle", "data": {"day": 1, "has_op": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564810701, "location": "console.py", "message": "update_view called", "data": {"mode": "plan:target", "has_operation": false, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564811200, "location": "dashboard.py", "message": "refresh_dashboard cycle", "data": {"day": 1, "has_op": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564811202, "location": "console.py", "message": "update_view called", "data": {"mode": "plan:target", "has_operation": false, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564811700, "location": "dashboard.py", "message": "refresh_dashboard cycle", "data": {"day": 1, "has_op": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564811702, "location": "console.py", "message": "update_view called", "data": {"mode": "plan:target", "has_operation": false, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564812200, "location": "dashboard.py", "message": "refresh_dashboard cycle", "data": {"day": 1, "has_op": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564812201, "location": "console.py", "message": "update_view called", "data": {"mode": "plan:target", "has_operation": false, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564812700, "location": "dashboard.py", "message": "refresh_dashboard cycle", "data": {"day": 1, "has_op": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564812702, "location": "console.py", "message": "update_view called", "data": {"mode": "plan:target", "has_operation": false, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564813154, "location": "console.py", "message": "Button pressed: target-foundry", "data": {}, "hypothesisId": "1"}
+{"sessionId": "debug-session", "timestamp": 1767564813156, "location": "console.py", "message": "_refresh_content entry", "data": {"mode": "plan:axis", "has_operation": false, "has_aar": false, "state_id": 4534656064, "content_key": "plan:axis:False:-1:False"}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564813200, "location": "dashboard.py", "message": "refresh_dashboard cycle", "data": {"day": 1, "has_op": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564813201, "location": "console.py", "message": "update_view called", "data": {"mode": "plan:axis", "has_operation": false, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564813700, "location": "dashboard.py", "message": "refresh_dashboard cycle", "data": {"day": 1, "has_op": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564813704, "location": "console.py", "message": "update_view called", "data": {"mode": "plan:axis", "has_operation": false, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564813913, "location": "console.py", "message": "Button pressed: axis-direct", "data": {}, "hypothesisId": "1"}
+{"sessionId": "debug-session", "timestamp": 1767564813913, "location": "console.py", "message": "_refresh_content entry", "data": {"mode": "plan:prep", "has_operation": false, "has_aar": false, "state_id": 4534656064, "content_key": "plan:prep:False:-1:False"}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564814200, "location": "dashboard.py", "message": "refresh_dashboard cycle", "data": {"day": 1, "has_op": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564814204, "location": "console.py", "message": "update_view called", "data": {"mode": "plan:prep", "has_operation": false, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564814700, "location": "dashboard.py", "message": "refresh_dashboard cycle", "data": {"day": 1, "has_op": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564814702, "location": "console.py", "message": "update_view called", "data": {"mode": "plan:prep", "has_operation": false, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564814780, "location": "console.py", "message": "Button pressed: prep-preparatory", "data": {}, "hypothesisId": "1"}
+{"sessionId": "debug-session", "timestamp": 1767564814783, "location": "console.py", "message": "_refresh_content entry", "data": {"mode": "plan:posture", "has_operation": false, "has_aar": false, "state_id": 4534656064, "content_key": "plan:posture:False:-1:False"}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564815200, "location": "dashboard.py", "message": "refresh_dashboard cycle", "data": {"day": 1, "has_op": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564815211, "location": "console.py", "message": "update_view called", "data": {"mode": "plan:posture", "has_operation": false, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564815355, "location": "console.py", "message": "Button pressed: posture-methodical", "data": {}, "hypothesisId": "1"}
+{"sessionId": "debug-session", "timestamp": 1767564815356, "location": "console.py", "message": "_refresh_content entry", "data": {"mode": "plan:risk", "has_operation": false, "has_aar": false, "state_id": 4534656064, "content_key": "plan:risk:False:-1:False"}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564815700, "location": "dashboard.py", "message": "refresh_dashboard cycle", "data": {"day": 1, "has_op": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564815704, "location": "console.py", "message": "update_view called", "data": {"mode": "plan:risk", "has_operation": false, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564815854, "location": "console.py", "message": "Button pressed: risk-med", "data": {}, "hypothesisId": "1"}
+{"sessionId": "debug-session", "timestamp": 1767564815854, "location": "console.py", "message": "_refresh_content entry", "data": {"mode": "plan:exploit", "has_operation": false, "has_aar": false, "state_id": 4534656064, "content_key": "plan:exploit:False:-1:False"}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564816200, "location": "dashboard.py", "message": "refresh_dashboard cycle", "data": {"day": 1, "has_op": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564816202, "location": "console.py", "message": "update_view called", "data": {"mode": "plan:exploit", "has_operation": false, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564816422, "location": "console.py", "message": "Button pressed: exploit-push", "data": {}, "hypothesisId": "1"}
+{"sessionId": "debug-session", "timestamp": 1767564816423, "location": "console.py", "message": "_refresh_content entry", "data": {"mode": "plan:end", "has_operation": false, "has_aar": false, "state_id": 4534656064, "content_key": "plan:end:False:-1:False"}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564816700, "location": "dashboard.py", "message": "refresh_dashboard cycle", "data": {"day": 1, "has_op": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564816712, "location": "console.py", "message": "update_view called", "data": {"mode": "plan:end", "has_operation": false, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564817002, "location": "console.py", "message": "Button pressed: end-capture", "data": {}, "hypothesisId": "1"}
+{"sessionId": "debug-session", "timestamp": 1767564817004, "location": "console.py", "message": "Finalizing operation plan", "data": {"target": "OperationTarget.FOUNDRY", "draft": {"approach_axis": "direct", "fire_support_prep": "preparatory", "engagement_posture": "methodical", "risk_tolerance": "med", "exploit_vs_secure": "push", "end_state": "capture"}}, "hypothesisId": "2"}
+{"sessionId": "debug-session", "timestamp": 1767564817005, "location": "console.py", "message": "Calling start_operation", "data": {"has_operation_before": false}, "hypothesisId": "2"}
+{"sessionId": "debug-session", "timestamp": 1767564817005, "location": "state.py", "message": "start_operation entry", "data": {"target": "OperationTarget.FOUNDRY", "has_existing_op": false}, "hypothesisId": "2"}
+{"sessionId": "debug-session", "timestamp": 1767564817006, "location": "state.py", "message": "Creating ActiveOperation", "data": {"estimated_days": 6}, "hypothesisId": "2"}
+{"sessionId": "debug-session", "timestamp": 1767564817006, "location": "state.py", "message": "start_operation exit", "data": {"operation_set": true, "day_in_op": 0}, "hypothesisId": "2"}
+{"sessionId": "debug-session", "timestamp": 1767564817007, "location": "console.py", "message": "After start_operation", "data": {"has_operation_after": true, "operation": "ActiveOperation(plan=OperationPlan(target=<OperationTarget.FOUNDRY: 'Droid Foundry'>, approach_axis='direct', fire_support_prep='preparatory', engagement_posture='methodical', risk_tolerance='med', exploit_vs_secure='push', end_state='capture'), estimated_days=6, day_in_operation=0)"}, "hypothesisId": "2"}
+{"sessionId": "debug-session", "timestamp": 1767564817008, "location": "console.py", "message": "_refresh_content entry", "data": {"mode": "menu", "has_operation": true, "has_aar": false, "state_id": 4534656064, "content_key": "menu:True:0:False"}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564817009, "location": "console.py", "message": "Showing active operation", "data": {"day": 0, "estimated": 6}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564817204, "location": "dashboard.py", "message": "refresh_dashboard cycle", "data": {"day": 1, "has_op": true}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564817234, "location": "console.py", "message": "update_view called", "data": {"mode": "menu", "has_operation": true, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564817700, "location": "dashboard.py", "message": "refresh_dashboard cycle", "data": {"day": 1, "has_op": true}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564817701, "location": "console.py", "message": "update_view called", "data": {"mode": "menu", "has_operation": true, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564818199, "location": "dashboard.py", "message": "refresh_dashboard cycle", "data": {"day": 1, "has_op": true}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564818201, "location": "console.py", "message": "update_view called", "data": {"mode": "menu", "has_operation": true, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564818700, "location": "dashboard.py", "message": "refresh_dashboard cycle", "data": {"day": 1, "has_op": true}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564818702, "location": "console.py", "message": "update_view called", "data": {"mode": "menu", "has_operation": true, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564819199, "location": "dashboard.py", "message": "refresh_dashboard cycle", "data": {"day": 1, "has_op": true}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564819202, "location": "console.py", "message": "update_view called", "data": {"mode": "menu", "has_operation": true, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564819700, "location": "dashboard.py", "message": "refresh_dashboard cycle", "data": {"day": 1, "has_op": true}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564819701, "location": "console.py", "message": "update_view called", "data": {"mode": "menu", "has_operation": true, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564820200, "location": "dashboard.py", "message": "refresh_dashboard cycle", "data": {"day": 1, "has_op": true}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564820202, "location": "console.py", "message": "update_view called", "data": {"mode": "menu", "has_operation": true, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564820700, "location": "dashboard.py", "message": "refresh_dashboard cycle", "data": {"day": 1, "has_op": true}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564820703, "location": "console.py", "message": "update_view called", "data": {"mode": "menu", "has_operation": true, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564821200, "location": "dashboard.py", "message": "refresh_dashboard cycle", "data": {"day": 1, "has_op": true}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564821203, "location": "console.py", "message": "update_view called", "data": {"mode": "menu", "has_operation": true, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564821700, "location": "dashboard.py", "message": "refresh_dashboard cycle", "data": {"day": 1, "has_op": true}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564821703, "location": "console.py", "message": "update_view called", "data": {"mode": "menu", "has_operation": true, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564822199, "location": "dashboard.py", "message": "refresh_dashboard cycle", "data": {"day": 1, "has_op": true}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564822202, "location": "console.py", "message": "update_view called", "data": {"mode": "menu", "has_operation": true, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564822700, "location": "dashboard.py", "message": "refresh_dashboard cycle", "data": {"day": 1, "has_op": true}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564822702, "location": "console.py", "message": "update_view called", "data": {"mode": "menu", "has_operation": true, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564823200, "location": "dashboard.py", "message": "refresh_dashboard cycle", "data": {"day": 1, "has_op": true}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564823202, "location": "console.py", "message": "update_view called", "data": {"mode": "menu", "has_operation": true, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564823699, "location": "dashboard.py", "message": "refresh_dashboard cycle", "data": {"day": 1, "has_op": true}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564823702, "location": "console.py", "message": "update_view called", "data": {"mode": "menu", "has_operation": true, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564824201, "location": "dashboard.py", "message": "refresh_dashboard cycle", "data": {"day": 1, "has_op": true}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564824204, "location": "console.py", "message": "update_view called", "data": {"mode": "menu", "has_operation": true, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564824701, "location": "dashboard.py", "message": "refresh_dashboard cycle", "data": {"day": 1, "has_op": true}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564824703, "location": "console.py", "message": "update_view called", "data": {"mode": "menu", "has_operation": true, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564825211, "location": "dashboard.py", "message": "refresh_dashboard cycle", "data": {"day": 1, "has_op": true}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564825218, "location": "console.py", "message": "update_view called", "data": {"mode": "menu", "has_operation": true, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564825702, "location": "dashboard.py", "message": "refresh_dashboard cycle", "data": {"day": 1, "has_op": true}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564825704, "location": "console.py", "message": "update_view called", "data": {"mode": "menu", "has_operation": true, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564826199, "location": "dashboard.py", "message": "refresh_dashboard cycle", "data": {"day": 1, "has_op": true}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564826223, "location": "console.py", "message": "update_view called", "data": {"mode": "menu", "has_operation": true, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564826701, "location": "dashboard.py", "message": "refresh_dashboard cycle", "data": {"day": 1, "has_op": true}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564826703, "location": "console.py", "message": "update_view called", "data": {"mode": "menu", "has_operation": true, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564827199, "location": "dashboard.py", "message": "refresh_dashboard cycle", "data": {"day": 1, "has_op": true}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564827201, "location": "console.py", "message": "update_view called", "data": {"mode": "menu", "has_operation": true, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564827700, "location": "dashboard.py", "message": "refresh_dashboard cycle", "data": {"day": 1, "has_op": true}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564827702, "location": "console.py", "message": "update_view called", "data": {"mode": "menu", "has_operation": true, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564828030, "location": "app.py", "message": "action_next_day entry", "data": {"day_before": 1, "has_operation": true, "state_id": 4534656064}, "hypothesisId": "1"}
+{"sessionId": "debug-session", "timestamp": 1767564828031, "location": "state.py", "message": "ENGINE: advance_day start (Day 1)", "data": {}, "hypothesisId": "1"}
+{"sessionId": "debug-session", "timestamp": 1767564828032, "location": "state.py", "message": "Operation active, incrementing day", "data": {"day_in_op": 0, "estimated": 6}, "hypothesisId": "2"}
+{"sessionId": "debug-session", "timestamp": 1767564828033, "location": "app.py", "message": "action_next_day after advance_day", "data": {"day_after": 2, "has_operation": true, "has_aar": false, "state_id": 4534656064}, "hypothesisId": "1"}
+{"sessionId": "debug-session", "timestamp": 1767564828033, "location": "app.py", "message": "Refreshing dashboard", "data": {"screen_state_id": 4534656064}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564828033, "location": "dashboard.py", "message": "refresh_dashboard cycle", "data": {"day": 2, "has_op": true}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564828034, "location": "console.py", "message": "update_view called", "data": {"mode": "menu", "has_operation": true, "has_aar": false}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564828035, "location": "console.py", "message": "_refresh_content entry", "data": {"mode": "menu", "has_operation": true, "has_aar": false, "state_id": 4534656064, "content_key": "menu:True:1:False"}, "hypothesisId": "3"}
+{"sessionId": "debug-session", "timestamp": 1767564828035, "location": "console.py", "message": "Showing active operation", "data": {"day": 1, "estimated": 6}, "hypothesisId": "3"}
