@@ -171,14 +171,73 @@ class GameState:
         # Logistics tick
         self.logistics.tick(self.rng)
 
-        # Enemy passive effects
-        self.planet.enemy.fortification = min(2.0, self.planet.enemy.fortification + 0.01)
+        # Resupply task force from key planet depot
+        self.resupply_task_force()
+
+        # Daily upkeep (passive attrition)
+        upkeep_fuel = 2
+        upkeep_med = 1
+        tf_supplies = self.task_force.supplies
+        new_fuel = max(0, tf_supplies.fuel - upkeep_fuel)
+        new_med = max(0, tf_supplies.med_spares - upkeep_med)
+        self.task_force.supplies = Supplies(
+            ammo=tf_supplies.ammo,
+            fuel=new_fuel,
+            med_spares=new_med,
+        )
+        if new_fuel == 0 or new_med == 0:
+            self.task_force.readiness = max(0.0, self.task_force.readiness - 0.02)
+
+        # Enemy reactions
+        if self.operation is None:
+            self.planet.enemy.fortification = min(2.5, self.planet.enemy.fortification + 0.03)
+            self.planet.enemy.strength_min = min(3.0, self.planet.enemy.strength_min + 0.02)
+            self.planet.enemy.strength_max = min(4.0, self.planet.enemy.strength_max + 0.03)
+        else:
+            self.planet.enemy.fortification = min(2.0, self.planet.enemy.fortification + 0.01)
+
+        if self.rng.random() < 0.05:
+            stock = self.logistics.depot_stocks[DepotNode.KEY_PLANET]
+            if stock.ammo > 0 or stock.fuel > 0 or stock.med_spares > 0:
+                loss_pct = 0.10
+                self.logistics.depot_stocks[DepotNode.KEY_PLANET] = Supplies(
+                    ammo=max(0, int(stock.ammo * (1 - loss_pct))),
+                    fuel=max(0, int(stock.fuel * (1 - loss_pct))),
+                    med_spares=max(0, int(stock.med_spares * (1 - loss_pct))),
+                )
 
         # Operation progress (if active)
         if self.operation is not None:
             self.operation.day_in_operation += 1
             if self.operation.day_in_operation >= self.operation.estimated_days:
                 self.resolve_operation()
+
+    def resupply_task_force(self) -> None:
+        caps = Supplies(ammo=300, fuel=200, med_spares=100)
+        depot_stock = self.logistics.depot_stocks[DepotNode.KEY_PLANET]
+        tf_supplies = self.task_force.supplies
+
+        ammo_deficit = max(0, caps.ammo - tf_supplies.ammo)
+        fuel_deficit = max(0, caps.fuel - tf_supplies.fuel)
+        med_deficit = max(0, caps.med_spares - tf_supplies.med_spares)
+
+        ammo_transfer = min(depot_stock.ammo, ammo_deficit)
+        fuel_transfer = min(depot_stock.fuel, fuel_deficit)
+        med_transfer = min(depot_stock.med_spares, med_deficit)
+
+        if ammo_transfer == 0 and fuel_transfer == 0 and med_transfer == 0:
+            return
+
+        self.logistics.depot_stocks[DepotNode.KEY_PLANET] = Supplies(
+            ammo=depot_stock.ammo - ammo_transfer,
+            fuel=depot_stock.fuel - fuel_transfer,
+            med_spares=depot_stock.med_spares - med_transfer,
+        )
+        self.task_force.supplies = Supplies(
+            ammo=tf_supplies.ammo + ammo_transfer,
+            fuel=tf_supplies.fuel + fuel_transfer,
+            med_spares=tf_supplies.med_spares + med_transfer,
+        )
 
     def start_operation(self, plan: OperationPlan) -> None:
         if self.operation is not None:
