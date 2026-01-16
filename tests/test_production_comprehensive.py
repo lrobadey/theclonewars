@@ -1,5 +1,8 @@
 """Comprehensive tests for production system."""
 
+import math
+
+from clone_wars.engine.logistics import DepotNode
 from clone_wars.engine.production import ProductionJobType, ProductionState
 
 
@@ -16,25 +19,28 @@ def test_production_job_duration_calculation() -> None:
     # Capacity 3: 6 units should take 2 days
     prod = ProductionState.new(capacity=3)
     prod.queue_job(ProductionJobType.AMMO, quantity=6)
-    assert prod.jobs[0].days_remaining == 2
-    assert prod.jobs[0].total_days == 2
+    summary = prod.get_eta_summary()
+    assert summary[0][2] == 2
 
     # Capacity 3: 10 units should take 4 days (ceil(10/3) = 4)
     prod = ProductionState.new(capacity=3)
     prod.queue_job(ProductionJobType.AMMO, quantity=10)
-    assert prod.jobs[0].days_remaining == 4
+    summary = prod.get_eta_summary()
+    assert summary[0][2] == 4
 
     # Capacity 5: 12 units should take 3 days (ceil(12/5) = 3)
     prod = ProductionState.new(capacity=5)
     prod.queue_job(ProductionJobType.FUEL, quantity=12)
-    assert prod.jobs[0].days_remaining == 3
+    summary = prod.get_eta_summary()
+    assert summary[0][2] == 3
 
 
 def test_production_single_unit_job() -> None:
     """Test production job with single unit."""
     prod = ProductionState.new(capacity=3)
     prod.queue_job(ProductionJobType.MED_SPARES, quantity=1)
-    assert prod.jobs[0].days_remaining == 1  # Should take at least 1 day
+    summary = prod.get_eta_summary()
+    assert summary[0][2] == 1  # Should take at least 1 day
 
 
 def test_production_multiple_jobs_queue() -> None:
@@ -51,22 +57,29 @@ def test_production_multiple_jobs_queue() -> None:
 
 
 def test_production_sequential_completion() -> None:
-    """Test that jobs complete sequentially."""
+    """Test that jobs with same duration complete together, different durations complete sequentially."""
     prod = ProductionState.new(capacity=3)
     prod.queue_job(ProductionJobType.AMMO, quantity=3)  # 1 day
-    prod.queue_job(ProductionJobType.FUEL, quantity=3)  # 1 day
+    prod.queue_job(ProductionJobType.FUEL, quantity=6)  # 2 days
 
-    # First tick: first job completes
+    # First tick: first job completes (1 day), second still in progress
     completed = prod.tick()
     assert len(completed) == 1
-    assert completed[0] == (ProductionJobType.AMMO, 3)
+    assert completed[0].job_type == ProductionJobType.AMMO
+    assert completed[0].quantity == 3
     assert len(prod.jobs) == 1
     assert prod.jobs[0].job_type == ProductionJobType.FUEL
 
-    # Second tick: second job completes
+    # Second tick: second job in progress
+    completed = prod.tick()
+    assert len(completed) == 0
+    assert len(prod.jobs) == 1
+
+    # Third tick: second job completes
     completed = prod.tick()
     assert len(completed) == 1
-    assert completed[0] == (ProductionJobType.FUEL, 3)
+    assert completed[0].job_type == ProductionJobType.FUEL
+    assert completed[0].quantity == 6
     assert len(prod.jobs) == 0
 
 
@@ -75,8 +88,8 @@ def test_production_large_job() -> None:
     prod = ProductionState.new(capacity=3)
     prod.queue_job(ProductionJobType.AMMO, quantity=100)
 
-    job = prod.jobs[0]
-    days_needed = job.days_remaining
+    summary = prod.get_eta_summary()
+    days_needed = summary[0][2]
     assert days_needed == 34  # ceil(100/3) = 34
 
     # Complete the job
@@ -85,7 +98,8 @@ def test_production_large_job() -> None:
         completed.extend(prod.tick())
 
     assert len(completed) == 1
-    assert completed[0] == (ProductionJobType.AMMO, 100)
+    assert completed[0].job_type == ProductionJobType.AMMO
+    assert completed[0].quantity == 100
 
 
 def test_production_empty_tick() -> None:
@@ -139,7 +153,8 @@ def test_production_zero_capacity_edge_case() -> None:
     """Test production with capacity 1 (minimum)."""
     prod = ProductionState.new(capacity=1)
     prod.queue_job(ProductionJobType.AMMO, quantity=5)
-    assert prod.jobs[0].days_remaining == 5  # Should take 5 days with capacity 1
+    summary = prod.get_eta_summary()
+    assert summary[0][2] == 5  # Should take 5 days with capacity 1
 
 
 def test_production_job_preserves_quantity() -> None:
@@ -150,12 +165,13 @@ def test_production_job_preserves_quantity() -> None:
 
     job = prod.jobs[0]
     assert job.quantity == quantity
+    assert job.stop_at == DepotNode.CORE
 
     # Complete job
-    days = job.days_remaining
+    days = int(math.ceil(quantity / prod.capacity))
     completed = []
     for _ in range(days):
         completed.extend(prod.tick())
 
     assert len(completed) == 1
-    assert completed[0][1] == quantity  # Quantity preserved
+    assert completed[0].quantity == quantity  # Quantity preserved

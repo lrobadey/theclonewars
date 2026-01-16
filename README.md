@@ -9,10 +9,16 @@ Prereqs: Python 3.11+
 Install:
 - `python -m venv .venv`
 - `source .venv/bin/activate`
-- `pip install -r requirements.txt`
+- `pip install -e .`
+
+Dev install (adds hot-reload + pytest):
+- `pip install -e ".[dev]"`
 
 Run:
 - `python -m clone_wars`
+
+Hot reload (restarts on file changes):
+- `python -m clone_wars.dev`
 
 Scenario data:
 - `src/clone_wars/data/scenario.json`

@@ -11,9 +11,9 @@ from clone_wars.engine.types import Supplies
 def test_logistics_state_new() -> None:
     """Test creating new logistics state."""
     logistics = LogisticsState.new()
-    assert len(logistics.depot_stocks) == 4
+    assert len(logistics.depot_stocks) == 3
     assert DepotNode.CORE in logistics.depot_stocks
-    assert len(logistics.routes) == 3
+    assert len(logistics.routes) == 2
     assert len(logistics.shipments) == 0
 
 
@@ -27,7 +27,8 @@ def test_create_shipment() -> None:
         DepotNode.CORE,
         DepotNode.MID_DEPOT,
         Supplies(ammo=50, fuel=30, med_spares=10),
-        rng=rng,
+        None,
+        rng,
     )
 
     assert logistics.depot_stocks[DepotNode.CORE].ammo == initial_core - 50
@@ -50,7 +51,8 @@ def test_create_shipment_insufficient_stock() -> None:
             DepotNode.CORE,
             DepotNode.MID_DEPOT,
             Supplies(ammo=50, fuel=30, med_spares=10),
-            rng=rng,
+            None,
+            rng,
         )
 
 
@@ -58,14 +60,15 @@ def test_logistics_tick() -> None:
     """Test logistics daily tick advances shipments."""
     logistics = LogisticsState.new()
     rng = Random(42)
-    initial_mid = logistics.depot_stocks[DepotNode.MID_DEPOT].ammo
+    initial_mid = logistics.depot_stocks[DepotNode.MID].ammo
 
     # Create shipment
     logistics.create_shipment(
         DepotNode.CORE,
         DepotNode.MID_DEPOT,
         Supplies(ammo=50, fuel=0, med_spares=0),
-        rng=rng,
+        None,
+        rng,
     )
 
     shipment = logistics.shipments[0]
@@ -77,7 +80,7 @@ def test_logistics_tick() -> None:
 
     # Shipment should be delivered
     assert len(logistics.shipments) == 0
-    assert logistics.depot_stocks[DepotNode.MID_DEPOT].ammo == initial_mid + 50
+    assert logistics.depot_stocks[DepotNode.MID].ammo == initial_mid + 50
 
 
 def test_logistics_tick_interdiction() -> None:
@@ -86,11 +89,15 @@ def test_logistics_tick_interdiction() -> None:
     # Use a seed that triggers interdiction (or test multiple seeds)
     rng = Random(1)  # May or may not trigger, but we can test the mechanism
 
+    # Pre-stock MID so we have enough for the shipment
+    logistics.depot_stocks[DepotNode.MID] = Supplies(ammo=100, fuel=50, med_spares=30)
+
     logistics.create_shipment(
-        DepotNode.FORWARD_DEPOT,
-        DepotNode.KEY_PLANET,
+        DepotNode.MID,
+        DepotNode.FRONT,
         Supplies(ammo=100, fuel=0, med_spares=0),
-        rng=rng,
+        None,
+        rng,
     )
 
     shipment = logistics.shipments[0]

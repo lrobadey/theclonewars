@@ -136,9 +136,10 @@ def test_objective_definitions() -> None:
     assert foundry.id == "foundry"
     assert foundry.name == "Droid Foundry"
     assert foundry.base_difficulty > 0
+    assert isinstance(foundry.description, str)
+    assert len(foundry.description.strip()) > 0
 
     # All three objectives should exist
     assert "foundry" in rules.objectives
     assert "comms" in rules.objectives
     assert "power" in rules.objectives
-

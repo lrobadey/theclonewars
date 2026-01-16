@@ -1,0 +1,19 @@
+<div id="enemy" class="panel panel--enemy" {% if oob %}hx-swap-oob="true"{% endif %}>
+    <div class="panel__title">ENEMY INTEL</div>
+    <div class="stat-row">
+        <span class="stat-label">STRENGTH</span>
+        <span class="stat-value accent">{{ vm.strength_range }}</span>
+    </div>
+    <div class="stat-row">
+        <span class="stat-label">CONFIDENCE</span>
+        <span class="stat-value">{{ vm.confidence_pct }}%</span>
+    </div>
+    <div class="stat-row">
+        <span class="stat-label">FORTIFICATION</span>
+        <span class="stat-value">{{ vm.fort_label }}</span>
+    </div>
+    <div class="stat-row">
+        <span class="stat-label">REINFORCEMENT</span>
+        <span class="stat-value">{{ vm.reinf_label }}</span>
+    </div>
+</div>

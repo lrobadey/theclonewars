@@ -54,6 +54,7 @@ class ObjectiveDef:
     name: str
     type: str
     base_difficulty: float
+    description: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -206,11 +207,17 @@ def _load_objectives(path: Path) -> dict[str, ObjectiveDef]:
         name = item.get("name", obj_id)
         obj_type = item.get("type", "strategic")
         base_difficulty = float(item.get("base_difficulty", 1.0))
+        description = item.get("description", "")
+        if description is None:
+            description = ""
+        if not isinstance(description, str):
+            raise RulesError(f"{path}: objective.description must be string")
         objectives[obj_id] = ObjectiveDef(
             id=obj_id,
             name=str(name),
             type=str(obj_type),
             base_difficulty=base_difficulty,
+            description=str(description),
         )
     return objectives
 
@@ -224,4 +231,3 @@ def _load_operation_rules(path: Path) -> dict[str, Any]:
             raise RulesError(f"{path}: missing '{key}' key")
         result[key] = data[key]
     return result
-

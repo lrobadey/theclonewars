@@ -44,6 +44,10 @@ class DashboardScreen(Screen):
 
     def on_mount(self) -> None:
         self.set_interval(0.5, self.refresh_dashboard)
+        try:
+            self.query_one(SituationMap).focus()
+        except Exception:
+            pass
 
     def refresh_dashboard(self) -> None:
         """Force a repaint of passive widgets to reflect game state changes."""
@@ -52,5 +56,5 @@ class DashboardScreen(Screen):
         self.query_one(TaskForcePanel).refresh()
         self.query_one(EnemyIntel).refresh()
         self.query_one(ProductionPanel).refresh()
-        self.query_one(LogisticsPanel).refresh()
+        self.query_one(LogisticsPanel).refresh_panel()
         self.query_one(CommandConsole).update_view()

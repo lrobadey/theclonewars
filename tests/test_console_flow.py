@@ -1,5 +1,6 @@
 """Tests for command console flow and integration actions."""
 
+import asyncio
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -23,6 +24,9 @@ class _DummyEvent:
 def _event(button_id: str) -> _DummyEvent:
     return _DummyEvent(button=_DummyButton(id=button_id))
 
+def _press(console: CommandConsole, button_id: str) -> None:
+    asyncio.run(console.on_button_pressed(_event(button_id)))
+
 
 def _load_state():
     data_dir = Path(__file__).resolve().parents[1] / "src" / "clone_wars" / "data"
@@ -33,12 +37,18 @@ def test_console_queue_production_job() -> None:
     state = _load_state()
     console = CommandConsole(state)
 
-    console.on_button_pressed(_event("prod-ammo-25"))
+    _press(console, "btn-production")
+    _press(console, "prod-cat-supplies")
+    _press(console, "prod-item-ammo")
+    _press(console, "prod-qty-plus-10")
+    _press(console, "prod-qty-next")
+    _press(console, "prod-stop-core")
 
     assert len(state.production.jobs) == 1
     job = state.production.jobs[0]
     assert job.job_type == ProductionJobType.AMMO
-    assert job.quantity == 25
+    assert job.quantity == 10
+    assert job.stop_at == DepotNode.CORE
     assert console.mode == "menu"
 
 
@@ -46,27 +56,33 @@ def test_console_queue_unit_production_job() -> None:
     state = _load_state()
     console = CommandConsole(state)
 
-    console.on_button_pressed(_event("prod-inf-4"))
+    _press(console, "btn-production")
+    _press(console, "prod-cat-army")
+    _press(console, "prod-item-inf")
+    _press(console, "prod-qty-plus-10")
+    _press(console, "prod-qty-next")
+    _press(console, "prod-stop-core")
 
     assert len(state.production.jobs) == 1
     job = state.production.jobs[0]
     assert job.job_type == ProductionJobType.INFANTRY
-    assert job.quantity == 4
+    assert job.quantity == 10
+    assert job.stop_at == DepotNode.CORE
 
 
 def test_console_create_shipment() -> None:
     state = _load_state()
     console = CommandConsole(state)
 
-    console.on_button_pressed(_event("route-core-mid"))
+    _press(console, "route-core-mid")
     assert console.mode == "logistics:package"
 
-    console.on_button_pressed(_event("ship-mixed-1"))
+    _press(console, "ship-mixed-1")
 
     assert len(state.logistics.shipments) == 1
     shipment = state.logistics.shipments[0]
     assert shipment.origin == DepotNode.CORE
-    assert shipment.destination == DepotNode.MID_DEPOT
+    assert shipment.destination == DepotNode.MID
     assert console.mode == "menu"
 
 
@@ -75,8 +91,8 @@ def test_console_create_unit_shipment() -> None:
     state.logistics.depot_units[DepotNode.CORE] = UnitStock(infantry=6, walkers=2, support=3)
     console = CommandConsole(state)
 
-    console.on_button_pressed(_event("route-core-mid"))
-    console.on_button_pressed(_event("ship-units-1"))
+    _press(console, "route-core-mid")
+    _press(console, "ship-units-1")
 
     assert len(state.logistics.shipments) == 1
     shipment = state.logistics.shipments[0]
@@ -85,44 +101,20 @@ def test_console_create_unit_shipment() -> None:
     assert shipment.units.support == 2
 
 
-def test_console_transfer_to_task_force() -> None:
+def test_console_create_shipment_mid_front() -> None:
     state = _load_state()
-    state.logistics.depot_stocks[DepotNode.KEY_PLANET] = Supplies(ammo=50, fuel=50, med_spares=50)
     console = CommandConsole(state)
-    before = state.task_force.supplies
 
-    console.on_button_pressed(_event("transfer-mixed-1"))
+    _press(console, "route-mid-front")
+    assert console.mode == "logistics:package"
 
-    after = state.task_force.supplies
-    assert after.ammo == before.ammo + 20
-    assert after.fuel == before.fuel + 15
-    assert after.med_spares == before.med_spares + 5
+    _press(console, "ship-ammo-1")
+
+    assert len(state.logistics.shipments) == 1
+    shipment = state.logistics.shipments[0]
+    assert shipment.origin == DepotNode.MID
+    assert shipment.destination == DepotNode.FRONT
     assert console.mode == "menu"
-
-
-def test_console_transfer_units_to_task_force() -> None:
-    state = _load_state()
-    state.logistics.depot_units[DepotNode.KEY_PLANET] = UnitStock(infantry=5, walkers=2, support=3)
-    console = CommandConsole(state)
-    before = state.task_force.composition
-
-    console.on_button_pressed(_event("transfer-units-1"))
-
-    assert before.infantry + 4 == state.task_force.composition.infantry
-    assert before.walkers + 1 == state.task_force.composition.walkers
-    assert before.support + 2 == state.task_force.composition.support
-    assert console.mode == "menu"
-
-
-def test_console_transfer_insufficient_stock() -> None:
-    state = _load_state()
-    state.logistics.depot_stocks[DepotNode.KEY_PLANET] = Supplies(ammo=0, fuel=0, med_spares=0)
-    console = CommandConsole(state)
-
-    console.on_button_pressed(_event("transfer-ammo-1"))
-
-    assert console.mode == "logistics"
-    assert console._message is not None
 
 
 def test_console_shipment_insufficient_stock() -> None:
@@ -130,8 +122,8 @@ def test_console_shipment_insufficient_stock() -> None:
     state.logistics.depot_stocks[DepotNode.CORE] = Supplies(ammo=0, fuel=0, med_spares=0)
     console = CommandConsole(state)
 
-    console.on_button_pressed(_event("route-core-mid"))
-    console.on_button_pressed(_event("ship-mixed-1"))
+    _press(console, "route-core-mid")
+    _press(console, "ship-mixed-1")
 
     assert len(state.logistics.shipments) == 0
     assert console.mode == "logistics"

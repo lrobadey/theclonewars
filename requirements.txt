@@ -1,1 +1,5 @@
 textual>=0.50.0
+fastapi
+uvicorn[standard]
+jinja2
+python-multipart

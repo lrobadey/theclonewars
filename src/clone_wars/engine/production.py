@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from enum import Enum
 
-from clone_wars.engine.types import Supplies
+from clone_wars.engine.logistics import DepotNode
 
 
 class ProductionJobType(str, Enum):
@@ -25,8 +26,17 @@ class ProductionJob:
 
     job_type: ProductionJobType
     quantity: int
-    days_remaining: int
-    total_days: int
+    remaining: int
+    stop_at: DepotNode
+
+
+@dataclass(frozen=True, slots=True)
+class ProductionOutput:
+    """A completed production output."""
+
+    job_type: ProductionJobType
+    quantity: int
+    stop_at: DepotNode
 
 
 @dataclass(slots=True)
@@ -41,35 +51,51 @@ class ProductionState:
         """Create initial production state."""
         return ProductionState(capacity=capacity, jobs=[])
 
-    def queue_job(self, job_type: ProductionJobType, quantity: int) -> None:
+    def queue_job(
+        self, job_type: ProductionJobType, quantity: int, stop_at: DepotNode = DepotNode.CORE
+    ) -> None:
         """Queue a new production job."""
-        # Calculate days needed based on capacity
-        days_needed = max(1, (quantity + self.capacity - 1) // self.capacity)
+        if quantity <= 0:
+            raise ValueError("Production quantity must be positive")
+        if self.capacity <= 0:
+            raise ValueError("Production capacity must be positive")
         job = ProductionJob(
             job_type=job_type,
             quantity=quantity,
-            days_remaining=days_needed,
-            total_days=days_needed,
+            remaining=quantity,
+            stop_at=stop_at,
         )
         self.jobs.append(job)
 
-    def tick(self) -> list[tuple[ProductionJobType, int]]:
-        """Advance production by one day. Returns list of (job_type, quantity) completed."""
-        completed: list[tuple[ProductionJobType, int]] = []
-        remaining_jobs: list[ProductionJob] = []
+    def tick(self) -> list[ProductionOutput]:
+        """Advance production by one day. Returns completed outputs."""
+        if self.capacity <= 0:
+            raise ValueError("Production capacity must be positive")
+        completed: list[ProductionOutput] = []
 
-        # Process jobs in order
-        for job in self.jobs:
-            job.days_remaining -= 1
-            if job.days_remaining <= 0:
-                # Job complete
-                completed.append((job.job_type, job.quantity))
-            else:
-                remaining_jobs.append(job)
+        capacity_remaining = self.capacity
+        while capacity_remaining > 0 and self.jobs:
+            job = self.jobs[0]
+            worked = min(capacity_remaining, job.remaining)
+            job.remaining -= worked
+            capacity_remaining -= worked
+            if job.remaining > 0:
+                break
+            completed.append(
+                ProductionOutput(job_type=job.job_type, quantity=job.quantity, stop_at=job.stop_at)
+            )
+            self.jobs.pop(0)
 
-        self.jobs = remaining_jobs
         return completed
 
-    def get_eta_summary(self) -> list[tuple[str, int, int]]:
-        """Get summary of jobs with ETAs. Returns list of (type, quantity, days_remaining)."""
-        return [(job.job_type.value, job.quantity, job.days_remaining) for job in self.jobs]
+    def get_eta_summary(self) -> list[tuple[str, int, int, str]]:
+        """Get summary of jobs with ETAs. Returns list of (type, quantity, eta_days, stop_at)."""
+        if self.capacity <= 0:
+            raise ValueError("Production capacity must be positive")
+        work_prefix = 0
+        summary: list[tuple[str, int, int, str]] = []
+        for job in self.jobs:
+            work_prefix += job.remaining
+            eta_days = int(math.ceil(work_prefix / self.capacity))
+            summary.append((job.job_type.value, job.quantity, eta_days, job.stop_at.value))
+        return summary

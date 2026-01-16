@@ -1,16 +1,17 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Tuple
 
 from textual.app import ComposeResult
-from textual.containers import Container, Vertical
+from textual.containers import Container, Horizontal, Vertical
 from textual.widget import Widget
 from textual.widgets import Button, Static
 
-from clone_wars.engine.logistics import DepotNode
+from clone_wars.engine.logistics import DepotNode, STORAGE_LOSS_PCT_RANGE, STORAGE_RISK_PER_DAY
 from clone_wars.engine.ops import OperationTarget
 from clone_wars.engine.state import GameState
-from clone_wars.engine.types import ObjectiveStatus, Supplies, UnitStock
+from clone_wars.engine.types import ObjectiveStatus, SQUAD_SIZE, Supplies, UnitStock
 
 
 def _pct(value: float) -> int:
@@ -21,29 +22,70 @@ def _fmt_int(n: int) -> str:
     return f"{n:,}"
 
 
-def _sum_supplies(stocks: dict[DepotNode, Supplies]) -> Supplies:
-    ammo = sum(s.ammo for s in stocks.values())
-    fuel = sum(s.fuel for s in stocks.values())
-    med = sum(s.med_spares for s in stocks.values())
+def _fmt_squads(squads: int) -> str:
+    troops = squads * SQUAD_SIZE
+    return f"{_fmt_int(squads)} sq ({_fmt_int(troops)})"
+
+
+def _sum_supplies(
+    stocks: dict[DepotNode, Supplies],
+    nodes: Tuple[DepotNode, ...] | None = None,
+) -> Supplies:
+    if nodes is None:
+        nodes = tuple(stocks.keys())
+    ammo = sum(stocks[node].ammo for node in nodes if node in stocks)
+    fuel = sum(stocks[node].fuel for node in nodes if node in stocks)
+    med = sum(stocks[node].med_spares for node in nodes if node in stocks)
     return Supplies(ammo=ammo, fuel=fuel, med_spares=med)
 
 
-def _sum_units(units: dict[DepotNode, UnitStock]) -> UnitStock:
-    infantry = sum(u.infantry for u in units.values())
-    walkers = sum(u.walkers for u in units.values())
-    support = sum(u.support for u in units.values())
+def _sum_units(
+    units: dict[DepotNode, UnitStock],
+    nodes: Tuple[DepotNode, ...] | None = None,
+) -> UnitStock:
+    if nodes is None:
+        nodes = tuple(units.keys())
+    infantry = sum(units[node].infantry for node in nodes if node in units)
+    walkers = sum(units[node].walkers for node in nodes if node in units)
+    support = sum(units[node].support for node in nodes if node in units)
     return UnitStock(infantry=infantry, walkers=walkers, support=support)
+
+
+def _format_supplies_summary(supplies: Supplies) -> str:
+    return (
+        f"AMMO {_fmt_int(supplies.ammo)}, "
+        f"FUEL {_fmt_int(supplies.fuel)}, "
+        f"MED {_fmt_int(supplies.med_spares)}"
+    )
+
+
+def _format_units_summary(units: UnitStock) -> str:
+    return (
+        f"INF {_fmt_squads(units.infantry)}, "
+        f"WLK {_fmt_int(units.walkers)}, "
+        f"SUP {_fmt_int(units.support)}"
+    )
 
 
 def _status_label(status: ObjectiveStatus) -> tuple[str, str]:
     """Return (label, rich_color_name)."""
     match status:
         case ObjectiveStatus.ENEMY:
-            return ("ENEMY HELD", "red")
+            return ("ENEMY HELD", "#ff3b3b")
         case ObjectiveStatus.CONTESTED:
-            return ("CONTESTED", "yellow")
+            return ("CONTESTED", "#f0b429")
         case ObjectiveStatus.SECURED:
-            return ("FRIENDLY", "green")
+            return ("FRIENDLY", "#e5e7eb")
+
+
+def _risk_label(risk: float) -> str:
+    if risk <= 0.0:
+        return "SECURE"
+    if risk <= 0.015:
+        return "LOW"
+    if risk <= 0.04:
+        return "ELEVATED"
+    return "HIGH"
 
 
 def _bar(value: int, max_value: int, width: int = 18) -> str:
@@ -62,59 +104,115 @@ class HeaderBar(Static):
         self.state = state
 
     def render(self) -> str:
-        totals = _sum_supplies(self.state.logistics.depot_stocks)
-        unit_totals = _sum_units(self.state.logistics.depot_units)
+        depot_nodes = tuple(self.state.logistics.depot_stocks.keys())
+        front_nodes = (DepotNode.FRONT,)
+        rest_nodes = tuple(node for node in depot_nodes if node != DepotNode.FRONT)
+
+        front_supplies = _sum_supplies(self.state.logistics.depot_stocks, front_nodes)
+        rest_supplies = _sum_supplies(self.state.logistics.depot_stocks, rest_nodes)
+        front_units = _sum_units(self.state.logistics.depot_units, front_nodes)
+        rest_units = _sum_units(self.state.logistics.depot_units, rest_nodes)
+
+        front_supplies_text = _format_supplies_summary(front_supplies)
+        rest_supplies_text = _format_supplies_summary(rest_supplies)
+        front_units_text = _format_units_summary(front_units)
+        rest_units_text = _format_units_summary(rest_units)
+
         ic_pct = min(99, max(10, self.state.production.capacity * 25))
         return (
             f"[bold]TURN:[/] {_fmt_int(self.state.day):>3}  |  "
             f"[bold]INDUSTRIAL CAPACITY:[/] {ic_pct}%  |  "
-            f"[bold]GLOBAL SUPPLIES:[/] "
-            f"AMMO {_fmt_int(totals.ammo)}, FUEL {_fmt_int(totals.fuel)}, MED {_fmt_int(totals.med_spares)}  |  "
-            f"[bold]GLOBAL UNITS:[/] "
-            f"INF {_fmt_int(unit_totals.infantry)}, WLK {_fmt_int(unit_totals.walkers)}, SUP {_fmt_int(unit_totals.support)}"
+            f"[bold]FRONT SUPPLIES:[/] {front_supplies_text}  |  "
+            f"[bold]REST-OF-GLOBE SUPPLIES:[/] {rest_supplies_text}  |  "
+            f"[bold]FRONT UNITS:[/] {front_units_text}  |  "
+            f"[bold]REST-OF-GLOBE UNITS:[/] {rest_units_text}"
         )
 
 
 class SituationMap(Widget):
-    """Map panel with ASCII globe + clickable objective markers."""
+    """Map panel with schematic system layout + objective nodes."""
 
-    MAP_ART = r"""
-.,:;iiiiiiiiii;:,..
-      .;i;;;itiiiiiiiiiiii;;;,.
-    .;;i;;;;;;;iii;iiiiiiiiiii;;.
-   .;;;;;;;;;;;iiiiiiiiiiiiiiiii;;,
-  ,;;;;;;;;;;;;;iiiiiiiiiiiiiiiiii;,
- .,;;;;;;;;;;;;;;iiiiiiiiiiiiiiiiii;.
- ,;;;;;;;:.  .:;;iiiiiiiiiiiiiiiiii;,
- ,;;;;;;.      .;iiiiiiiiiiiiiiiiii;,
- ,;;;;;         ;iiiiiiiiiiiiiiiiii;,
- ,;;;;;         ;iiiiiiiiiiiiiiiiii;,
- ,;;;;;.       .;iiiiiiiiiiiiiiiiii;,
- .,;;;;;:.   .:;iiiiiiiiiiiiiiiiiii;.
-  ,;;;;;;;;;;;;;iiiiiiiiiiiiiiiiii;,
-   ,;;;;;;;;;;;;iiiiiiiiiiiiiiii;,.
-    .,;;;;;;;;;;iiiiiiiiiiiiii;,.
-      .,;;;;;;;;iiiiiiiiiii;,.
-         ..,::;;;;;;;;;::..
+    can_focus = True
+
+    TARGET_ORDER: tuple[OperationTarget, ...] = (
+        OperationTarget.FOUNDRY,
+        OperationTarget.COMMS,
+        OperationTarget.POWER,
+    )
+
+    BINDINGS = [
+        ("left", "prev_target", "Prev"),
+        ("right", "next_target", "Next"),
+        ("enter", "open_selected", "Briefing"),
+    ]
+
+    SCHEMATIC_ART = r"""
++------------------------------------+
+| . . . . . . . . . . . . . . . . . |
+| . . . . . . . . . . . . . . . . . |
+| . . . . . . . . . . . . . . . . . |
+| . . . . . . . . . . . . . . . . . |
+| . . . . . . . . . . . . . . . . . |
+| . . . . . . . . . . . . . . . . . |
+| . . . . . . . . . . . . . . . . . |
+| . . . . . . . . . . . . . . . . . |
++------------------------------------+
 """
 
     def __init__(self, state: GameState, **kwargs) -> None:
         super().__init__(**kwargs)
         self.state = state
+        self.selected_target: OperationTarget = OperationTarget.FOUNDRY
 
     def compose(self) -> ComposeResult:
-        yield Static("[bold]SITUATION MAP - KEY PLANET: GEONOSIS PRIME[/]", id="planet-title", markup=True)
+        yield Static("[bold]SITUATION MAP - KEY PLANET: GEONOSIS PRIME[/]", id="system-title", markup=True)
 
-        with Container(id="planet-layer"):
-            yield Static(self.MAP_ART, id="planet-art")
-            yield Button("D", id="map-foundry", classes="planet-node")
-            yield Button("C", id="map-comms", classes="planet-node")
-            yield Button("P", id="map-power", classes="planet-node")
+        with Container(id="system-layer"):
+            yield Static(self.SCHEMATIC_ART, id="system-art")
+            yield Static("----------------------", id="link-top", classes="system-link")
+            yield Static("|\n|\n|\n|", id="link-down", classes="system-link")
+            yield _SystemNode("D: FOUNDRY", id="map-foundry", classes="system-node")
+            yield _SystemNode("C: COMMS", id="map-comms", classes="system-node")
+            yield _SystemNode("P: POWER", id="map-power", classes="system-node")
 
-        yield Static(id="planet-legend", markup=True)
-        yield Static(id="planet-stats", markup=True)
+        yield Static(id="system-hint", markup=True)
+        yield Static(id="system-sector", markup=True)
+        yield Static(id="system-stats", markup=True)
 
     def on_mount(self) -> None:
+        self.refresh_status()
+
+    def action_prev_target(self) -> None:
+        if self.state.operation is not None:
+            return
+        self._cycle_target(-1)
+
+    def action_next_target(self) -> None:
+        if self.state.operation is not None:
+            return
+        self._cycle_target(1)
+
+    def action_open_selected(self) -> None:
+        if self.state.operation is not None:
+            return
+        target = self.selected_target
+        if target is None:
+            return
+        from clone_wars.ui.console import CommandConsole
+
+        try:
+            console = self.screen.query_one(CommandConsole)
+        except Exception:
+            return
+        console.open_sector(target)
+
+    def _cycle_target(self, delta: int) -> None:
+        order = self.TARGET_ORDER
+        try:
+            i = order.index(self.selected_target)
+        except ValueError:
+            i = 0
+        self.selected_target = order[(i + delta) % len(order)]
         self.refresh_status()
 
     def refresh_status(self) -> None:
@@ -123,12 +221,7 @@ class SituationMap(Widget):
         c_label, c_color = _status_label(obj.comms)
         p_label, p_color = _status_label(obj.power)
 
-        # Use a compact legend like the screenshot.
-        foundry = f"[{f_color}][D] Droid Foundry ({f_label})[/{f_color}]"
-        comms = f"[{c_color}][C] Comm Array ({c_label})[/{c_color}]"
-        power = f"[{p_color}][P] Power Plant ({p_label})[/{p_color}]"
-
-        legend = f"    {foundry}\n\n    {comms}\n    {power}"
+        hint = "[#a7adb5]Left/Right select | Enter sector briefing | Click node[/]"
 
         control = _pct(self.state.planet.control)
         fort = self.state.planet.enemy.fortification
@@ -139,20 +232,70 @@ class SituationMap(Widget):
             f"[bold]REINF[/] {reinf:.2f}"
         )
 
-        self.query_one("#planet-legend", Static).update(legend)
-        self.query_one("#planet-stats", Static).update(stats)
+        self.query_one("#system-hint", Static).update(hint)
+        self.query_one("#system-stats", Static).update(stats)
 
-        active_target = self.state.operation.plan.target if self.state.operation else None
-        self._apply_marker_state("map-foundry", obj.foundry, active_target == OperationTarget.FOUNDRY)
-        self._apply_marker_state("map-comms", obj.comms, active_target == OperationTarget.COMMS)
-        self._apply_marker_state("map-power", obj.power, active_target == OperationTarget.POWER)
+        op = self.state.operation
+        active_target: OperationTarget | None = None
+        if op is not None:
+            active_target = getattr(getattr(op, "intent", None), "target", None)
+        if active_target is not None:
+            self.selected_target = active_target
 
-    def _apply_marker_state(self, marker_id: str, status: ObjectiveStatus, active: bool) -> None:
+        self._apply_marker_state(
+            "map-foundry",
+            obj.foundry,
+            active=active_target == OperationTarget.FOUNDRY,
+            selected=self.selected_target == OperationTarget.FOUNDRY,
+        )
+        self._apply_marker_state(
+            "map-comms",
+            obj.comms,
+            active=active_target == OperationTarget.COMMS,
+            selected=self.selected_target == OperationTarget.COMMS,
+        )
+        self._apply_marker_state(
+            "map-power",
+            obj.power,
+            active=active_target == OperationTarget.POWER,
+            selected=self.selected_target == OperationTarget.POWER,
+        )
+
+        self._refresh_sector_card()
+
+    def _apply_marker_state(
+        self, marker_id: str, status: ObjectiveStatus, active: bool, selected: bool
+    ) -> None:
         button = self.query_one(f"#{marker_id}", Button)
-        button.set_class(status == ObjectiveStatus.ENEMY, "planet-node--enemy")
-        button.set_class(status == ObjectiveStatus.CONTESTED, "planet-node--contested")
-        button.set_class(status == ObjectiveStatus.SECURED, "planet-node--secured")
-        button.set_class(active, "planet-node--active")
+        button.set_class(status == ObjectiveStatus.ENEMY, "system-node--enemy")
+        button.set_class(status == ObjectiveStatus.CONTESTED, "system-node--contested")
+        button.set_class(status == ObjectiveStatus.SECURED, "system-node--secured")
+        button.set_class(active, "system-node--active")
+        button.set_class(selected, "system-node--selected")
+
+    def _refresh_sector_card(self) -> None:
+        t = self.selected_target
+        obj_id = {
+            OperationTarget.FOUNDRY: "foundry",
+            OperationTarget.COMMS: "comms",
+            OperationTarget.POWER: "power",
+        }.get(t)
+        obj_def = self.state.rules.objectives.get(obj_id) if obj_id else None
+        obj_type = obj_def.type.upper() if obj_def else "UNKNOWN"
+        difficulty = obj_def.base_difficulty if obj_def else 1.0
+
+        desc = (obj_def.description if obj_def else "").strip()
+        if desc:
+            first_line = desc.splitlines()[0].strip()
+        else:
+            first_line = "No details available."
+
+        self.query_one("#system-sector", Static).update(
+            f"[bold]SELECTED[/] {t.value.upper()}  "
+            f"[#a7adb5]TYPE[/] {obj_type}  "
+            f"[#a7adb5]DIFF[/] x{difficulty:.2f}\n"
+            f"[#a7adb5]{first_line}[/]"
+        )
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         bid = event.button.id
@@ -171,11 +314,17 @@ class SituationMap(Widget):
         target = target_map.get(bid)
         if target is None:
             return
+        self.selected_target = target
         try:
             console = self.screen.query_one(CommandConsole)
         except Exception:
             return
-        console.start_plan_with_target(target)
+        console.open_sector(target)
+        self.refresh_status()
+
+
+class _SystemNode(Button):
+    can_focus = False
 
 
 class EnemyIntel(Static):
@@ -214,7 +363,7 @@ class TaskForcePanel(Static):
 
         return (
             "[bold]TASK FORCE: REPUBLIC HAMMER[/]\n"
-            f"[bold]UNITS:[/] INFANTRY ({tf.composition.infantry}),\n"
+            f"[bold]UNITS:[/] INFANTRY ({_fmt_squads(tf.composition.infantry)}),\n"
             f"       WALKERS ({tf.composition.walkers}), SUPPORT ({tf.composition.support})\n\n"
             f"[bold]READINESS:[/] {readiness}%\n"
             f"[bold]COHESION:[/] {coh_label}\n\n"
@@ -233,10 +382,12 @@ class ProductionPanel(Static):
     def render(self) -> str:
         prod = self.state.production
         if prod.jobs:
-            job_lines = [
-                f"  - {job.job_type.value.upper():<9} x{job.quantity}  ETA {job.days_remaining}d"
-                for job in prod.jobs
-            ]
+            job_lines = []
+            for job_type, quantity, eta, stop_at in prod.get_eta_summary():
+                label = f"{job_type.upper():<9} x{quantity}"
+                if job_type == "infantry":
+                    label = f"{label} squads ({_fmt_int(quantity * SQUAD_SIZE)} troops)"
+                job_lines.append(f"  - {label}  ETA {eta}d  -> {stop_at}")
         else:
             job_lines = ["  - NO ACTIVE QUEUES"]
         return (
@@ -247,44 +398,120 @@ class ProductionPanel(Static):
         )
 
 
-class LogisticsPanel(Static):
+class LogisticsPanel(Widget):
     def __init__(self, state: GameState, **kwargs) -> None:
-        super().__init__(markup=True, **kwargs)
+        super().__init__(**kwargs)
         self.state = state
+        self.selected_depot = DepotNode.CORE
 
-    def render(self) -> str:
+    def compose(self) -> ComposeResult:
+        yield Static("[bold]LOGISTICS NETWORK[/]", id="logistics-title", markup=True)
+        with Vertical(id="logistics-network"):
+            with Horizontal(classes="depot-row"):
+                yield Button("CORE", id="depot-core", classes="depot-node")
+                yield Static("", id="depot-core-counts", classes="depot-counts")
+            yield Static("  ↓", classes="route-arrow-down", markup=True)
+            with Horizontal(classes="depot-row"):
+                yield Button("MID", id="depot-mid", classes="depot-node")
+                yield Static("", id="depot-mid-counts", classes="depot-counts")
+            yield Static("  ↓", classes="route-arrow-down", markup=True)
+            with Horizontal(classes="depot-row"):
+                yield Button("FRONT", id="depot-front", classes="depot-node")
+                yield Static("", id="depot-front-counts", classes="depot-counts")
+
+        yield Static("", id="logistics-detail", markup=True)
+        yield Static("", id="logistics-shipments", markup=True)
+
+    def on_mount(self) -> None:
+        self.refresh_panel()
+
+    def refresh_panel(self) -> None:
+        self._update_node_counts()
+        self._update_selection()
+        self._update_detail()
+        self._update_shipments()
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        bid = event.button.id
+        if not bid:
+            return
+        depot_map = {
+            "depot-core": DepotNode.CORE,
+            "depot-mid": DepotNode.MID,
+            "depot-front": DepotNode.FRONT,
+        }
+        depot = depot_map.get(bid)
+        if depot is None:
+            return
+        self.selected_depot = depot
+        self.refresh_panel()
+
+    def _update_node_counts(self) -> None:
         stocks = self.state.logistics.depot_stocks
-        units = self.state.logistics.depot_units
-        depot_lines = []
-        for depot in DepotNode:
-            stock = stocks[depot]
-            unit_stock = units[depot]
-            depot_lines.append(
-                f"  - {depot.value:<13} A:{_fmt_int(stock.ammo):>4} "
-                f"F:{_fmt_int(stock.fuel):>4} M:{_fmt_int(stock.med_spares):>4}  |  "
-                f"I:{_fmt_int(unit_stock.infantry):>3} W:{_fmt_int(unit_stock.walkers):>3} S:{_fmt_int(unit_stock.support):>3}"
-            )
+        count_map = {
+            DepotNode.CORE: "depot-core-counts",
+            DepotNode.MID: "depot-mid-counts",
+            DepotNode.FRONT: "depot-front-counts",
+        }
+        for depot, node_id in count_map.items():
+            stock = self._stock_for_display(depot)
+            text = f"A{_fmt_int(stock.ammo)} F{_fmt_int(stock.fuel)} M{_fmt_int(stock.med_spares)}"
+            self.query_one(f"#{node_id}", Static).update(text)
 
+    def _update_selection(self) -> None:
+        btn_map = {
+            DepotNode.CORE: "depot-core",
+            DepotNode.MID: "depot-mid",
+            DepotNode.FRONT: "depot-front",
+        }
+        for depot, node_id in btn_map.items():
+            button = self.query_one(f"#{node_id}", Button)
+            button.set_class(depot == self.selected_depot, "depot-node--selected")
+
+    def _update_detail(self) -> None:
+        depot = self.selected_depot
+        stock = self._stock_for_display(depot)
+        units = self.state.logistics.depot_units[depot]
+        risk = STORAGE_RISK_PER_DAY.get(depot, 0.0)
+        loss_min, loss_max = STORAGE_LOSS_PCT_RANGE.get(depot, (0.0, 0.0))
+        risk_label = _risk_label(risk)
+        detail = (
+            f"[bold]SELECTED:[/] {depot.value}\n"
+            f"[bold]SAFETY:[/] {risk_label}  "
+            f"[#a7adb5]Risk {int(risk * 100)}%/day, Loss {int(loss_min * 100)}–{int(loss_max * 100)}%[/]\n"
+            f"[bold]STOCK:[/] "
+            f"A {_fmt_int(stock.ammo)}  F {_fmt_int(stock.fuel)}  M {_fmt_int(stock.med_spares)}\n"
+            f"[bold]UNITS:[/] "
+            f"I {_fmt_squads(units.infantry)}  W {_fmt_int(units.walkers)}  S {_fmt_int(units.support)}"
+        )
+        self.query_one("#logistics-detail", Static).update(detail)
+
+    def _stock_for_display(self, depot: DepotNode) -> Supplies:
+        if depot == DepotNode.FRONT:
+            return self.state.task_force.supplies
+        return self.state.logistics.depot_stocks[depot]
+
+    def _update_shipments(self) -> None:
         if self.state.logistics.shipments:
-            shipment_lines = []
+            shipment_lines = ["[bold]IN TRANSIT:[/]"]
             for shipment in self.state.logistics.shipments:
                 status = "INTERDICTED" if shipment.interdicted else "EN ROUTE"
+                path = "→".join(node.short_label for node in shipment.path)
+                leg = f"{shipment.origin.short_label}->{shipment.destination.short_label}"
+                unit_seg = ""
+                if shipment.units.infantry or shipment.units.walkers or shipment.units.support:
+                    unit_seg = (
+                        f" | I{shipment.units.infantry} W{shipment.units.walkers} "
+                        f"S{shipment.units.support}"
+                    )
                 shipment_lines.append(
-                    f"  - {shipment.origin.value} -> {shipment.destination.value} | "
-                    f"A:{shipment.supplies.ammo} F:{shipment.supplies.fuel} M:{shipment.supplies.med_spares} "
-                    f"I:{shipment.units.infantry} W:{shipment.units.walkers} S:{shipment.units.support} | "
-                    f"ETA {shipment.days_remaining}d | {status}"
+                    f"  - #{shipment.shipment_id} {path} ({leg}) | "
+                    f"A{shipment.supplies.ammo} F{shipment.supplies.fuel} M{shipment.supplies.med_spares}"
+                    f"{unit_seg} | ETA {shipment.days_remaining}d | {status}"
                 )
         else:
-            shipment_lines = ["  - NO ACTIVE SHIPMENTS"]
-
-        return (
-            "[bold]LOGISTICS NETWORK[/]\n"
-            "[bold]DEPOTS:[/]\n"
-            + "\n".join(depot_lines)
-            + "\n\n[bold]SHIPMENTS:[/]\n"
-            + "\n".join(shipment_lines)
-        )
+            shipment_lines = ["[bold]IN TRANSIT:[/]  NONE"]
+        self.query_one("#logistics-shipments", Static).update("\n".join(shipment_lines))
 
 
 @dataclass(slots=True)
@@ -307,5 +534,10 @@ class FlashLine(Static):
     def render(self) -> str:
         if self._msg is None:
             return ""
-        color = {"info": "cyan", "ok": "green", "warn": "yellow", "err": "red"}.get(self._msg.kind, "cyan")
+        color = {
+            "info": "#a7adb5",
+            "ok": "#e5e7eb",
+            "warn": "#f0b429",
+            "err": "#ff3b3b",
+        }.get(self._msg.kind, "#a7adb5")
         return f"[{color}]{self._msg.text}[/{color}]"

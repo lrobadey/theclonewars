@@ -4,20 +4,22 @@
       "id": "foundry",
       "name": "Droid Foundry",
       "type": "industrial",
-      "base_difficulty": 1.0
+      "base_difficulty": 1.0,
+      "description": "Sector Overview\n- Primary function: rapid assembly of B1/B2 chassis, parts casting, and final-line calibration.\n- Footprint: multi-block factory lattice anchored into basalt bedrock; enclosed causeways connect sub-halls.\n\nFacilities (observed)\n- Smelter stacks and slag pits: continuous melt cycle; waste heat vents create persistent thermal haze.\n- Casting hall: modular mold racks for limb/torso frames; coolant trenches run the length of the floor.\n- Assembly lines: conveyor gantries with robotic arms; quality-control alcoves every 40–60 meters.\n- Storage yards: sealed containers of actuators, optics, and power cells; marked lots for finished units.\n\nInfrastructure Notes\n- Power draw is high and steady; shutting down sections causes cascading line stoppages and calibration drift.\n- Internal rail carts move heavy loads; rails double as cover lines and chokepoints.\n- Dense overhead structure (cranes/catwalks) favors defenders with pre-sited firing angles.\n\nThreat & Security Posture (typical)\n- Automated sentry nodes at bay doors; interior checkpoints at line junctions.\n- Reinforced blast shutters isolate halls during sabotage or fire.\n- Expect rapid local reinforcement if alarms propagate along the conveyor control network.\n\nOperational Relevance (MVP)\n- Capturing this objective is required for victory and reduces planet-wide enemy sustainment pressure."
     },
     {
       "id": "comms",
       "name": "Communications Array",
       "type": "strategic",
-      "base_difficulty": 1.1
+      "base_difficulty": 1.1,
+      "description": "Sector Overview\n- Primary function: planetary comms relay (surface-to-orbit uplink), encrypted C2 routing, and signal direction-finding.\n- Footprint: elevated spire cluster with multiple dishes; subterranean conduit rooms connect to hardened server vaults.\n\nAntenna Farm\n- High-gain dishes: steerable, tracked; likely used for burst transmissions to minimize intercept windows.\n- Phased arrays: flat-panel emitters for broad coverage; vulnerable to power disruption but quick to re-route.\n- Backup masts: smaller, redundant antennas on perimeter pylons.\n\nSignal Infrastructure\n- Cable runs: armored conduits radiate outward; junction boxes every few dozen meters.\n- Server vaults: temperature-controlled bays; isolated racks for encryption keys and routing tables.\n- EW room: spectrum analyzers, jammer controllers, and traffic-shaping equipment.\n\nThreat & Security Posture (typical)\n- Narrow access points: few doors, many fences; defenders can channel attackers into kill corridors.\n- Sensor saturation: cameras, motion grids, and passive RF sniffers.\n- Expect counter-recon: they will attempt to map approach vectors and jam coordination.\n\nOperational Relevance (MVP)\n- Capturing this objective is required for victory and reduces planet-wide enemy coordination and reinforcement efficiency."
     },
     {
       "id": "power",
       "name": "Power Plant",
       "type": "infrastructure",
-      "base_difficulty": 1.05
+      "base_difficulty": 1.05,
+      "description": "Sector Overview\n- Primary function: planetary grid node providing stable power for industrial zones and defense networks.\n- Footprint: turbine halls + control building; ringed by transformer yards and redundant feedlines.\n\nGeneration & Distribution\n- Turbine hall: long-span chamber with multiple generator banks; constant vibration and high noise.\n- Control room: analog redundancies (hard switches) alongside digital monitoring; limited line-of-sight.\n- Transformer yard: exposed equipment, heavy fencing; many small structures create broken sightlines.\n- Feedlines: multiple exits to reduce single-point failures; routes are predictable and heavily guarded.\n\nEnvironmental Factors\n- Heat plumes reduce visibility; condensate creates slick surfaces near vents.\n- Electrical hazards: arc flash risk near damaged transformers; intermittent power surges during combat.\n\nThreat & Security Posture (typical)\n- Perimeter focus: defenders often hold the yard and choke the control room entrances.\n- Shutdown protocols: segmented breakers can isolate areas; defenders may cut power to deny equipment use.\n- Expect booby traps around access panels, breaker cabinets, and junction corridors.\n\nOperational Relevance (MVP)\n- Capturing this objective is required for victory and reduces planet-wide enemy fortification and sustainment capability."
     }
   ]
 }
-

@@ -47,7 +47,7 @@ The game’s “feel” comes from three primary bottlenecks:
 
 - A **global production pool** produces units/gear/supplies.
 - Output is pushed via **route-based supply lines** to the key planet, through **depots/staging nodes**.
-- MVP can use a **small simplified graph** (e.g., Core → Mid Depot → Forward Depot → Key Planet).
+- MVP can use a **small simplified graph** (e.g., Core → Mid → Front).
 
 ---
 
@@ -270,5 +270,4 @@ MVP is complete when a player can:
   - phase-by-phase timeline
   - recommendations derived from logged factors
 - win by capturing all 3 objectives; objectives reduce reinforcement and fortification
-
 

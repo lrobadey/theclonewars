@@ -1,0 +1,50 @@
+<div id="logistics" class="panel panel--logistics" {% if oob %}hx-swap-oob="true"{% endif %}>
+    <div class="panel__title">LOGISTICS</div>
+    <div class="logistics__network">
+        <div class="logistics__network-title">SUPPLY LINE</div>
+        <div class="logistics__routes">
+            {% for route in vm.routes %}
+            <button class="terminal-btn logistics__route"
+                    hx-post="/action"
+                    hx-vals='{"action":"{{ route.action }}"}'
+                    hx-target="#console"
+                    hx-swap="outerHTML">
+                <span class="logistics__route-label">{{ route.label }}</span>
+                <span class="logistics__route-meta muted">{{ route.days }}d | {{ route.risk_pct }}% interdiction</span>
+            </button>
+            {% endfor %}
+        </div>
+        <div class="logistics__legend muted">{{ vm.legend }}</div>
+    </div>
+
+    <div class="logistics__depots">
+        {% for depot in vm.depots %}
+        <div class="logistics__depot">
+            <div class="logistics__depot-title">{{ depot.short }}</div>
+            <div class="logistics__depot-sub muted">{{ depot.name }}</div>
+            <div class="logistics__depot-line">A{{ depot.supplies.ammo }} F{{ depot.supplies.fuel }} M{{ depot.supplies.med_spares }}</div>
+            <div class="logistics__depot-line">I{{ depot.units.infantry }} W{{ depot.units.walkers }} S{{ depot.units.support }}</div>
+            <div class="logistics__depot-line muted">
+                {{ depot.risk_label }} {{ depot.risk_pct }}%/d loss {{ depot.loss_range }}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class="logistics__shipments">
+        <div class="logistics__shipments-title">IN TRANSIT</div>
+        {% if vm.shipments %}
+            {% for shipment in vm.shipments %}
+            <div class="logistics__shipment">
+                <div class="logistics__shipment-main">#{{ shipment.id }} {{ shipment.path }} ({{ shipment.leg }})</div>
+                <div class="logistics__shipment-meta muted">
+                    {{ shipment.supplies }}{% if shipment.units %} | {{ shipment.units }}{% endif %} |
+                    ETA {{ shipment.eta }}d | {{ shipment.status }}
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+        <div class="muted">NONE</div>
+        {% endif %}
+    </div>
+</div>

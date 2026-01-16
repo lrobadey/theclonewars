@@ -1,24 +1,26 @@
-/* Global Terminal Theme */
+/* Republic Theme (Red + Gray) */
 Screen {
     layout: vertical;
-    background: #050505;
-    color: #00ff00;  /* Phosphor Green */
+    background: #0b0d10;
+    color: #e5e7eb;
 }
 
 /* --- Global Elements --- */
 Button {
-    background: #000000;
-    color: #00aa00;
-    border: none;
+    background: #1b1f25;
+    color: #e5e7eb;
+    border: round #3b4048;
     min-width: 0;
     padding: 0 1; 
-    height: 1;
+    /* Height must leave room for the label inside the border. */
+    height: 3;
+    content-align: center middle;
     margin-right: 2;
 }
 
 Button:hover {
-    background: #00ff00;
-    color: #000000;
+    background: #c8102e;
+    color: #0b0d10;
     text-style: bold;
 }
 
@@ -27,16 +29,16 @@ Button:hover {
     layout: grid;
     grid-size: 2 3;
     grid-columns: 2fr 1fr;
-    grid-rows: 50% 25% 25%;
+    grid-rows: 45% 35% 20%;
     height: 1fr;
     margin-bottom: 0;
 }
 
 /* --- Panel Styling --- */
 .box {
-    border: round #00ff00;
+    border: round #3b4048;
     padding: 0 1;
-    background: #050505;
+    background: #14181d;
 }
 
 /* Panel layout adjustments */
@@ -44,75 +46,144 @@ Button:hover {
     column-span: 2;
 }
 
-/* --- Planet Map --- */
-#planet-title {
+#logistics-panel LogisticsPanel {
+    layout: vertical;
+    height: auto;
+}
+
+/* --- Logistics Network --- */
+#logistics-network {
+    width: 100%;
+    height: auto;
+    margin-top: 1;
     margin-bottom: 1;
 }
 
-#planet-layer {
-    height: 17;
+.depot-row {
+    width: 100%;
+    height: 3;
+    align: left middle;
+}
+
+.depot-node {
+    width: 14;
+    height: 3;
+    padding: 0 1;
+    background: #0f1318;
+    border: round #3b4048;
+    margin-right: 1;
+}
+
+.depot-node--selected {
+    background: #e5e7eb;
+    color: #0b0d10;
+    text-style: bold;
+}
+
+.depot-counts {
+    color: #7b8794;
+    width: auto;
+    height: 3;
+    content-align: left middle;
+}
+
+.route-arrow-down {
+    color: #4b5563;
+    height: 1;
+    margin-left: 5;
+}
+
+/* --- Schematic Map --- */
+#system-title {
+    margin-bottom: 1;
+}
+
+#system-layer {
+    height: 13;
     width: 100%;
 }
 
-#planet-art {
-    color: #00aa00;
+#system-art {
+    color: #7b8794;
 }
 
-.planet-node {
+.system-node {
     position: absolute;
-    width: 1;
-    height: 1;
-    padding: 0 0;
-    background: #001100;
-    color: #00ff00;
-    border: round #00ff00;
+    width: 16;
+    height: 3;
+    padding: 0 1;
+    background: #0f1318;
+    color: #e5e7eb;
+    border: round #3b4048;
+    text-style: bold;
+    content-align: center middle;
 }
 
-.planet-node:hover {
-    background: #00ff00;
-    color: #000000;
+.system-node:hover {
+    border: round #c8102e;
+    color: #c8102e;
 }
 
 #map-foundry {
-    offset: 14 5;
+    offset: 4 4;
 }
 
 #map-comms {
-    offset: 10 8;
+    offset: 24 4;
 }
 
 #map-power {
-    offset: 18 10;
+    offset: 14 9;
 }
 
-.planet-node--enemy {
-    background: #330000;
-    border: round #ff3333;
-    color: #ff3333;
+.system-node--enemy {
+    border: round #ff3b3b;
+    color: #ff3b3b;
 }
 
-.planet-node--contested {
-    background: #332200;
-    border: round #ffcc00;
-    color: #ffcc00;
+.system-node--contested {
+    border: round #f0b429;
+    color: #f0b429;
 }
 
-.planet-node--secured {
-    background: #003300;
-    border: round #00ff66;
-    color: #00ff66;
+.system-node--secured {
+    border: round #7b8794;
+    color: #e5e7eb;
 }
 
-.planet-node--active {
+.system-node--active {
+    text-style: bold underline;
+}
+
+.system-node--selected {
+    background: #e5e7eb;
+    color: #0b0d10;
     text-style: bold;
-    border: heavy #ffffff;
 }
 
-#planet-legend {
+.system-link {
+    position: absolute;
+    width: auto;
+    color: #4b5563;
+}
+
+#link-top {
+    offset: 12 6;
+}
+
+#link-down {
+    offset: 21 7;
+}
+
+#system-hint {
     margin-top: 1;
 }
 
-#planet-stats {
+#system-sector {
+    margin-top: 1;
+}
+
+#system-stats {
     margin-top: 1;
 }
 
@@ -120,8 +191,8 @@ Button:hover {
 .header-bar {
     dock: top;
     height: 1;
-    background: #00aa00;
-    color: #000000;
+    background: #c8102e;
+    color: #f8fafc;
     text-style: bold;
     content-align: center middle;
 }
@@ -131,8 +202,8 @@ Button:hover {
     dock: bottom;
     height: auto;
     min-height: 8;
-    border-top: double #00ff00;
-    background: #050505;
+    border-top: double #3b4048;
+    background: #0b0d10;
     padding: 1 2;
 }
 

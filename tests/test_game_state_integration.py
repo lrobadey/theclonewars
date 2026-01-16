@@ -6,7 +6,7 @@ from clone_wars.engine.logistics import DepotNode
 from clone_wars.engine.ops import OperationPlan, OperationTarget
 from clone_wars.engine.production import ProductionJobType
 from clone_wars.engine.scenario import load_game_state
-from clone_wars.engine.types import ObjectiveStatus, Supplies
+from clone_wars.engine.types import ObjectiveStatus, Supplies, UnitStock
 
 
 def test_gamestate_initialization() -> None:
@@ -37,9 +37,10 @@ def test_advance_day_integrates_all_systems() -> None:
     initial_core = state.logistics.depot_stocks[DepotNode.CORE].ammo
     state.logistics.create_shipment(
         DepotNode.CORE,
-        DepotNode.MID_DEPOT,
+        DepotNode.MID,
         Supplies(ammo=50, fuel=0, med_spares=0),
-        rng=state.rng,
+        None,
+        state.rng,
     )
 
     initial_day = state.day
@@ -93,6 +94,25 @@ def test_unit_production_outputs_to_core_depot() -> None:
     assert final_units.infantry == initial_units.infantry + 4
 
 
+def test_production_auto_dispatches_to_stop() -> None:
+    """Test that production outputs dispatch to a non-core stop."""
+    data_dir = Path(__file__).resolve().parents[1] / "src" / "clone_wars" / "data"
+    state = load_game_state(data_dir / "scenario.json")
+
+    state.production.queue_job(
+        ProductionJobType.AMMO,
+        quantity=6,
+        stop_at=DepotNode.MID,
+    )
+
+    while len(state.production.jobs) > 0:
+        state.advance_day()
+
+    assert len(state.logistics.shipments) == 1
+    shipment = state.logistics.shipments[0]
+    assert shipment.final_destination == DepotNode.MID
+
+
 def test_operation_during_advance_day() -> None:
     """Test that operations progress during advance_day()."""
     data_dir = Path(__file__).resolve().parents[1] / "src" / "clone_wars" / "data"
@@ -128,9 +148,10 @@ def test_multiple_days_full_integration() -> None:
     # Set up logistics
     state.logistics.create_shipment(
         DepotNode.CORE,
-        DepotNode.MID_DEPOT,
+        DepotNode.MID,
         Supplies(ammo=30, fuel=20, med_spares=10),
-        rng=state.rng,
+        None,
+        state.rng,
     )
 
     # Advance multiple days
@@ -159,30 +180,26 @@ def test_enemy_passive_effects() -> None:
     assert state.planet.enemy.fortification <= 2.0
 
 
-def test_supply_transfer_to_task_force() -> None:
-    """Test transferring supplies from depot to task force."""
+def test_front_stock_is_available_to_task_force() -> None:
+    """Test that Front depot stock is automatically available to the task force."""
     data_dir = Path(__file__).resolve().parents[1] / "src" / "clone_wars" / "data"
     state = load_game_state(data_dir / "scenario.json")
 
-    # Get supplies from Key Planet depot (after shipment delivery)
+    # Seed Front depot and drain task force to force resupply.
+    state.logistics.depot_stocks[DepotNode.FRONT] = Supplies(ammo=50, fuel=40, med_spares=30)
+    state.logistics.depot_units[DepotNode.FRONT] = UnitStock(infantry=4, walkers=1, support=2)
+    state.task_force.supplies = Supplies(ammo=0, fuel=0, med_spares=0)
+
     initial_task_force_ammo = state.task_force.supplies.ammo
-    key_planet_ammo = state.logistics.depot_stocks[DepotNode.KEY_PLANET].ammo
+    initial_infantry = state.task_force.composition.infantry
+    front_ammo = state.logistics.depot_stocks[DepotNode.FRONT].ammo
 
-    # Manually transfer (this would be done via UI in real game)
-    transfer_amount = min(50, key_planet_ammo)
-    state.task_force.supplies = Supplies(
-        ammo=state.task_force.supplies.ammo + transfer_amount,
-        fuel=state.task_force.supplies.fuel,
-        med_spares=state.task_force.supplies.med_spares,
-    )
-    state.logistics.depot_stocks[DepotNode.KEY_PLANET] = Supplies(
-        ammo=key_planet_ammo - transfer_amount,
-        fuel=state.logistics.depot_stocks[DepotNode.KEY_PLANET].fuel,
-        med_spares=state.logistics.depot_stocks[DepotNode.KEY_PLANET].med_spares,
-    )
+    state.resupply_task_force()
 
-    assert state.task_force.supplies.ammo == initial_task_force_ammo + transfer_amount
-    assert state.logistics.depot_stocks[DepotNode.KEY_PLANET].ammo == key_planet_ammo - transfer_amount
+    assert state.task_force.supplies.ammo == initial_task_force_ammo + front_ammo
+    assert state.logistics.depot_stocks[DepotNode.FRONT].ammo == 0
+    assert state.task_force.composition.infantry == initial_infantry + 4
+    assert state.logistics.depot_units[DepotNode.FRONT].infantry == 0
 
 
 def test_win_condition_all_objectives() -> None:

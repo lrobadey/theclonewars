@@ -1,0 +1,33 @@
+<div id="console" class="panel panel--console" {% if oob %}hx-swap-oob="true"{% endif %}>
+    <div class="panel__title">COMMAND CONSOLE</div>
+
+    {% if vm.message %}
+    <div class="console__message console__message--{{ vm.message_kind }}">{{ vm.message }}</div>
+    {% endif %}
+
+    {% if vm.aar %}
+        {% include "panels/aar.html" %}
+    {% endif %}
+
+    {% if vm.lines %}
+    <div class="console__lines">
+        {% for line in vm.lines %}
+        <div class="console__line{% if line.kind %} console__line--{{ line.kind }}{% endif %}">{{ line.text }}</div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if vm.actions %}
+    <div class="console__actions">
+        {% for action in vm.actions %}
+        <button class="terminal-btn{% if action.tone %} terminal-btn--{{ action.tone }}{% endif %}"
+                hx-post="/action"
+                hx-vals='{"action":"{{ action.id }}"}'
+                hx-target="#console"
+                hx-swap="outerHTML">
+            {{ action.label }}
+        </button>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>

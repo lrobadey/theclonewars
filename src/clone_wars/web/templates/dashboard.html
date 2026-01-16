@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div id="dashboard">
+    <div id="header" class="panel panel--header" hx-get="/panel/header" hx-trigger="load" hx-swap="outerHTML"></div>
+
+    <div id="grid">
+        <div id="map" class="panel panel--map" hx-get="/panel/map" hx-trigger="load" hx-swap="outerHTML"></div>
+        <div id="enemy" class="panel panel--enemy" hx-get="/panel/enemy" hx-trigger="load" hx-swap="outerHTML"></div>
+        <div id="taskforce" class="panel panel--taskforce" hx-get="/panel/taskforce" hx-trigger="load" hx-swap="outerHTML"></div>
+        <div id="production" class="panel panel--production" hx-get="/panel/production" hx-trigger="load" hx-swap="outerHTML"></div>
+        <div id="logistics" class="panel panel--logistics" hx-get="/panel/logistics" hx-trigger="load" hx-swap="outerHTML"></div>
+    </div>
+
+    <div id="console" class="panel panel--console" hx-get="/panel/console" hx-trigger="load" hx-swap="outerHTML"></div>
+</div>
+{% endblock %}

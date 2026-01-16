@@ -1,5 +1,6 @@
 """Tests for production system."""
 
+from clone_wars.engine.logistics import DepotNode
 from clone_wars.engine.production import ProductionJobType, ProductionState
 
 
@@ -18,7 +19,8 @@ def test_queue_job() -> None:
     job = prod.jobs[0]
     assert job.job_type == ProductionJobType.AMMO
     assert job.quantity == 10
-    assert job.days_remaining > 0
+    assert job.remaining == 10
+    assert job.stop_at == DepotNode.CORE
 
 
 def test_production_tick() -> None:
@@ -26,18 +28,16 @@ def test_production_tick() -> None:
     prod = ProductionState.new(capacity=3)
     prod.queue_job(ProductionJobType.AMMO, quantity=6)  # Should take 2 days with capacity 3
 
-    job = prod.jobs[0]
-    days_needed = job.days_remaining
-
     # Tick until completion
     completed = []
-    for _ in range(days_needed):
+    for _ in range(2):
         completed.extend(prod.tick())
 
     # Job should be complete
     assert len(prod.jobs) == 0
     assert len(completed) == 1
-    assert completed[0] == (ProductionJobType.AMMO, 6)
+    assert completed[0].job_type == ProductionJobType.AMMO
+    assert completed[0].quantity == 6
 
 
 def test_get_eta_summary() -> None:
@@ -50,4 +50,4 @@ def test_get_eta_summary() -> None:
     assert len(summary) == 2
     assert summary[0][0] == "fuel"
     assert summary[1][0] == "med_spares"
-
+    assert summary[0][3] == "Core"
