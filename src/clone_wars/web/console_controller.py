@@ -180,6 +180,15 @@ class ConsoleController:
                 self.op_type = OperationTypeId.CAMPAIGN
                 state.start_operation(plan)
 
+        elif action_id == "prod-upgrade-factory":
+            try:
+                state.production.add_factory()
+            except ValueError as exc:
+                self._set_message(str(exc).upper(), "error")
+                return
+            self._set_message("FACTORY UPGRADE COMPLETE (+1 SLOT)", "accent")
+            self.mode = "menu"
+
         elif action_id.startswith("prod-cat-"):
             self.prod_category = "supplies" if action_id == "prod-cat-supplies" else "army"
             self.prod_job_type = None

@@ -213,6 +213,10 @@ def production_vm(state: GameState, controller: ConsoleController) -> dict:
 
     return {
         "capacity": prod.capacity,
+        "factories": prod.factories,
+        "max_factories": prod.max_factories,
+        "slots_per_factory": prod.slots_per_factory,
+        "can_upgrade": prod.can_add_factory(),
         "jobs": jobs,
         "controls": controls,
         "cta": cta,
@@ -244,6 +248,8 @@ def _production_controls(state: GameState, controller: ConsoleController) -> dic
         line("SELECT CATEGORY:", "muted")
         action("prod-cat-supplies", "SUPPLIES")
         action("prod-cat-army", "ARMY")
+        if state.production.can_add_factory():
+            action("prod-upgrade-factory", "UPGRADE FACTORY (+1 SLOT)", "accent")
         action("btn-cancel", "BACK", "muted")
     elif mode == "production:item":
         if controller.prod_category is None:
@@ -337,6 +343,7 @@ def logistics_vm(state: GameState, controller: ConsoleController) -> dict:
     if state.logistics.shipments:
         for shipment in state.logistics.shipments:
             status = "INTERDICTED" if shipment.interdicted else "EN ROUTE"
+            status_tone = "interdicted" if shipment.interdicted else "enroute"
             path = "->".join(node.short_label for node in shipment.path)
             leg = f"{shipment.origin.short_label}->{shipment.destination.short_label}"
             unit_seg = ""
@@ -357,6 +364,7 @@ def logistics_vm(state: GameState, controller: ConsoleController) -> dict:
                     "units": unit_seg,
                     "eta": shipment.days_remaining,
                     "status": status,
+                    "status_tone": status_tone,
                 }
             )
 

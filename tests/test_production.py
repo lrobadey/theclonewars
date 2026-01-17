@@ -8,6 +8,7 @@ def test_production_state_new() -> None:
     """Test creating new production state."""
     prod = ProductionState.new(capacity=3)
     assert prod.capacity == 3
+    assert prod.factories == 3
     assert len(prod.jobs) == 0
 
 
@@ -38,6 +39,20 @@ def test_production_tick() -> None:
     assert len(completed) == 1
     assert completed[0].job_type == ProductionJobType.AMMO
     assert completed[0].quantity == 6
+
+
+def test_production_parallel_jobs() -> None:
+    """Test multiple jobs advance in parallel with multiple slots."""
+    prod = ProductionState.new(capacity=3)
+    prod.queue_job(ProductionJobType.AMMO, quantity=3)
+    prod.queue_job(ProductionJobType.FUEL, quantity=3)
+    prod.queue_job(ProductionJobType.MED_SPARES, quantity=3)
+
+    # After one tick, each job should have progressed by one unit.
+    prod.tick()
+    assert prod.jobs[0].remaining == 2
+    assert prod.jobs[1].remaining == 2
+    assert prod.jobs[2].remaining == 2
 
 
 def test_get_eta_summary() -> None:

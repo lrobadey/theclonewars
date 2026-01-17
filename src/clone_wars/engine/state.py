@@ -130,7 +130,7 @@ class GameState:
                 ),
                 control=0.3,  # Initial control level
             ),
-            production=ProductionState.new(capacity=3),
+            production=ProductionState.new(factories=3),
             logistics=LogisticsState.new(),
             task_force=TaskForceState(
                 composition=UnitComposition(infantry=6, walkers=2, support=1),
@@ -253,13 +253,28 @@ class GameState:
             self.task_force.readiness = max(0.0, self.task_force.readiness - 0.02)
 
     def _apply_enemy_passive_reactions(self) -> None:
-        """Apply enemy fortification and strength growth."""
+        """Apply enemy fortification and strength growth influenced by reinforcement rate."""
+        base_reinforcement_rate = 0.10
+        reinforcement_scale = (
+            self.planet.enemy.reinforcement_rate / base_reinforcement_rate
+            if base_reinforcement_rate > 0
+            else 0.0
+        )
+        reinforcement_scale = min(2.0, max(0.0, reinforcement_scale))
         if self.operation is None:
-            self.planet.enemy.fortification = min(2.5, self.planet.enemy.fortification + 0.03)
-            self.planet.enemy.strength_min = min(3.0, self.planet.enemy.strength_min + 0.02)
-            self.planet.enemy.strength_max = min(4.0, self.planet.enemy.strength_max + 0.03)
+            self.planet.enemy.fortification = min(
+                2.5, self.planet.enemy.fortification + (0.03 * reinforcement_scale)
+            )
+            self.planet.enemy.strength_min = min(
+                3.0, self.planet.enemy.strength_min + (0.02 * reinforcement_scale)
+            )
+            self.planet.enemy.strength_max = min(
+                4.0, self.planet.enemy.strength_max + (0.03 * reinforcement_scale)
+            )
         else:
-            self.planet.enemy.fortification = min(2.0, self.planet.enemy.fortification + 0.01)
+            self.planet.enemy.fortification = min(
+                2.0, self.planet.enemy.fortification + (0.01 * reinforcement_scale)
+            )
 
     def _apply_storage_loss_events(self) -> None:
         """Apply storage losses that increase with distance from Core."""
@@ -546,10 +561,17 @@ class GameState:
             d.fire_support_prep, {"progress_mod": 0.0, "loss_mod": 0.0}
         )
 
-        progress = approach_rules.get("progress_mod", 0.0) + prep_rules.get("progress_mod", 0.0)
+        base_progress = self._phase_base_progress(op, OperationPhase.CONTACT_SHAPING, phase_days)
+        progress = base_progress + approach_rules.get("progress_mod", 0.0) + prep_rules.get("progress_mod", 0.0)
         loss_mod = approach_rules.get("loss_mod", 0.0) + prep_rules.get("loss_mod", 0.0)
 
-        log(f"approach_{d.approach_axis}", progress, "progress", f"Approach: {d.approach_axis}")
+        log("base_progress", base_progress, "progress", "Base progress from contact & shaping tempo")
+        log(
+            f"approach_{d.approach_axis}",
+            approach_rules.get("progress_mod", 0.0),
+            "progress",
+            f"Approach: {d.approach_axis}",
+        )
         log(f"fire_support_{d.fire_support_prep}", prep_rules.get("progress_mod", 0.0), "progress", f"Fire support: {d.fire_support_prep}")
 
         # Enemy factors affect phase 1
@@ -603,10 +625,12 @@ class GameState:
             d.risk_tolerance, {"progress_mod": 0.0, "loss_mod": 0.0, "variance_multiplier": 1.0}
         )
 
-        progress = posture_rules.get("progress_mod", 0.0) + risk_rules.get("progress_mod", 0.0)
+        base_progress = self._phase_base_progress(op, OperationPhase.ENGAGEMENT, phase_days)
+        progress = base_progress + posture_rules.get("progress_mod", 0.0) + risk_rules.get("progress_mod", 0.0)
         loss_mod = posture_rules.get("loss_mod", 0.0) + risk_rules.get("loss_mod", 0.0)
         variance_mult = risk_rules.get("variance_multiplier", 1.0)
 
+        log("base_progress", base_progress, "progress", "Base progress from main engagement tempo")
         log(f"posture_{d.engagement_posture}", posture_rules.get("progress_mod", 0.0), "progress", f"Posture: {d.engagement_posture}")
         log(f"risk_{d.risk_tolerance}", risk_rules.get("progress_mod", 0.0), "progress", f"Risk tolerance: {d.risk_tolerance}")
 
@@ -690,10 +714,17 @@ class GameState:
             d.end_state, {"required_progress": 0.75, "fortification_reduction": 0.0, "reinforcement_reduction": 0.0}
         )
 
-        progress = exploit_rules.get("progress_mod", 0.0)
+        base_progress = self._phase_base_progress(op, OperationPhase.EXPLOIT_CONSOLIDATE, phase_days)
+        progress = base_progress + exploit_rules.get("progress_mod", 0.0)
         loss_mod = exploit_rules.get("loss_mod", 0.0)
 
-        log(f"exploit_{d.exploit_vs_secure}", progress, "progress", f"Exploit vs Secure: {d.exploit_vs_secure}")
+        log("base_progress", base_progress, "progress", "Base progress from exploitation tempo")
+        log(
+            f"exploit_{d.exploit_vs_secure}",
+            exploit_rules.get("progress_mod", 0.0),
+            "progress",
+            f"Exploit vs Secure: {d.exploit_vs_secure}",
+        )
         log(f"end_state_{d.end_state}", 0.0, "objective", f"End state: {d.end_state}")
 
         # Medic sustainment
@@ -758,6 +789,16 @@ class GameState:
         # Heavy losses reduce readiness
         if losses > total_units * 0.1:
             self.task_force.readiness = max(0.5, self.task_force.readiness - 0.1)
+
+    @staticmethod
+    def _phase_base_progress(
+        op: ActiveOperation,
+        phase: OperationPhase,
+        phase_days: int,
+    ) -> float:
+        if phase_days <= 0 or op.estimated_total_days <= 0:
+            return 0.0
+        return phase_days / op.estimated_total_days
 
     def _finalize_operation(self) -> None:
         """Finalize operation and create AAR after all phases complete."""

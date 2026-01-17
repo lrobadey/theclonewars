@@ -393,6 +393,8 @@ class ProductionPanel(Static):
         return (
             "[bold]PRODUCTION COMMAND[/]\n"
             f"[bold]CAPACITY:[/] {prod.capacity} slots/day\n"
+            f"[bold]FACTORIES:[/] {prod.factories}/{prod.max_factories} "
+            f"({prod.slots_per_factory} slot each)\n"
             "[bold]QUEUES:[/]\n"
             + "\n".join(job_lines)
         )
@@ -495,7 +497,11 @@ class LogisticsPanel(Widget):
         if self.state.logistics.shipments:
             shipment_lines = ["[bold]IN TRANSIT:[/]"]
             for shipment in self.state.logistics.shipments:
-                status = "INTERDICTED" if shipment.interdicted else "EN ROUTE"
+                status = (
+                    "[#ff5f5f]⚠ INTERDICTED[/]"
+                    if shipment.interdicted
+                    else "[#a7adb5]EN ROUTE[/]"
+                )
                 path = "→".join(node.short_label for node in shipment.path)
                 leg = f"{shipment.origin.short_label}->{shipment.destination.short_label}"
                 unit_seg = ""
