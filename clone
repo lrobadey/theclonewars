@@ -1,0 +1,97 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+
+import argparse
+import signal
+import subprocess
+import sys
+import webbrowser
+
+
+def _terminate(proc: subprocess.Popen[object] | None) -> None:
+    if proc is None or proc.poll() is not None:
+        return
+    try:
+        proc.send_signal(signal.SIGINT)
+        proc.wait(timeout=2)
+        return
+    except Exception:
+        pass
+    try:
+        proc.terminate()
+        proc.wait(timeout=2)
+        return
+    except Exception:
+        pass
+    try:
+        proc.kill()
+    except Exception:
+        pass
+
+
+def _build_server_cmd(host: str, port: int, reload: bool) -> list[str]:
+    cmd = [
+        sys.executable,
+        "-m",
+        "uvicorn",
+        "clone_wars.web.main:app",
+        "--host",
+        host,
+        "--port",
+        str(port),
+    ]
+    if reload:
+        cmd.append("--reload")
+    return cmd
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(
+        prog="python3 clone",
+        description="Launch the FastAPI browser dev server for Clone Wars.",
+    )
+    parser.add_argument(
+        "--host",
+        default="127.0.0.1",
+        help="Host to listen on (default: %(default)s).",
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=8000,
+        help="Port for the FastAPI server (default: %(default)s).",
+    )
+    parser.add_argument(
+        "--no-reload",
+        action="store_true",
+        help="Disable uvicorn --reload for the FastAPI server.",
+    )
+    parser.add_argument(
+        "--no-browser",
+        action="store_true",
+        help="Skip opening the browser automatically.",
+    )
+    args = parser.parse_args(argv)
+
+    server_cmd = _build_server_cmd(args.host, args.port, not args.no_reload)
+    proc: subprocess.Popen[object] | None = None
+    try:
+        print(
+            f"Starting FastAPI dev server on {args.host}:{args.port} "
+            f"(reload={'off' if args.no_reload else 'on'})."
+        )
+        proc = subprocess.Popen(server_cmd)
+        if not args.no_browser:
+            url = f"http://{args.host}:{args.port}"
+            print(f"Opening {url} in your browser.")
+            webbrowser.open(url)
+        return proc.wait() or 0
+    except KeyboardInterrupt:
+        print("Shutting down FastAPI dev server.")
+        return 0
+    finally:
+        _terminate(proc)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
