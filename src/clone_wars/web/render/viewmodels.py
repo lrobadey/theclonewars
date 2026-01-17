@@ -337,6 +337,7 @@ def logistics_vm(state: GameState, controller: ConsoleController) -> dict:
     if state.logistics.shipments:
         for shipment in state.logistics.shipments:
             status = "INTERDICTED" if shipment.interdicted else "EN ROUTE"
+            status_tone = "interdicted" if shipment.interdicted else "enroute"
             path = "->".join(node.short_label for node in shipment.path)
             leg = f"{shipment.origin.short_label}->{shipment.destination.short_label}"
             unit_seg = ""
@@ -357,6 +358,7 @@ def logistics_vm(state: GameState, controller: ConsoleController) -> dict:
                     "units": unit_seg,
                     "eta": shipment.days_remaining,
                     "status": status,
+                    "status_tone": status_tone,
                 }
             )
 

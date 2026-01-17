@@ -227,8 +227,8 @@ class LogisticsState:
         # Process each shipment
         remaining_shipments: list[Shipment] = []
         for shipment in self.shipments:
-            # Check interdiction (once per leg, on first day of that leg)
-            if shipment.days_remaining == shipment.total_days:
+            # Check interdiction each day (once per shipment).
+            if not shipment.interdicted:
                 route = self._find_route(shipment.origin, shipment.destination)
                 if route and rng.random() < route.interdiction_risk:
                     shipment.interdicted = True
