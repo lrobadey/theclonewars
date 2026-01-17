@@ -302,7 +302,7 @@ class ConsoleController:
                 supplies, units = package
                 origin, destination = self.pending_route
                 try:
-                    state.logistics.create_shipment(origin, destination, supplies, units, state.rng)
+                    state.logistics_service.create_shipment(state.logistics, origin, destination, supplies, units, state.rng)
                 except ValueError as exc:
                     self._set_message(str(exc), "error")
                     self.mode = "logistics"

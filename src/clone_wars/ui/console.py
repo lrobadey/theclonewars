@@ -657,7 +657,7 @@ class CommandConsole(Widget):
                 supplies, units = package
                 origin, destination = self._pending_route
                 try:
-                    self.state.logistics.create_shipment(origin, destination, supplies, units, self.state.rng)
+                    self.state.logistics_service.create_shipment(self.state.logistics, origin, destination, supplies, units, self.state.rng)
                 except ValueError as exc:
                     self._message = f"[#ff3b3b]{exc}[/]"
                     self.mode = "logistics"
