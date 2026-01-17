@@ -128,7 +128,7 @@ class GameState:
                 ),
                 control=0.3,  # Initial control level
             ),
-            production=ProductionState.new(capacity=3),
+            production=ProductionState.new(factories=3),
             logistics=LogisticsState.new(),
             task_force=TaskForceState(
                 composition=UnitComposition(infantry=6, walkers=2, support=1),

@@ -55,11 +55,13 @@ def load_game_state(path: Path) -> GameState:
                 except (KeyError, ValueError):
                     pass  # Skip invalid depot names
 
-    # Optional: production capacity
+    # Optional: production capacity/factories
     if "production" in data:
         prod_data = data["production"]
-        if "capacity" in prod_data:
-            state.production.capacity = int(prod_data["capacity"])
+        if "factories" in prod_data:
+            state.production.factories = int(prod_data["factories"])
+        elif "capacity" in prod_data:
+            state.production.factories = int(prod_data["capacity"])
 
     return state
 

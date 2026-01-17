@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import math
 from dataclasses import dataclass
 from enum import Enum
 
@@ -43,13 +42,42 @@ class ProductionOutput:
 class ProductionState:
     """Production system state."""
 
-    capacity: int
+    factories: int
+    slots_per_factory: int
+    max_factories: int
     jobs: list[ProductionJob]
 
     @staticmethod
-    def new(capacity: int = 3) -> ProductionState:
+    def new(
+        capacity: int | None = None,
+        factories: int = 3,
+        slots_per_factory: int = 1,
+        max_factories: int = 6,
+    ) -> ProductionState:
         """Create initial production state."""
-        return ProductionState(capacity=capacity, jobs=[])
+        if capacity is not None:
+            factories = capacity
+        return ProductionState(
+            factories=factories,
+            slots_per_factory=slots_per_factory,
+            max_factories=max_factories,
+            jobs=[],
+        )
+
+    @property
+    def capacity(self) -> int:
+        """Total production slots available per day."""
+        return self.factories * self.slots_per_factory
+
+    def can_add_factory(self) -> bool:
+        return self.factories < self.max_factories
+
+    def add_factory(self, count: int = 1) -> None:
+        if count <= 0:
+            raise ValueError("Factory upgrade count must be positive")
+        if self.factories + count > self.max_factories:
+            raise ValueError("Factory upgrade exceeds maximum")
+        self.factories += count
 
     def queue_job(
         self, job_type: ProductionJobType, quantity: int, stop_at: DepotNode = DepotNode.CORE
@@ -72,19 +100,24 @@ class ProductionState:
         if self.capacity <= 0:
             raise ValueError("Production capacity must be positive")
         completed: list[ProductionOutput] = []
+        if not self.jobs:
+            return completed
 
         capacity_remaining = self.capacity
+        index = 0
         while capacity_remaining > 0 and self.jobs:
-            job = self.jobs[0]
-            worked = min(capacity_remaining, job.remaining)
-            job.remaining -= worked
-            capacity_remaining -= worked
-            if job.remaining > 0:
-                break
-            completed.append(
-                ProductionOutput(job_type=job.job_type, quantity=job.quantity, stop_at=job.stop_at)
-            )
-            self.jobs.pop(0)
+            if index >= len(self.jobs):
+                index = 0
+            job = self.jobs[index]
+            job.remaining -= 1
+            capacity_remaining -= 1
+            if job.remaining <= 0:
+                completed.append(
+                    ProductionOutput(job_type=job.job_type, quantity=job.quantity, stop_at=job.stop_at)
+                )
+                self.jobs.pop(index)
+                continue
+            index += 1
 
         return completed
 
@@ -92,10 +125,29 @@ class ProductionState:
         """Get summary of jobs with ETAs. Returns list of (type, quantity, eta_days, stop_at)."""
         if self.capacity <= 0:
             raise ValueError("Production capacity must be positive")
-        work_prefix = 0
+        if not self.jobs:
+            return []
+        work_remaining = [job.remaining for job in self.jobs]
+        completion_days = [0 for _ in self.jobs]
+        day = 0
+        while any(remaining > 0 for remaining in work_remaining):
+            day += 1
+            capacity_remaining = self.capacity
+            index = 0
+            while capacity_remaining > 0 and any(remaining > 0 for remaining in work_remaining):
+                if index >= len(work_remaining):
+                    index = 0
+                if work_remaining[index] <= 0:
+                    index += 1
+                    continue
+                work_remaining[index] -= 1
+                capacity_remaining -= 1
+                if work_remaining[index] == 0:
+                    completion_days[index] = day
+                index += 1
+
         summary: list[tuple[str, int, int, str]] = []
-        for job in self.jobs:
-            work_prefix += job.remaining
-            eta_days = int(math.ceil(work_prefix / self.capacity))
+        for job, completion_day in zip(self.jobs, completion_days, strict=True):
+            eta_days = max(1, completion_day)
             summary.append((job.job_type.value, job.quantity, eta_days, job.stop_at.value))
         return summary
