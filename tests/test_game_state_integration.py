@@ -35,7 +35,8 @@ def test_advance_day_integrates_all_systems() -> None:
 
     # Set up shipment
     initial_core = state.logistics.depot_stocks[DepotNode.CORE].ammo
-    state.logistics.create_shipment(
+    state.logistics_service.create_shipment(
+        state.logistics,
         DepotNode.CORE,
         DepotNode.MID,
         Supplies(ammo=50, fuel=0, med_spares=0),
@@ -146,7 +147,8 @@ def test_multiple_days_full_integration() -> None:
     state.production.queue_job(ProductionJobType.FUEL, quantity=15)
 
     # Set up logistics
-    state.logistics.create_shipment(
+    state.logistics_service.create_shipment(
+        state.logistics,
         DepotNode.CORE,
         DepotNode.MID,
         Supplies(ammo=30, fuel=20, med_spares=10),

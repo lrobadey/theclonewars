@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from random import Random
 
@@ -27,6 +27,7 @@ from clone_wars.engine.ops import (
 )
 from clone_wars.engine.production import ProductionJobType, ProductionOutput, ProductionState
 from clone_wars.engine.rules import Ruleset, RulesError
+from clone_wars.engine.services.logistics import LogisticsService
 from clone_wars.engine.types import ObjectiveStatus, Supplies, UnitStock
 
 
@@ -95,6 +96,7 @@ class GameState:
     logistics: LogisticsState
     task_force: TaskForceState
     rules: Ruleset
+    logistics_service: LogisticsService = field(default_factory=LogisticsService, init=False)
 
     operation: ActiveOperation | None
     last_aar: AfterActionReport | None
@@ -203,7 +205,8 @@ class GameState:
             )
 
         if output.stop_at != DepotNode.CORE:
-            self.logistics.create_shipment(
+            self.logistics_service.create_shipment(
+                self.logistics,
                 DepotNode.CORE,
                 output.stop_at,
                 supplies,
@@ -228,7 +231,7 @@ class GameState:
 
     def _tick_logistics(self) -> None:
         """Advance logistics state by one tick."""
-        self.logistics.tick(self.rng)
+        self.logistics_service.tick(self.logistics, self.rng)
 
     def _resupply_task_force_daily(self) -> None:
         """Resupply task force from key planet depot."""

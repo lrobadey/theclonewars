@@ -5,6 +5,7 @@ from random import Random
 import pytest
 
 from clone_wars.engine.logistics import DepotNode, LogisticsState
+from clone_wars.engine.services.logistics import LogisticsService
 from clone_wars.engine.types import Supplies
 
 
@@ -20,10 +21,12 @@ def test_logistics_state_new() -> None:
 def test_create_shipment() -> None:
     """Test creating a shipment."""
     logistics = LogisticsState.new()
+    service = LogisticsService()
     rng = Random(42)
     initial_core = logistics.depot_stocks[DepotNode.CORE].ammo
 
-    logistics.create_shipment(
+    service.create_shipment(
+        logistics,
         DepotNode.CORE,
         DepotNode.MID_DEPOT,
         Supplies(ammo=50, fuel=30, med_spares=10),
@@ -42,12 +45,14 @@ def test_create_shipment() -> None:
 def test_create_shipment_insufficient_stock() -> None:
     """Test that creating shipment with insufficient stock raises error."""
     logistics = LogisticsState.new()
+    service = LogisticsService()
     rng = Random(42)
     # Set Core stock to low value
     logistics.depot_stocks[DepotNode.CORE] = Supplies(ammo=10, fuel=10, med_spares=10)
 
     with pytest.raises(ValueError, match="Insufficient stock"):
-        logistics.create_shipment(
+        service.create_shipment(
+            logistics,
             DepotNode.CORE,
             DepotNode.MID_DEPOT,
             Supplies(ammo=50, fuel=30, med_spares=10),
@@ -59,11 +64,13 @@ def test_create_shipment_insufficient_stock() -> None:
 def test_logistics_tick() -> None:
     """Test logistics daily tick advances shipments."""
     logistics = LogisticsState.new()
+    service = LogisticsService()
     rng = Random(42)
     initial_mid = logistics.depot_stocks[DepotNode.MID].ammo
 
     # Create shipment
-    logistics.create_shipment(
+    service.create_shipment(
+        logistics,
         DepotNode.CORE,
         DepotNode.MID_DEPOT,
         Supplies(ammo=50, fuel=0, med_spares=0),
@@ -76,7 +83,7 @@ def test_logistics_tick() -> None:
 
     # Tick until delivery
     for _ in range(days_needed):
-        logistics.tick(rng)
+        service.tick(logistics, rng)
 
     # Shipment should be delivered
     assert len(logistics.shipments) == 0
@@ -86,13 +93,15 @@ def test_logistics_tick() -> None:
 def test_logistics_tick_interdiction() -> None:
     """Test that interdiction can occur and reduce supplies."""
     logistics = LogisticsState.new()
+    service = LogisticsService()
     # Use a seed that triggers interdiction (or test multiple seeds)
     rng = Random(1)  # May or may not trigger, but we can test the mechanism
 
     # Pre-stock MID so we have enough for the shipment
     logistics.depot_stocks[DepotNode.MID] = Supplies(ammo=100, fuel=50, med_spares=30)
 
-    logistics.create_shipment(
+    service.create_shipment(
+        logistics,
         DepotNode.MID,
         DepotNode.FRONT,
         Supplies(ammo=100, fuel=0, med_spares=0),
@@ -104,7 +113,7 @@ def test_logistics_tick_interdiction() -> None:
     original_ammo = shipment.supplies.ammo
 
     # First tick checks interdiction
-    logistics.tick(rng)
+    service.tick(logistics, rng)
 
     # If interdicted, ammo should be reduced
     if shipment.interdicted:

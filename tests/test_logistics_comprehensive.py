@@ -4,7 +4,8 @@ from random import Random
 
 import pytest
 
-from clone_wars.engine.logistics import DepotNode, LogisticsState, Route, Shipment
+from clone_wars.engine.logistics import DepotNode, LogisticsState
+from clone_wars.engine.services.logistics import LogisticsService
 from clone_wars.engine.types import Supplies, UnitStock
 
 
@@ -35,10 +36,12 @@ def test_logistics_initial_state() -> None:
 def test_create_shipment_all_supplies() -> None:
     """Test creating shipment with all supply types."""
     logistics = LogisticsState.new()
+    service = LogisticsService()
     rng = Random(42)
     initial_core = logistics.depot_stocks[DepotNode.CORE]
 
-    logistics.create_shipment(
+    service.create_shipment(
+        logistics,
         DepotNode.CORE,
         DepotNode.MID_DEPOT,
         Supplies(ammo=50, fuel=40, med_spares=20),
@@ -63,10 +66,12 @@ def test_create_shipment_all_supplies() -> None:
 def test_create_shipment_no_route() -> None:
     """Test creating shipment to non-existent route."""
     logistics = LogisticsState.new()
+    service = LogisticsService()
     rng = Random(42)
 
     with pytest.raises(ValueError, match="No route"):
-        logistics.create_shipment(
+        service.create_shipment(
+            logistics,
             DepotNode.FRONT,
             DepotNode.CORE,  # Reverse route doesn't exist
             Supplies(ammo=10, fuel=10, med_spares=10),
@@ -78,11 +83,13 @@ def test_create_shipment_no_route() -> None:
 def test_create_shipment_partial_shortage() -> None:
     """Test creating shipment with partial stock shortage."""
     logistics = LogisticsState.new()
+    service = LogisticsService()
     rng = Random(42)
     logistics.depot_stocks[DepotNode.CORE] = Supplies(ammo=100, fuel=5, med_spares=100)
 
     with pytest.raises(ValueError, match="Insufficient stock"):
-        logistics.create_shipment(
+        service.create_shipment(
+            logistics,
             DepotNode.CORE,
             DepotNode.MID,
             Supplies(ammo=50, fuel=10, med_spares=50),  # fuel insufficient
@@ -94,17 +101,20 @@ def test_create_shipment_partial_shortage() -> None:
 def test_multiple_shipments() -> None:
     """Test multiple shipments in transit simultaneously."""
     logistics = LogisticsState.new()
+    service = LogisticsService()
     rng = Random(42)
 
     # Create multiple shipments
-    logistics.create_shipment(
+    service.create_shipment(
+        logistics,
         DepotNode.CORE,
         DepotNode.MID,
         Supplies(ammo=50, fuel=0, med_spares=0),
         None,
         rng,
     )
-    logistics.create_shipment(
+    service.create_shipment(
+        logistics,
         DepotNode.CORE,
         DepotNode.MID,
         Supplies(ammo=30, fuel=20, med_spares=0),
@@ -120,12 +130,14 @@ def test_multiple_shipments() -> None:
 def test_shipment_delivery_chain() -> None:
     """Test shipment traveling through the network path."""
     logistics = LogisticsState.new()
+    service = LogisticsService()
     rng = Random(42)
     initial_front = logistics.depot_stocks[DepotNode.FRONT].ammo
     for route in logistics.routes:
         route.interdiction_risk = 0.0
 
-    logistics.create_shipment(
+    service.create_shipment(
+        logistics,
         DepotNode.CORE,
         DepotNode.FRONT,
         Supplies(ammo=30, fuel=0, med_spares=0),
@@ -135,18 +147,19 @@ def test_shipment_delivery_chain() -> None:
 
     shipment = logistics.shipments[0]
     while logistics.shipments:
-        logistics.tick(rng)
+        service.tick(logistics, rng)
 
     assert logistics.depot_stocks[DepotNode.FRONT].ammo == initial_front + 30
 
 
 def test_interdiction_probability() -> None:
     """Test that interdiction occurs with correct probability over many runs."""
-    logistics = LogisticsState.new()
+    logistics_initial = LogisticsState.new()
+    service = LogisticsService()
 
     # Use route with high interdiction risk
     mid_to_front_route = next(
-        r for r in logistics.routes
+        r for r in logistics_initial.routes
         if r.origin == DepotNode.MID and r.destination == DepotNode.FRONT
     )
     assert mid_to_front_route.interdiction_risk > 0.1
@@ -158,14 +171,15 @@ def test_interdiction_probability() -> None:
         logistics = LogisticsState.new()
         logistics.depot_stocks[DepotNode.MID] = Supplies(ammo=100, fuel=50, med_spares=30)
         rng = Random(seed)
-        logistics.create_shipment(
+        service.create_shipment(
+            logistics,
             DepotNode.MID,
             DepotNode.FRONT,
             Supplies(ammo=100, fuel=0, med_spares=0),
             None,
             rng,
         )
-        logistics.tick(rng)
+        service.tick(logistics, rng)
         if logistics.shipments[0].interdicted:
             interdicted_count += 1
 
@@ -176,21 +190,22 @@ def test_interdiction_probability() -> None:
 
 def test_interdiction_supply_loss() -> None:
     """Test that interdiction reduces supplies correctly."""
-    logistics = LogisticsState.new()
+    service = LogisticsService()
     # Find a seed that triggers interdiction
     for seed in range(100):
         logistics = LogisticsState.new()
         logistics.depot_stocks[DepotNode.MID] = Supplies(ammo=100, fuel=50, med_spares=30)
         rng = Random(seed)
         original_ammo = 100
-        logistics.create_shipment(
+        service.create_shipment(
+            logistics,
             DepotNode.MID,
             DepotNode.FRONT,
             Supplies(ammo=original_ammo, fuel=50, med_spares=30),
             None,
             rng,
         )
-        logistics.tick(rng)
+        service.tick(logistics, rng)
         if logistics.shipments[0].interdicted:
             shipment = logistics.shipments[0]
             # Should have lost 20-40%
@@ -203,9 +218,11 @@ def test_interdiction_supply_loss() -> None:
 def test_shipment_total_days_tracking() -> None:
     """Test that shipment tracks total days correctly."""
     logistics = LogisticsState.new()
+    service = LogisticsService()
     rng = Random(42)
 
-    logistics.create_shipment(
+    service.create_shipment(
+        logistics,
         DepotNode.CORE,
         DepotNode.MID,
         Supplies(ammo=50, fuel=0, med_spares=0),
@@ -219,27 +236,30 @@ def test_shipment_total_days_tracking() -> None:
     assert shipment.days_remaining == total_days
 
     # After one tick
-    logistics.tick(rng)
+    service.tick(logistics, rng)
     assert shipment.days_remaining == total_days - 1
 
 
 def test_empty_logistics_tick() -> None:
     """Test that tick works with no shipments."""
     logistics = LogisticsState.new()
+    service = LogisticsService()
     rng = Random(42)
 
     # Should not raise error
-    logistics.tick(rng)
+    service.tick(logistics, rng)
     assert len(logistics.shipments) == 0
 
 
 def test_shipment_delivery_preserves_other_stocks() -> None:
     """Test that delivery doesn't affect other supply types incorrectly."""
     logistics = LogisticsState.new()
+    service = LogisticsService()
     rng = Random(42)
     initial_mid = logistics.depot_stocks[DepotNode.MID]
 
-    logistics.create_shipment(
+    service.create_shipment(
+        logistics,
         DepotNode.CORE,
         DepotNode.MID,
         Supplies(ammo=50, fuel=0, med_spares=0),
@@ -251,7 +271,7 @@ def test_shipment_delivery_preserves_other_stocks() -> None:
     days = shipment.days_remaining
 
     for _ in range(days):
-        logistics.tick(rng)
+        service.tick(logistics, rng)
 
     final_mid = logistics.depot_stocks[DepotNode.MID]
     # Only ammo should increase
@@ -263,11 +283,13 @@ def test_shipment_delivery_preserves_other_stocks() -> None:
 def test_unit_shipment_delivery() -> None:
     """Test that unit shipments deliver to depot unit stock."""
     logistics = LogisticsState.new()
+    service = LogisticsService()
     rng = Random(7)
     initial_units = logistics.depot_units[DepotNode.MID]
     logistics.depot_units[DepotNode.CORE] = UnitStock(infantry=10, walkers=5, support=4)
 
-    logistics.create_shipment(
+    service.create_shipment(
+        logistics,
         DepotNode.CORE,
         DepotNode.MID,
         Supplies(ammo=0, fuel=0, med_spares=0),
@@ -277,7 +299,7 @@ def test_unit_shipment_delivery() -> None:
 
     shipment = logistics.shipments[0]
     for _ in range(shipment.days_remaining):
-        logistics.tick(rng)
+        service.tick(logistics, rng)
 
     final_units = logistics.depot_units[DepotNode.MID]
     assert final_units.infantry == initial_units.infantry + 4
