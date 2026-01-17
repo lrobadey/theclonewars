@@ -250,13 +250,28 @@ class GameState:
             self.task_force.readiness = max(0.0, self.task_force.readiness - 0.02)
 
     def _apply_enemy_passive_reactions(self) -> None:
-        """Apply enemy fortification and strength growth."""
+        """Apply enemy fortification and strength growth influenced by reinforcement rate."""
+        base_reinforcement_rate = 0.10
+        reinforcement_scale = (
+            self.planet.enemy.reinforcement_rate / base_reinforcement_rate
+            if base_reinforcement_rate > 0
+            else 0.0
+        )
+        reinforcement_scale = min(2.0, max(0.0, reinforcement_scale))
         if self.operation is None:
-            self.planet.enemy.fortification = min(2.5, self.planet.enemy.fortification + 0.03)
-            self.planet.enemy.strength_min = min(3.0, self.planet.enemy.strength_min + 0.02)
-            self.planet.enemy.strength_max = min(4.0, self.planet.enemy.strength_max + 0.03)
+            self.planet.enemy.fortification = min(
+                2.5, self.planet.enemy.fortification + (0.03 * reinforcement_scale)
+            )
+            self.planet.enemy.strength_min = min(
+                3.0, self.planet.enemy.strength_min + (0.02 * reinforcement_scale)
+            )
+            self.planet.enemy.strength_max = min(
+                4.0, self.planet.enemy.strength_max + (0.03 * reinforcement_scale)
+            )
         else:
-            self.planet.enemy.fortification = min(2.0, self.planet.enemy.fortification + 0.01)
+            self.planet.enemy.fortification = min(
+                2.0, self.planet.enemy.fortification + (0.01 * reinforcement_scale)
+            )
 
     def _apply_storage_loss_events(self) -> None:
         """Apply storage losses that increase with distance from Core."""
