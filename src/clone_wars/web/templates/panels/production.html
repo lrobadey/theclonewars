@@ -5,6 +5,10 @@
             <span class="stat-label">CAPACITY</span>
             <span class="stat-value">{{ vm.capacity }} slots/day</span>
         </div>
+        <div class="stat-row">
+            <span class="stat-label">FACTORIES</span>
+            <span class="stat-value">{{ vm.factories }}/{{ vm.max_factories }} ({{ vm.slots_per_factory }} slot each)</span>
+        </div>
         <div class="production__queues">
             <div class="production__queues-title muted">QUEUES</div>
             {% if vm.jobs %}

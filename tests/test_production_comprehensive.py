@@ -11,6 +11,7 @@ def test_production_capacity_variations() -> None:
     for capacity in [1, 3, 5, 10]:
         prod = ProductionState.new(capacity=capacity)
         assert prod.capacity == capacity
+        assert prod.factories == capacity
         assert len(prod.jobs) == 0
 
 
@@ -56,23 +57,21 @@ def test_production_multiple_jobs_queue() -> None:
     assert prod.jobs[2].job_type == ProductionJobType.MED_SPARES
 
 
-def test_production_sequential_completion() -> None:
-    """Test that jobs with same duration complete together, different durations complete sequentially."""
+def test_production_parallel_completion() -> None:
+    """Test that jobs complete in parallel across slots."""
     prod = ProductionState.new(capacity=3)
-    prod.queue_job(ProductionJobType.AMMO, quantity=3)  # 1 day
-    prod.queue_job(ProductionJobType.FUEL, quantity=6)  # 2 days
+    prod.queue_job(ProductionJobType.AMMO, quantity=3)
+    prod.queue_job(ProductionJobType.FUEL, quantity=6)
 
-    # First tick: first job completes (1 day), second still in progress
+    # First tick: both jobs in progress
+    completed = prod.tick()
+    assert len(completed) == 0
+    assert len(prod.jobs) == 2
+
+    # Second tick: first job completes, second still in progress
     completed = prod.tick()
     assert len(completed) == 1
     assert completed[0].job_type == ProductionJobType.AMMO
-    assert completed[0].quantity == 3
-    assert len(prod.jobs) == 1
-    assert prod.jobs[0].job_type == ProductionJobType.FUEL
-
-    # Second tick: second job in progress
-    completed = prod.tick()
-    assert len(completed) == 0
     assert len(prod.jobs) == 1
 
     # Third tick: second job completes

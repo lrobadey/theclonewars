@@ -393,6 +393,8 @@ class ProductionPanel(Static):
         return (
             "[bold]PRODUCTION COMMAND[/]\n"
             f"[bold]CAPACITY:[/] {prod.capacity} slots/day\n"
+            f"[bold]FACTORIES:[/] {prod.factories}/{prod.max_factories} "
+            f"({prod.slots_per_factory} slot each)\n"
             "[bold]QUEUES:[/]\n"
             + "\n".join(job_lines)
         )

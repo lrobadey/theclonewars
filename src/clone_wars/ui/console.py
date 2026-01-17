@@ -310,8 +310,10 @@ class CommandConsole(Widget):
                 Static("SELECT CATEGORY:"),
                 Button("[A] SUPPLIES", id="prod-cat-supplies"),
                 Button("[B] ARMY", id="prod-cat-army"),
-                Button("[Q] BACK", id="btn-cancel"),
             )
+            if self.state.production.can_add_factory():
+                container.mount(Button("[C] UPGRADE FACTORY (+1 SLOT)", id="prod-upgrade-factory"))
+            container.mount(Button("[Q] BACK", id="btn-cancel"))
 
         elif self.mode == "production:item":
             if self._prod_category is None:
@@ -459,6 +461,14 @@ class CommandConsole(Widget):
             self.mode = "production"
         elif bid == "btn-logistics":
             self.mode = "logistics"
+        elif bid == "prod-upgrade-factory":
+            try:
+                self.state.production.add_factory()
+            except ValueError as exc:
+                self._message = f"[#ff3b3b]{exc}[/]"
+            else:
+                self._message = "[#a7adb5]FACTORY UPGRADE COMPLETE (+1 SLOT)[/]"
+            self.mode = "menu"
 
         # Sector (mission select) handlers
         elif bid.startswith("sector-"):
