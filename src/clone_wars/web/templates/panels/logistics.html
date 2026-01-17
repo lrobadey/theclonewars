@@ -39,7 +39,10 @@
                 <div class="logistics__shipment-main">#{{ shipment.id }} {{ shipment.path }} ({{ shipment.leg }})</div>
                 <div class="logistics__shipment-meta muted">
                     {{ shipment.supplies }}{% if shipment.units %} | {{ shipment.units }}{% endif %} |
-                    ETA {{ shipment.eta }}d | {{ shipment.status }}
+                    ETA {{ shipment.eta }}d |
+                    <span class="logistics__shipment-status logistics__shipment-status--{{ shipment.status_tone }}">
+                        {{ shipment.status }}
+                    </span>
                 </div>
             </div>
             {% endfor %}
