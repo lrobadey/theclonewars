@@ -8,6 +8,10 @@ from typing import TYPE_CHECKING
 from clone_wars.engine.rules import GlobalConfig
 from clone_wars.engine.types import Supplies
 
+# 1 Walker can effectively screen 20 Infantry.
+# TODO: Move to Ruleset GlobalConfig in future refactor.
+WALKER_COVERAGE_CAPACITY = 20
+
 if TYPE_CHECKING:
     from clone_wars.engine.state import GameState
 
@@ -104,6 +108,8 @@ class RaidCombatSession:
     walker_screen_saves: int = 0
     fortification_penalty_ticks: int = 0
     enemy_counterattacks: int = 0
+    screen_efficiency_total: float = 0.0
+    screen_efficiency_ticks: int = 0
 
     def step(self) -> CombatTick | None:
         if self.outcome is not None:
@@ -213,14 +219,16 @@ class RaidCombatSession:
         your_cas_target = self._sample_casualties(your_force_size, damage_to_you_coh * cas_multiplier)
         enemy_cas_target = self._sample_casualties(enemy_force_size, damage_to_enemy_coh)
 
-        # Split casualties with walker screen consideration
+        screen_efficiency = self._calculate_screen_efficiency(self.your_walkers, self.your_infantry)
+        self.screen_efficiency_total += screen_efficiency
+        self.screen_efficiency_ticks += 1
         walker_screen_active = self.your_walkers > 0
         your_inf_loss, your_walk_loss, your_sup_loss = self._split_casualties_dynamic(
             your_cas_target,
             self.your_infantry,
             self.your_walkers,
             self.your_support,
-            walker_screen=walker_screen_active,
+            screen_efficiency=screen_efficiency,
         )
         your_applied = your_inf_loss + your_walk_loss + your_sup_loss
 
@@ -248,8 +256,13 @@ class RaidCombatSession:
             event_parts.append("INITIATIVE WON")
         if ammo_pinch:
             event_parts.append("AMMO PINCH")
-        if walker_screen_active and your_walk_loss > 0:
-            event_parts.append("WALKER SCREEN")
+        if self.initial_walkers > 0:
+            if screen_efficiency >= 1.0:
+                event_parts.append("FULL SCREEN")
+            elif screen_efficiency < 0.5:
+                event_parts.append("SCREEN BUCKLED")
+            else:
+                event_parts.append("PARTIAL SCREEN")
         if enemy_counterattack:
             event_parts.append("ENEMY COUNTERATTACK")
         if beat == RaidBeat.INFILTRATION and self.enemy_fortification > 1.0:
@@ -360,10 +373,19 @@ class RaidCombatSession:
 
         # Walker screen
         if self.walker_screen_saves > 0:
+            avg_efficiency = (
+                self.screen_efficiency_total / self.screen_efficiency_ticks
+                if self.screen_efficiency_ticks > 0
+                else 0.0
+            )
+            avg_percent = round(avg_efficiency * 100)
             factors.append(RaidFactor(
                 name="walker_screen",
                 value=float(self.walker_screen_saves),
-                why=f"Walkers absorbed {self.walker_screen_saves} casualties protecting infantry",
+                why=(
+                    "Walkers provided "
+                    f"{avg_percent}% coverage, absorbing {self.walker_screen_saves} casualties"
+                ),
             ))
 
         # Fortification penalty (infiltration)
@@ -426,14 +448,14 @@ class RaidCombatSession:
             remaining -= add
         return (inf_loss, walk_loss, sup_loss)
 
-    @staticmethod
     def _split_casualties_dynamic(
+        self,
         total: int,
         infantry: int,
         walkers: int,
         support: int,
         *,
-        walker_screen: bool = False,
+        screen_efficiency: float = 0.0,
     ) -> tuple[int, int, int]:
         if total <= 0:
             return (0, 0, 0)
@@ -441,10 +463,11 @@ class RaidCombatSession:
         # Walker screen: walkers absorb more casualties, protecting infantry
         # Normal weights: (infantry=0.7, walkers=0.2, support=0.1)
         # With walker screen: shift weight from infantry to walkers
-        if walker_screen and walkers > 0:
+        if screen_efficiency > 0.0 and walkers > 0:
             # Walkers take walker_screen_infantry_protect of what infantry would take
-            inf_weight = 0.7 * (1.0 - self.config.walker_screen_infantry_protect)
-            walk_weight = 0.2 + 0.7 * self.config.walker_screen_infantry_protect
+            effective_protection = self.config.walker_screen_infantry_protect * screen_efficiency
+            inf_weight = 0.7 * (1.0 - effective_protection)
+            walk_weight = 0.2 + 0.7 * effective_protection
             sup_weight = 0.1
         else:
             inf_weight = 0.7
@@ -476,6 +499,13 @@ class RaidCombatSession:
             remaining -= add
 
         return (inf_loss, walk_loss, sup_loss)
+
+    @staticmethod
+    def _calculate_screen_efficiency(walkers: int, infantry: int) -> float:
+        if infantry <= 0:
+            return 1.0
+        capacity = walkers * WALKER_COVERAGE_CAPACITY
+        return min(1.0, capacity / max(1, infantry))
 
 
 def calculate_power(
