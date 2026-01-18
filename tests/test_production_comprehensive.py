@@ -8,28 +8,33 @@ from clone_wars.engine.production import ProductionJobType, ProductionState
 
 def test_production_capacity_variations() -> None:
     """Test production with different capacity values."""
-    for capacity in [1, 3, 5, 10]:
-        prod = ProductionState.new(capacity=capacity)
-        assert prod.capacity == capacity
-        assert prod.factories == capacity
+    for factories in [1, 3, 5, 10]:
+        prod = ProductionState.new(factories=factories)
+        assert prod.factories == factories
+        assert prod.capacity == factories * 20  # Default 20 slots per factory
         assert len(prod.jobs) == 0
 
 
 def test_production_job_duration_calculation() -> None:
     """Test that job duration is calculated correctly based on capacity."""
-    # Capacity 3: 6 units should take 2 days
+    # Capacity 3 factories = 60 slots.
+    # AMMO cost 20. 6 units = 120 work.
+    # 120/60 = 2 days.
     prod = ProductionState.new(capacity=3)
     prod.queue_job(ProductionJobType.AMMO, quantity=6)
     summary = prod.get_eta_summary()
     assert summary[0][2] == 2
 
-    # Capacity 3: 10 units should take 4 days (ceil(10/3) = 4)
+    # 10 units = 200 work.
+    # 200/60 = 3.33 -> 4 days.
     prod = ProductionState.new(capacity=3)
     prod.queue_job(ProductionJobType.AMMO, quantity=10)
     summary = prod.get_eta_summary()
     assert summary[0][2] == 4
 
-    # Capacity 5: 12 units should take 3 days (ceil(12/5) = 3)
+    # Capacity 5 factories = 100 slots.
+    # FUEL cost 20. 12 units = 240 work.
+    # 240/100 = 2.4 -> 3 days.
     prod = ProductionState.new(capacity=5)
     prod.queue_job(ProductionJobType.FUEL, quantity=12)
     summary = prod.get_eta_summary()
@@ -38,6 +43,7 @@ def test_production_job_duration_calculation() -> None:
 
 def test_production_single_unit_job() -> None:
     """Test production job with single unit."""
+    # Cap 60. Work 20. 0.33 days -> 1 day.
     prod = ProductionState.new(capacity=3)
     prod.queue_job(ProductionJobType.MED_SPARES, quantity=1)
     summary = prod.get_eta_summary()
@@ -84,12 +90,12 @@ def test_production_parallel_completion() -> None:
 
 def test_production_large_job() -> None:
     """Test production of large quantity job."""
-    prod = ProductionState.new(capacity=3)
-    prod.queue_job(ProductionJobType.AMMO, quantity=100)
+    prod = ProductionState.new(capacity=3) # 60 cap
+    prod.queue_job(ProductionJobType.AMMO, quantity=100) # 2000 work
 
     summary = prod.get_eta_summary()
     days_needed = summary[0][2]
-    assert days_needed == 34  # ceil(100/3) = 34
+    assert days_needed == 34  # ceil(2000/60) = 33.33 -> 34
 
     # Complete the job
     completed = []
@@ -150,10 +156,13 @@ def test_production_all_job_types() -> None:
 
 def test_production_zero_capacity_edge_case() -> None:
     """Test production with capacity 1 (minimum)."""
+    # capacity=1 means 1 factory -> 20 slots
+    # Qty 5 -> work 100
+    # 100/20 = 5 days.
     prod = ProductionState.new(capacity=1)
     prod.queue_job(ProductionJobType.AMMO, quantity=5)
     summary = prod.get_eta_summary()
-    assert summary[0][2] == 5  # Should take 5 days with capacity 1
+    assert summary[0][2] == 5
 
 
 def test_production_job_preserves_quantity() -> None:
@@ -167,7 +176,10 @@ def test_production_job_preserves_quantity() -> None:
     assert job.stop_at == DepotNode.CORE
 
     # Complete job
-    days = int(math.ceil(quantity / prod.capacity))
+    # Cost 20. Work = 15 * 20 = 300.
+    # Cap 60.
+    # Days = 300 / 60 = 5.
+    days = int(math.ceil((quantity * 20) / prod.capacity))
     completed = []
     for _ in range(days):
         completed.extend(prod.tick())
