@@ -42,6 +42,18 @@ def _build_server_cmd(host: str, port: int, reload: bool) -> list[str]:
     ]
     if reload:
         cmd.append("--reload")
+        cmd.extend(
+            [
+                "--reload-exclude",
+                "__pycache__",
+                "--reload-exclude",
+                "*.pyc",
+                "--reload-exclude",
+                "*.pyo",
+                "--reload-exclude",
+                ".pytest_cache",
+            ]
+        )
     return cmd
 
 

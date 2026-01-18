@@ -55,7 +55,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     try:
-        from watchfiles import watch  # type: ignore[import-not-found]
+        from watchfiles import DefaultFilter, watch  # type: ignore[import-not-found]
     except Exception:
         print(
             "Missing dependency: watchfiles\n"
@@ -71,6 +71,11 @@ def main(argv: list[str] | None = None) -> int:
         default_watch_paths.append(repo_root / "tests")
     watch_paths = [Path(p).resolve() for p in (args.paths or default_watch_paths)]
 
+    watch_filter = DefaultFilter(
+        ignore_dirs=["__pycache__", ".pytest_cache"],
+        ignore_entity_patterns=["*.pyc", "*.pyo", "*.pyd"],
+    )
+
     cmd = (
         [sys.executable, "-m", "clone_wars"]
         if args.cmd is None
@@ -80,7 +85,7 @@ def main(argv: list[str] | None = None) -> int:
     proc: subprocess.Popen[object] | None = None
     try:
         proc = subprocess.Popen(cmd)
-        for _changes in watch(*watch_paths):
+        for _changes in watch(*watch_paths, watch_filter=watch_filter):
             _terminate(proc)
             proc = subprocess.Popen(cmd)
     except KeyboardInterrupt:
