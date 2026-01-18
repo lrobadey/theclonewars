@@ -30,4 +30,13 @@
         {% endfor %}
     </div>
     {% endif %}
+
+    {% if vm.auto_advance %}
+    <div class="console__autotick"
+         hx-post="/action"
+         hx-vals='{"action":"btn-raid-tick"}'
+         hx-trigger="every {{ vm.auto_interval_ms }}ms"
+         hx-target="#console"
+         hx-swap="outerHTML"></div>
+    {% endif %}
 </div>

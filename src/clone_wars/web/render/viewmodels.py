@@ -6,13 +6,12 @@ from typing import Callable
 from clone_wars.engine.logistics import DepotNode, STORAGE_LOSS_PCT_RANGE, STORAGE_RISK_PER_DAY
 from clone_wars.engine.ops import OperationTarget, OperationTypeId
 from clone_wars.engine.production import ProductionJobType
-from clone_wars.engine.state import GameState
-from clone_wars.engine.types import SQUAD_SIZE
+from clone_wars.engine.state import AfterActionReport, GameState, RaidReport
 from clone_wars.web.console_controller import ConsoleController
 from clone_wars.web.render.format import (
     bar,
     fmt_int,
-    fmt_squads,
+    fmt_troops,
     pct,
     risk_label,
     status_class,
@@ -35,11 +34,23 @@ SCHEMATIC_ART = (
     "+------------------------------------+"
 )
 
+RAID_AUTO_INTERVAL_MS = 500
+
 
 @dataclass(frozen=True)
 class PanelSpec:
     template: str
     builder: Callable[[GameState, ConsoleController], dict]
+
+
+def _estimate_count(actual: int, confidence: float) -> str:
+    confidence = max(0.0, min(1.0, confidence))
+    variance = int(round(actual * (1.0 - confidence) * 0.5))
+    low = max(0, actual - variance)
+    high = actual + variance
+    if confidence > 0.9 or variance <= 0:
+        return fmt_int(actual)
+    return f"{fmt_int(low)}-{fmt_int(high)}"
 
 
 def _objective_status_for_target(state: GameState, target: OperationTarget):
@@ -72,7 +83,7 @@ def header_vm(state: GameState, controller: ConsoleController) -> dict:
             "med_spares": fmt_int(totals.med_spares),
         },
         "units": {
-            "infantry": fmt_squads(unit_totals.infantry),
+            "infantry": fmt_troops(unit_totals.infantry),
             "walkers": fmt_int(unit_totals.walkers),
             "support": fmt_int(unit_totals.support),
         },
@@ -84,6 +95,9 @@ def situation_map_vm(state: GameState, controller: ConsoleController) -> dict:
     active_target = None
     if state.operation is not None:
         active_target = state.operation.target
+    elif state.raid_target is not None:
+        active_target = state.raid_target
+    if active_target is not None:
         selected_target = active_target
 
     nodes = []
@@ -126,14 +140,17 @@ def situation_map_vm(state: GameState, controller: ConsoleController) -> dict:
     description = (obj_def.description if obj_def else "").strip()
     desc_line = description.splitlines()[0].strip() if description else "No details available."
     enemy = state.planet.enemy
-    strength_range = f"{enemy.strength_min:.1f} - {enemy.strength_max:.1f}"
+    conf = enemy.intel_confidence
 
     return {
         "art": SCHEMATIC_ART,
         "nodes": nodes,
         "enemy": {
-            "strength_range": strength_range,
-            "confidence_pct": pct(enemy.confidence),
+            "infantry_est": _estimate_count(enemy.infantry, conf),
+            "walkers_est": _estimate_count(enemy.walkers, conf),
+            "support_est": _estimate_count(enemy.support, conf),
+            "confidence_pct": pct(conf),
+            "cohesion_pct": pct(enemy.cohesion),
             "control_pct": pct(state.planet.control),
             "fortification": f"{enemy.fortification:.2f}",
             "reinforcement": f"{enemy.reinforcement_rate:.2f}",
@@ -152,11 +169,15 @@ def situation_map_vm(state: GameState, controller: ConsoleController) -> dict:
 
 def enemy_intel_vm(state: GameState, controller: ConsoleController) -> dict:
     enemy = state.planet.enemy
+    conf = enemy.intel_confidence
     fort_label = "HIGH" if enemy.fortification >= 1.0 else "LOW"
     reinf_label = "MODERATE" if enemy.reinforcement_rate >= 0.08 else "LOW"
     return {
-        "strength_range": f"{enemy.strength_min:.1f} - {enemy.strength_max:.1f}",
-        "confidence_pct": int(enemy.confidence * 100),
+        "infantry_est": _estimate_count(enemy.infantry, conf),
+        "walkers_est": _estimate_count(enemy.walkers, conf),
+        "support_est": _estimate_count(enemy.support, conf),
+        "confidence_pct": int(conf * 100),
+        "cohesion_pct": int(enemy.cohesion * 100),
         "fort_label": fort_label,
         "reinf_label": reinf_label,
     }
@@ -180,7 +201,7 @@ def task_force_vm(state: GameState, controller: ConsoleController) -> dict:
 
     lines = [
         "TASK FORCE: REPUBLIC HAMMER",
-        f"UNITS: INFANTRY ({fmt_squads(tf.composition.infantry)}),",
+        f"UNITS: INFANTRY ({fmt_troops(tf.composition.infantry)}),",
         f"       WALKERS ({fmt_int(tf.composition.walkers)}), SUPPORT ({fmt_int(tf.composition.support)})",
         "",
         f"READINESS: {readiness}%",
@@ -200,10 +221,7 @@ def production_vm(state: GameState, controller: ConsoleController) -> dict:
     jobs = []
     if prod.jobs:
         for job_type, quantity, eta, stop_at in prod.get_eta_summary():
-            if job_type == "infantry":
-                label = f"{job_type.upper()} x{quantity} squads ({fmt_int(quantity * SQUAD_SIZE)} troops)"
-            else:
-                label = f"{job_type.upper()} x{quantity}"
+            label = f"{job_type.upper()} x{fmt_int(quantity)}"
             jobs.append({"label": label, "eta": eta, "stop_at": stop_at})
 
     controls = _production_controls(state, controller)
@@ -264,7 +282,7 @@ def _production_controls(state: GameState, controller: ConsoleController) -> dic
                 action("prod-item-fuel", "FUEL")
                 action("prod-item-med", "MED/SPARES")
             else:
-                action("prod-item-inf", "INFANTRY (SQUADS)")
+                action("prod-item-inf", "INFANTRY")
                 action("prod-item-walkers", "WALKERS")
                 action("prod-item-support", "SUPPORT")
             action("prod-back-category", "BACK", "muted")
@@ -274,9 +292,7 @@ def _production_controls(state: GameState, controller: ConsoleController) -> dic
             action("prod-back-category", "BACK", "muted")
         else:
             job_label = controller.prod_job_type.value.upper()
-            quantity_line = f"{controller.prod_quantity}"
-            if controller.prod_job_type == ProductionJobType.INFANTRY:
-                quantity_line += f" squads ({fmt_int(controller.prod_quantity * SQUAD_SIZE)} troops)"
+            quantity_line = fmt_int(controller.prod_quantity)
             line("PRODUCTION - QUANTITY", "title")
             line(f"ITEM: {job_label}", "muted")
             line(f"QUANTITY: {quantity_line}", "muted")
@@ -295,9 +311,7 @@ def _production_controls(state: GameState, controller: ConsoleController) -> dic
             action("prod-back-category", "BACK", "muted")
         else:
             job_label = controller.prod_job_type.value.upper()
-            quantity_line = f"{controller.prod_quantity}"
-            if controller.prod_job_type == ProductionJobType.INFANTRY:
-                quantity_line += f" squads ({fmt_int(controller.prod_quantity * SQUAD_SIZE)} troops)"
+            quantity_line = fmt_int(controller.prod_quantity)
             line("PRODUCTION - DELIVER TO", "title")
             line(f"ITEM: {job_label}", "muted")
             line(f"QUANTITY: {quantity_line}", "muted")
@@ -430,11 +444,10 @@ def console_vm(state: GameState, controller: ConsoleController) -> dict:
             line("WAITING FOR DAILY REPORTS...", "muted")
             action("btn-next", "[N] NEXT DAY", "accent")
         else:
-            line("COMMAND LINK ESTABLISHED. AWAITING ORDERS.", "title")
-            action("btn-plan", "[1] PLAN OFFENSIVE")
-            action("btn-production", "[2] PRODUCTION")
-            action("btn-logistics", "[3] LOGISTICS")
-            action("btn-next", "[4] NEXT DAY", "accent")
+            line("COMMAND LINK ESTABLISHED. SELECT A SECTOR TO RAID.", "title")
+            action("btn-production", "[1] PRODUCTION")
+            action("btn-logistics", "[2] LOGISTICS")
+            action("btn-next", "[3] NEXT DAY", "accent")
 
     elif mode == "sector":
         if controller.target is None:
@@ -450,14 +463,8 @@ def console_vm(state: GameState, controller: ConsoleController) -> dict:
             description = (obj_def.description if obj_def else "").strip() or "No details available."
 
             enemy = state.planet.enemy
+            conf = enemy.intel_confidence
             control_pct = pct(state.planet.control)
-
-            def op_line(op_type: OperationTypeId) -> str:
-                cfg = state.rules.operation_types.get(op_type.value)
-                if not cfg:
-                    return op_type.value.upper()
-                dmin, dmax = cfg.duration_range
-                return f"{cfg.name.upper()} ({dmin}-{dmax}d)"
 
             line(f"SECTOR BRIEFING: {target.value.upper()}", "title")
             line(
@@ -465,21 +472,71 @@ def console_vm(state: GameState, controller: ConsoleController) -> dict:
                 "muted",
             )
             line(
-                f"ENEMY: {enemy.strength_min:.1f}-{enemy.strength_max:.1f} "
-                f"({int(enemy.confidence * 100)}% conf) | "
+                f"ENEMY: I {_estimate_count(enemy.infantry, conf)} | "
+                f"W {_estimate_count(enemy.walkers, conf)} | "
+                f"S {_estimate_count(enemy.support, conf)} "
+                f"({pct(conf)}% conf) | "
                 f"FORT {enemy.fortification:.2f} | REINF {enemy.reinforcement_rate:.2f} | "
-                f"CONTROL {control_pct}%",
+                f"COH {pct(enemy.cohesion)}% | CONTROL {control_pct}%",
                 "muted",
             )
             line("")
             line("ON-SITE DETAILS", "title")
             line(description, "muted")
             line("")
-            line("SELECT OPERATION TYPE", "title")
-            action("sector-raid", f"[A] {op_line(OperationTypeId.RAID)}")
-            action("sector-campaign", f"[B] {op_line(OperationTypeId.CAMPAIGN)}")
-            action("sector-siege", f"[C] {op_line(OperationTypeId.SIEGE)}")
+            line("AVAILABLE ACTION", "title")
+            line("RAID COST: A50 F30 M15 | MAX 12 TICKS", "muted")
+            action("btn-raid", "[A] EXECUTE RAID", "accent")
             action("btn-sector-back", "[Q] BACK", "muted")
+
+    elif mode == "raid":
+        session = state.raid_session
+        if session is None:
+            line("NO ACTIVE RAID.", "alert")
+            action("btn-cancel", "[Q] BACK", "muted")
+        else:
+            target = state.raid_target or controller.target
+            target_label = target.value.upper() if target else "UNKNOWN"
+            line(f"RAID IN PROGRESS: {target_label}", "title")
+            line(f"TICK {session.tick} OF {session.max_ticks}", "muted")
+            line(f"AUTO ADVANCE: {'ON' if controller.raid_auto else 'OFF'}", "muted")
+            line(
+                f"YOUR FORCE: I {fmt_int(session.your_infantry)} | "
+                f"W {fmt_int(session.your_walkers)} | "
+                f"S {fmt_int(session.your_support)} | "
+                f"COH {pct(session.your_cohesion)}%",
+                "muted",
+            )
+            line(
+                f"ENEMY FORCE: I {fmt_int(session.enemy_infantry)} | "
+                f"W {fmt_int(session.enemy_walkers)} | "
+                f"S {fmt_int(session.enemy_support)} | "
+                f"COH {pct(session.enemy_cohesion)}%",
+                "muted",
+            )
+            line(
+                f"CASUALTIES: YOU {fmt_int(session.your_casualties_total)} | "
+                f"ENEMY {fmt_int(session.enemy_casualties_total)}",
+                "muted",
+            )
+            if session.tick_log:
+                line("RECENT TICKS", "title")
+                for t in session.tick_log[-6:]:
+                    line(
+                        f"T{t.tick} | P {t.your_power:.1f}/{t.enemy_power:.1f} | "
+                        f"COH {pct(t.your_cohesion)}%/{pct(t.enemy_cohesion)}% | "
+                        f"CAS {fmt_int(t.your_casualties)}/{fmt_int(t.enemy_casualties)} | {t.event}",
+                        "muted",
+                    )
+            else:
+                line("READY TO ENGAGE. ADVANCE TICK TO BEGIN.", "muted")
+            action("btn-raid-tick", "[A] NEXT TICK", "accent")
+            action("btn-raid-resolve", "[B] RESOLVE ALL", "muted")
+            action(
+                "btn-raid-auto",
+                "[T] AUTO ON" if not controller.raid_auto else "[T] AUTO OFF",
+                "muted",
+            )
 
     elif mode == "plan:target":
         line("PHASE 0: SELECT TARGET SECTOR", "title")
@@ -557,7 +614,7 @@ def console_vm(state: GameState, controller: ConsoleController) -> dict:
                 action("prod-item-fuel", "[B] FUEL")
                 action("prod-item-med", "[C] MED/SPARES")
             else:
-                action("prod-item-inf", "[A] INFANTRY (SQUADS)")
+                action("prod-item-inf", "[A] INFANTRY (Troopers)")
                 action("prod-item-walkers", "[B] WALKERS")
                 action("prod-item-support", "[C] SUPPORT")
             action("prod-back-category", "[Q] BACK", "muted")
@@ -568,9 +625,7 @@ def console_vm(state: GameState, controller: ConsoleController) -> dict:
             action("prod-back-category", "[Q] BACK", "muted")
         else:
             job_label = controller.prod_job_type.value.upper()
-            quantity_line = f"{controller.prod_quantity}"
-            if controller.prod_job_type == ProductionJobType.INFANTRY:
-                quantity_line += f" squads ({fmt_int(controller.prod_quantity * SQUAD_SIZE)} troops)"
+            quantity_line = fmt_int(controller.prod_quantity)
             line("PRODUCTION - QUANTITY", "title")
             line(f"ITEM: {job_label}", "muted")
             line(f"QUANTITY: {quantity_line}", "muted")
@@ -590,9 +645,7 @@ def console_vm(state: GameState, controller: ConsoleController) -> dict:
             action("prod-back-category", "[Q] BACK", "muted")
         else:
             job_label = controller.prod_job_type.value.upper()
-            quantity_line = f"{controller.prod_quantity}"
-            if controller.prod_job_type == ProductionJobType.INFANTRY:
-                quantity_line += f" squads ({fmt_int(controller.prod_quantity * SQUAD_SIZE)} troops)"
+            quantity_line = fmt_int(controller.prod_quantity)
             line("PRODUCTION - DELIVER TO", "title")
             line(f"ITEM: {job_label}", "muted")
             line(f"QUANTITY: {quantity_line}", "muted")
@@ -614,27 +667,81 @@ def console_vm(state: GameState, controller: ConsoleController) -> dict:
             action("btn-logistics-back", "[Q] BACK", "muted")
         else:
             origin, destination = controller.pending_route
-            inf_4 = f"{fmt_int(4 * SQUAD_SIZE)} troops"
             line(f"SHIPMENT PACKAGE {origin.value} -> {destination.value}", "title")
             action("ship-mixed-1", "[A] MIXED (A40 F30 M15)")
             action("ship-ammo-1", "[B] AMMO RUN (A60)")
             action("ship-fuel-1", "[C] FUEL RUN (F50)")
             action("ship-med-1", "[D] MED/SPARES (M30)")
-            action("ship-inf-1", f"[E] INFANTRY (I4 / {inf_4})")
+            action("ship-inf-1", "[E] INFANTRY (80 troops)")
             action("ship-walk-1", "[F] WALKERS (W2)")
             action("ship-sup-1", "[G] SUPPORT (S3)")
-            action("ship-units-1", f"[H] MIXED UNITS (I4/{inf_4} W1 S2)")
+            action("ship-units-1", "[H] MIXED UNITS (I80 W1 S2)")
             action("btn-logistics-back", "[Q] BACK", "muted")
 
     elif mode == "aar":
-        aar = state.last_aar
-        if aar is None:
+        report = state.last_aar
+        if report is None:
             line("NO AFTER ACTION REPORT AVAILABLE.", "muted")
             action("btn-ack", "[ACKNOWLEDGE]", "accent")
-        else:
-            outcome = aar.outcome
-            outcome_kind = "success" if ("CAPTURED" in outcome or "RAIDED" in outcome) else "failure"
-            key_factor = aar.top_factors[0].why if aar.top_factors else "N/A"
+        elif isinstance(report, RaidReport):
+            outcome_kind = "success" if report.outcome == "VICTORY" else "failure"
+            actions.append({"id": "btn-ack", "label": "[ACKNOWLEDGE]", "tone": "accent"})
+
+            tick_rows = [
+                {
+                    "tick": t.tick,
+                    "your_power": f"{t.your_power:.1f}",
+                    "enemy_power": f"{t.enemy_power:.1f}",
+                    "your_coh": f"{pct(t.your_cohesion)}%",
+                    "enemy_coh": f"{pct(t.enemy_cohesion)}%",
+                    "your_cas": fmt_int(t.your_casualties),
+                    "enemy_cas": fmt_int(t.enemy_casualties),
+                    "event": t.event,
+                }
+                for t in report.tick_log
+            ]
+
+            return {
+                "mode": mode,
+                "message": controller.message,
+                "message_kind": controller.message_kind,
+                "lines": [],
+                "actions": actions,
+                "auto_advance": False,
+                "auto_interval_ms": RAID_AUTO_INTERVAL_MS,
+                "aar": {
+                    "outcome": report.outcome,
+                    "outcome_kind": outcome_kind,
+                    "target": report.target.value.upper(),
+                    "reason": report.reason,
+                    "ticks": report.ticks,
+                    "your_casualties": fmt_int(report.your_casualties),
+                    "enemy_casualties": fmt_int(report.enemy_casualties),
+                    "your_remaining": {
+                        "infantry": fmt_troops(report.your_remaining["infantry"]),
+                        "walkers": fmt_int(report.your_remaining["walkers"]),
+                        "support": fmt_int(report.your_remaining["support"]),
+                    },
+                    "enemy_remaining": {
+                        "infantry": fmt_troops(report.enemy_remaining["infantry"]),
+                        "walkers": fmt_int(report.enemy_remaining["walkers"]),
+                        "support": fmt_int(report.enemy_remaining["support"]),
+                    },
+                    "supplies_used": {
+                        "ammo": fmt_int(report.supplies_used.ammo),
+                        "fuel": fmt_int(report.supplies_used.fuel),
+                        "med_spares": fmt_int(report.supplies_used.med_spares),
+                    },
+                    "key_moments": list(report.key_moments),
+                    "tick_rows": tick_rows,
+                },
+            }
+        elif isinstance(report, AfterActionReport):
+            outcome = report.outcome
+            outcome_kind = (
+                "success" if ("CAPTURED" in outcome or "RAIDED" in outcome) else "failure"
+            )
+            key_factor = report.top_factors[0].why if report.top_factors else "N/A"
             actions.append({"id": "btn-ack", "label": "[ACKNOWLEDGE]", "tone": "accent"})
             return {
                 "mode": mode,
@@ -642,11 +749,25 @@ def console_vm(state: GameState, controller: ConsoleController) -> dict:
                 "message_kind": controller.message_kind,
                 "lines": [],
                 "actions": actions,
+                "auto_advance": False,
+                "auto_interval_ms": RAID_AUTO_INTERVAL_MS,
                 "aar": {
                     "outcome": outcome,
                     "outcome_kind": outcome_kind,
-                    "summary": f"TARGET: {aar.target.value} | LOSSES: {aar.losses} | DAYS: {aar.days}",
-                    "key_factor": key_factor,
+                    "target": report.target.value.upper(),
+                    "reason": key_factor,
+                    "ticks": report.days,
+                    "your_casualties": fmt_int(report.losses),
+                    "enemy_casualties": "N/A",
+                    "your_remaining": {},
+                    "enemy_remaining": {},
+                    "supplies_used": {
+                        "ammo": fmt_int(report.remaining_supplies.ammo),
+                        "fuel": fmt_int(report.remaining_supplies.fuel),
+                        "med_spares": fmt_int(report.remaining_supplies.med_spares),
+                    },
+                    "key_moments": [],
+                    "tick_rows": [],
                 },
             }
 
@@ -660,6 +781,8 @@ def console_vm(state: GameState, controller: ConsoleController) -> dict:
         "message_kind": controller.message_kind,
         "lines": lines,
         "actions": actions,
+        "auto_advance": controller.raid_auto and state.raid_session is not None and mode == "raid",
+        "auto_interval_ms": RAID_AUTO_INTERVAL_MS,
     }
 
 

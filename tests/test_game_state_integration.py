@@ -2,8 +2,10 @@
 
 from pathlib import Path
 
+import pytest
+
 from clone_wars.engine.logistics import DepotNode
-from clone_wars.engine.ops import OperationPlan, OperationTarget
+from clone_wars.engine.ops import OperationTarget
 from clone_wars.engine.production import ProductionJobType
 from clone_wars.engine.scenario import load_game_state
 from clone_wars.engine.types import ObjectiveStatus, Supplies, UnitStock
@@ -81,7 +83,11 @@ def test_production_outputs_to_core_depot() -> None:
 
 
 def test_unit_production_outputs_to_core_depot() -> None:
-    """Test that unit production outputs go to Core depot units."""
+    """Test that unit production outputs go to Core depot units.
+
+    Infantry production uses a quantity in "production units" which produces
+    quantity * SQUAD_SIZE troopers (e.g., 4 production units = 80 troopers).
+    """
     data_dir = Path(__file__).resolve().parents[1] / "src" / "clone_wars" / "data"
     state = load_game_state(data_dir / "scenario.json")
 
@@ -92,7 +98,8 @@ def test_unit_production_outputs_to_core_depot() -> None:
         state.advance_day()
 
     final_units = state.logistics.depot_units[DepotNode.CORE]
-    assert final_units.infantry == initial_units.infantry + 4
+    # 4 production units × 20 troopers per unit = 80 troopers
+    assert final_units.infantry == initial_units.infantry + 80
 
 
 def test_production_auto_dispatches_to_stop() -> None:
@@ -114,28 +121,30 @@ def test_production_auto_dispatches_to_stop() -> None:
     assert shipment.final_destination == DepotNode.MID
 
 
-def test_operation_during_advance_day() -> None:
-    """Test that operations progress during advance_day()."""
+def test_raid_updates_state_and_sets_report() -> None:
+    """Test that raid applies casualties/supply use and creates a report."""
     data_dir = Path(__file__).resolve().parents[1] / "src" / "clone_wars" / "data"
     state = load_game_state(data_dir / "scenario.json")
 
-    plan = OperationPlan.quickstart(OperationTarget.FOUNDRY)
-    state.start_operation(plan)
+    # Make outcome deterministic and fast.
+    state.task_force.composition.infantry = 200
+    state.task_force.composition.walkers = 0
+    state.task_force.composition.support = 0
+    state.planet.enemy.infantry = 25
+    state.planet.enemy.walkers = 0
+    state.planet.enemy.support = 0
+    state.planet.enemy.fortification = 1.0
 
-    estimated_days = state.operation.estimated_days
+    initial_ammo = state.task_force.supplies.ammo
+    initial_enemy_inf = state.planet.enemy.infantry
 
-    # Advance days until operation completes
-    days_advanced = 0
-    while state.operation is not None:
-        prev_day = state.day
-        state.advance_day()
-        days_advanced += 1
-        assert state.day > prev_day
+    report = state.raid(OperationTarget.FOUNDRY)
 
-    # Operation should have completed
-    assert state.operation is None
-    assert state.last_aar is not None
-    assert state.last_aar.days == estimated_days
+    assert state.last_aar is report
+    assert report.target == OperationTarget.FOUNDRY
+    assert report.outcome == "VICTORY"
+    assert state.task_force.supplies.ammo < initial_ammo
+    assert state.planet.enemy.infantry <= initial_enemy_inf
 
 
 def test_multiple_days_full_integration() -> None:
@@ -167,19 +176,21 @@ def test_multiple_days_full_integration() -> None:
 
 
 def test_enemy_passive_effects() -> None:
-    """Test that enemy fortification increases over time."""
+    """Test that enemy fortification and force can regenerate over time."""
     data_dir = Path(__file__).resolve().parents[1] / "src" / "clone_wars" / "data"
     state = load_game_state(data_dir / "scenario.json")
 
     initial_fort = state.planet.enemy.fortification
+    initial_infantry = state.planet.enemy.infantry
 
     # Advance multiple days
     for _ in range(10):
         state.advance_day()
 
-    # Fortification should increase (capped at 2.0)
+    # Fortification should increase (capped)
     assert state.planet.enemy.fortification >= initial_fort
-    assert state.planet.enemy.fortification <= 2.0
+    assert state.planet.enemy.fortification <= 2.5
+    assert state.planet.enemy.infantry >= initial_infantry
 
 
 def test_front_stock_is_available_to_task_force() -> None:
@@ -209,10 +220,16 @@ def test_win_condition_all_objectives() -> None:
     data_dir = Path(__file__).resolve().parents[1] / "src" / "clone_wars" / "data"
     state = load_game_state(data_dir / "scenario.json")
 
-    # Set up for success
-    state.planet.enemy.fortification = 0.5
-    state.planet.control = 0.9
-    state.task_force.supplies = Supplies(ammo=1000, fuel=1000, med_spares=1000)
+    # Set up for deterministic success.
+    state.task_force.composition.infantry = 1000
+    state.task_force.composition.walkers = 0
+    state.task_force.composition.support = 0
+    state.task_force.supplies = Supplies(ammo=10_000, fuel=10_000, med_spares=10_000)
+    state.planet.enemy.infantry = 10
+    state.planet.enemy.walkers = 0
+    state.planet.enemy.support = 0
+    state.planet.enemy.fortification = 1.0
+    state.planet.enemy.cohesion = 1.0
 
     objectives = [
         OperationTarget.FOUNDRY,
@@ -220,63 +237,41 @@ def test_win_condition_all_objectives() -> None:
         OperationTarget.POWER,
     ]
 
+    # Each objective requires 2 successful raids (ENEMY -> CONTESTED -> SECURED).
     for target in objectives:
-        # Try multiple seeds to get success
-        for seed in range(20):
-            if state.planet.objectives.foundry.value == "secured" and target == OperationTarget.FOUNDRY:
-                break
-            if state.planet.objectives.comms.value == "secured" and target == OperationTarget.COMMS:
-                break
-            if state.planet.objectives.power.value == "secured" and target == OperationTarget.POWER:
-                break
+        state.last_aar = None
+        report1 = state.raid(target)
+        assert report1.outcome == "VICTORY"
+        state.last_aar = None
+        report2 = state.raid(target)
+        assert report2.outcome == "VICTORY"
 
-            state.rng_seed = seed
-            state.rng = state.rng.__class__(seed)
-
-            plan = OperationPlan(
-                target=target,
-                approach_axis="stealth",
-                fire_support_prep="preparatory",
-                engagement_posture="shock",
-                risk_tolerance="high",
-                exploit_vs_secure="push",
-                end_state="capture",
-            )
-
-            state.start_operation(plan)
-            while state.operation is not None:
-                state.advance_day()
-
-            if state.last_aar and state.last_aar.outcome == "CAPTURED":
-                break
-
-    # Check win condition
-    from clone_wars.engine.types import ObjectiveStatus
-    all_secured = (
-        state.planet.objectives.foundry == ObjectiveStatus.SECURED
-        and state.planet.objectives.comms == ObjectiveStatus.SECURED
-        and state.planet.objectives.power == ObjectiveStatus.SECURED
-    )
-    # Note: This is probabilistic, may not always win in limited attempts
-    # But the mechanism should work
+    assert state.planet.objectives.foundry == ObjectiveStatus.SECURED
+    assert state.planet.objectives.comms == ObjectiveStatus.SECURED
+    assert state.planet.objectives.power == ObjectiveStatus.SECURED
 
 
-def test_operation_resolves_after_estimated_days() -> None:
-    """Test that operation resolves exactly after estimated days."""
+def test_raid_fails_against_secured_objective() -> None:
+    """Ensure raiding a secured objective is blocked."""
     data_dir = Path(__file__).resolve().parents[1] / "src" / "clone_wars" / "data"
     state = load_game_state(data_dir / "scenario.json")
 
-    plan = OperationPlan.quickstart(OperationTarget.FOUNDRY)
-    state.start_operation(plan)
+    state.task_force.composition.infantry = 1000
+    state.task_force.composition.walkers = 0
+    state.task_force.composition.support = 0
+    state.task_force.supplies = Supplies(ammo=10_000, fuel=10_000, med_spares=10_000)
+    state.planet.enemy.infantry = 10
+    state.planet.enemy.walkers = 0
+    state.planet.enemy.support = 0
+    state.planet.enemy.fortification = 1.0
+    state.planet.enemy.cohesion = 1.0
 
-    estimated = state.operation.estimated_days
+    target = OperationTarget.FOUNDRY
+    report1 = state.raid(target)
+    assert report1.outcome == "VICTORY"
+    report2 = state.raid(target)
+    assert report2.outcome == "VICTORY"
+    assert state.planet.objectives.foundry == ObjectiveStatus.SECURED
 
-    # Advance exactly estimated_days - 1
-    for _ in range(estimated - 1):
-        state.advance_day()
-        assert state.operation is not None
-
-    # One more advance should complete it
-    state.advance_day()
-    assert state.operation is None
-    assert state.last_aar is not None
+    with pytest.raises(RuntimeError, match="already secured"):
+        state.raid(target)

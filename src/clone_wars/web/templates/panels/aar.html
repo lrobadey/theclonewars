@@ -1,5 +1,38 @@
 <div class="console__aar console__aar--{{ vm.aar.outcome_kind }}">
-    <div class="console__aar-title">MISSION COMPLETE: {{ vm.aar.outcome }}</div>
-    <div class="console__aar-summary">{{ vm.aar.summary }}</div>
-    <div class="console__aar-factor muted">KEY FACTOR: {{ vm.aar.key_factor }}</div>
+    <div class="console__aar-title">RAID RESULT: {{ vm.aar.outcome }}</div>
+    <div class="console__aar-summary">TARGET: {{ vm.aar.target }} | TICKS: {{ vm.aar.ticks }}</div>
+    <div class="console__aar-factor muted">{{ vm.aar.reason }}</div>
+    <div class="console__aar-factor muted">
+        CASUALTIES — YOU: {{ vm.aar.your_casualties }} | ENEMY: {{ vm.aar.enemy_casualties }}
+    </div>
+    {% if vm.aar.your_remaining and vm.aar.enemy_remaining %}
+    <div class="console__aar-factor muted">
+        REMAINING — YOU: I {{ vm.aar.your_remaining.infantry }} W {{ vm.aar.your_remaining.walkers }} S {{ vm.aar.your_remaining.support }}
+        | ENEMY: I {{ vm.aar.enemy_remaining.infantry }} W {{ vm.aar.enemy_remaining.walkers }} S {{ vm.aar.enemy_remaining.support }}
+    </div>
+    {% endif %}
+    <div class="console__aar-factor muted">
+        SUPPLIES USED — A {{ vm.aar.supplies_used.ammo }} | F {{ vm.aar.supplies_used.fuel }} | M {{ vm.aar.supplies_used.med_spares }}
+    </div>
+
+    {% if vm.aar.key_moments %}
+    <div class="console__aar-factor muted">KEY MOMENTS</div>
+    <div class="console__lines">
+        {% for m in vm.aar.key_moments %}
+        <div class="console__line console__line--muted">{{ m }}</div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if vm.aar.tick_rows %}
+    <div class="console__aar-factor muted">TICK LOG</div>
+    <div class="console__lines">
+        {% for row in vm.aar.tick_rows %}
+        <div class="console__line console__line--muted">
+            T{{ row.tick }} | P {{ row.your_power }}/{{ row.enemy_power }} | COH {{ row.your_coh }}/{{ row.enemy_coh }}
+            | CAS {{ row.your_cas }}/{{ row.enemy_cas }} | {{ row.event }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
 </div>

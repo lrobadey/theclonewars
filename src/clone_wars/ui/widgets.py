@@ -3,7 +3,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Tuple
 
-from textual import events
 from textual.app import ComposeResult
 from textual.containers import Container, Horizontal, Vertical
 from textual.reactive import reactive
@@ -13,7 +12,7 @@ from textual.widgets import Button, Static
 from clone_wars.engine.logistics import DepotNode, STORAGE_LOSS_PCT_RANGE, STORAGE_RISK_PER_DAY
 from clone_wars.engine.ops import OperationTarget
 from clone_wars.engine.state import GameState
-from clone_wars.engine.types import ObjectiveStatus, SQUAD_SIZE, Supplies, UnitStock
+from clone_wars.engine.types import ObjectiveStatus, Supplies, UnitStock
 
 
 def _pct(value: float) -> int:
@@ -24,9 +23,18 @@ def _fmt_int(n: int) -> str:
     return f"{n:,}"
 
 
-def _fmt_squads(squads: int) -> str:
-    troops = squads * SQUAD_SIZE
-    return f"{_fmt_int(squads)} sq ({_fmt_int(troops)})"
+def _fmt_troops(troopers: int) -> str:
+    return _fmt_int(troopers)
+
+
+def _estimate_count(actual: int, confidence: float) -> str:
+    confidence = max(0.0, min(1.0, confidence))
+    variance = int(round(actual * (1.0 - confidence) * 0.5))
+    low = max(0, actual - variance)
+    high = actual + variance
+    if confidence > 0.9 or variance <= 0:
+        return _fmt_int(actual)
+    return f"{_fmt_int(low)}-{_fmt_int(high)}"
 
 
 def _sum_supplies(
@@ -63,7 +71,7 @@ def _format_supplies_summary(supplies: Supplies) -> str:
 
 def _format_units_summary(units: UnitStock) -> str:
     return (
-        f"INF {_fmt_squads(units.infantry)}, "
+        f"INF {_fmt_troops(units.infantry)}, "
         f"WLK {_fmt_int(units.walkers)}, "
         f"SUP {_fmt_int(units.support)}"
     )
@@ -141,17 +149,17 @@ class AnimatedCollapsible(Widget):
         if event.button is self._toggle:
             self.collapsed = not self.collapsed
 
-    def _on_mount(self, event: events.Mount) -> None:
+    def on_mount(self) -> None:
         self._update_title()
         self.set_class(self.collapsed, "-collapsed")
         self.styles.height = 3 if self.collapsed else "auto"
         self.call_after_refresh(self._capture_expanded_height)
         self._apply_collapsed_styles(animated=False)
 
-    def _watch_title(self, title: str) -> None:
+    def watch_title(self, title: str) -> None:
         self._update_title()
 
-    def _watch_collapsed(self, collapsed: bool) -> None:
+    def watch_collapsed(self, collapsed: bool) -> None:
         self._update_title()
         self.set_class(collapsed, "-collapsed")
         self.styles.height = 3 if collapsed else "auto"
@@ -297,17 +305,17 @@ class SituationMap(Widget):
         self.refresh_status()
 
     def action_prev_target(self) -> None:
-        if self.state.operation is not None:
+        if self.state.operation is not None or self.state.raid_session is not None:
             return
         self._cycle_target(-1)
 
     def action_next_target(self) -> None:
-        if self.state.operation is not None:
+        if self.state.operation is not None or self.state.raid_session is not None:
             return
         self._cycle_target(1)
 
     def action_open_selected(self) -> None:
-        if self.state.operation is not None:
+        if self.state.operation is not None or self.state.raid_session is not None:
             return
         target = self.selected_target
         if target is None:
@@ -353,6 +361,8 @@ class SituationMap(Widget):
         active_target: OperationTarget | None = None
         if op is not None:
             active_target = getattr(getattr(op, "intent", None), "target", None)
+        if active_target is None and self.state.raid_target is not None:
+            active_target = self.state.raid_target
         if active_target is not None:
             self.selected_target = active_target
 
@@ -415,7 +425,7 @@ class SituationMap(Widget):
         bid = event.button.id
         if not bid or not bid.startswith("map-"):
             return
-        if self.state.operation is not None:
+        if self.state.operation is not None or self.state.raid_session is not None:
             return
 
         from clone_wars.ui.console import CommandConsole
@@ -448,13 +458,18 @@ class EnemyIntel(Static):
 
     def render(self) -> str:
         enemy = self.state.planet.enemy
+        conf = enemy.intel_confidence
         fort_label = "HIGH" if enemy.fortification >= 1.0 else "LOW"
         reinf_label = "MODERATE" if enemy.reinforcement_rate >= 0.08 else "LOW"
         return (
-            f"[bold]ENEMY STRENGTH:[/] {enemy.strength_min:.1f}–{enemy.strength_max:.1f} "
-            f"({int(enemy.confidence * 100)}% Conf.)  |  "
+            f"[bold]ENEMY FORCE:[/] "
+            f"INF {_estimate_count(enemy.infantry, conf)}, "
+            f"WLK {_estimate_count(enemy.walkers, conf)}, "
+            f"SUP {_estimate_count(enemy.support, conf)} "
+            f"({int(conf * 100)}% Conf.)  |  "
             f"[bold]FORTIFICATION:[/] {fort_label}\n"
-            f"[bold]REINFORCEMENT:[/] {reinf_label}"
+            f"[bold]REINFORCEMENT:[/] {reinf_label}  |  "
+            f"[bold]COHESION:[/] {_pct(enemy.cohesion)}%"
         )
 
 
@@ -476,7 +491,7 @@ class TaskForcePanel(Static):
         med_bar = _bar(s.med_spares, 150)
 
         return (
-            f"[bold]UNITS:[/] INFANTRY ({_fmt_squads(tf.composition.infantry)}),\n"
+            f"[bold]UNITS:[/] INFANTRY ({_fmt_troops(tf.composition.infantry)}),\n"
             f"       WALKERS ({tf.composition.walkers}), SUPPORT ({tf.composition.support})\n\n"
             f"[bold]READINESS:[/] {readiness}%\n"
             f"[bold]COHESION:[/] {coh_label}\n\n"
@@ -497,9 +512,7 @@ class ProductionPanel(Static):
         if prod.jobs:
             job_lines = []
             for job_type, quantity, eta, stop_at in prod.get_eta_summary():
-                label = f"{job_type.upper():<9} x{quantity}"
-                if job_type == "infantry":
-                    label = f"{label} squads ({_fmt_int(quantity * SQUAD_SIZE)} troops)"
+                label = f"{job_type.upper():<9} x{_fmt_int(quantity)}"
                 job_lines.append(f"  - {label}  ETA {eta}d  -> {stop_at}")
         else:
             job_lines = ["  - NO ACTIVE QUEUES"]
@@ -595,7 +608,7 @@ class LogisticsPanel(Widget):
             f"[bold]STOCK:[/] "
             f"A {_fmt_int(stock.ammo)}  F {_fmt_int(stock.fuel)}  M {_fmt_int(stock.med_spares)}\n"
             f"[bold]UNITS:[/] "
-            f"I {_fmt_squads(units.infantry)}  W {_fmt_int(units.walkers)}  S {_fmt_int(units.support)}"
+            f"I {_fmt_troops(units.infantry)}  W {_fmt_int(units.walkers)}  S {_fmt_int(units.support)}"
         )
         self.query_one("#logistics-detail", Static).update(detail)
 

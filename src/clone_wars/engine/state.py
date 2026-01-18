@@ -4,6 +4,13 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from random import Random
 
+from clone_wars.engine.combat import (
+    CombatTick,
+    RaidCombatSession,
+    RaidFactor,
+    calculate_power,
+    start_raid_session,
+)
 from clone_wars.engine.logging import Event, TopFactor
 from clone_wars.engine.logistics import (
     DepotNode,
@@ -39,18 +46,20 @@ class Objectives:
 
 
 @dataclass(slots=True)
-class EnemyPackage:
-    strength_min: float
-    strength_max: float
-    confidence: float
+class EnemyForce:
+    infantry: int
+    walkers: int
+    support: int
+    cohesion: float
     fortification: float
     reinforcement_rate: float
+    intel_confidence: float
 
 
 @dataclass(slots=True)
 class PlanetState:
     objectives: Objectives
-    enemy: EnemyPackage
+    enemy: EnemyForce
     control: float  # 0.0 to 1.0, player control level
 
 
@@ -70,6 +79,22 @@ class TaskForceState:
     readiness: float
     cohesion: float
     supplies: Supplies
+
+
+@dataclass(frozen=True, slots=True)
+class RaidReport:
+    outcome: str  # "VICTORY" / "DEFEAT" / "STALEMATE"
+    reason: str
+    target: OperationTarget
+    ticks: int
+    your_casualties: int
+    enemy_casualties: int
+    your_remaining: dict[str, int]
+    enemy_remaining: dict[str, int]
+    supplies_used: Supplies
+    key_moments: list[str]
+    tick_log: list[CombatTick]
+    top_factors: list[RaidFactor] = field(default_factory=list)
 
 
 @dataclass(frozen=True, slots=True)
@@ -98,8 +123,10 @@ class GameState:
     rules: Ruleset
     logistics_service: LogisticsService = field(default_factory=LogisticsService, init=False)
 
+    raid_session: RaidCombatSession | None
+    raid_target: OperationTarget | None
     operation: ActiveOperation | None
-    last_aar: AfterActionReport | None
+    last_aar: RaidReport | AfterActionReport | None
 
     @staticmethod
     def new(seed: int = 1, data_dir: Path | None = None) -> "GameState":
@@ -121,30 +148,36 @@ class GameState:
                     comms=ObjectiveStatus.ENEMY,
                     power=ObjectiveStatus.ENEMY,
                 ),
-                enemy=EnemyPackage(
-                    strength_min=1.2,
-                    strength_max=2.0,
-                    confidence=0.70,
-                    fortification=1.00,
-                    reinforcement_rate=0.10,
+                enemy=EnemyForce(
+                    infantry=120,
+                    walkers=2,
+                    support=1,
+                    cohesion=1.00,
+                    fortification=1.20,
+                    reinforcement_rate=0.0,
+                    intel_confidence=0.70,
                 ),
                 control=0.3,  # Initial control level
             ),
             production=ProductionState.new(factories=3),
             logistics=LogisticsState.new(),
             task_force=TaskForceState(
-                composition=UnitComposition(infantry=6, walkers=2, support=1),
+                composition=UnitComposition(infantry=120, walkers=2, support=1),
                 readiness=1.00,
                 cohesion=1.00,
                 supplies=Supplies(ammo=120, fuel=90, med_spares=40),
             ),
             rules=rules,
+            raid_session=None,
+            raid_target=None,
             operation=None,
             last_aar=None,
         )
 
     def advance_day(self) -> None:
         """Advance game state by one day."""
+        if self.raid_session is not None:
+            return
         self.day += 1
         self._tick_production_and_distribute_to_core()
         self._tick_logistics()
@@ -153,6 +186,119 @@ class GameState:
         self._apply_enemy_passive_reactions()
         self._apply_storage_loss_events()
         self._progress_operation_if_applicable()
+
+    def start_raid(self, target: OperationTarget) -> None:
+        if self.operation is not None or self.raid_session is not None:
+            raise RuntimeError("Only one active operation allowed")
+        if self._get_objective_status(target) == ObjectiveStatus.SECURED:
+            raise RuntimeError(f"Cannot raid {target.value}; objective already secured")
+        self.raid_target = target
+        self.raid_session = start_raid_session(self, self.rng)
+
+    def advance_raid_tick(self) -> CombatTick | None:
+        if self.raid_session is None:
+            raise RuntimeError("No active raid")
+        tick = self.raid_session.step()
+        if self.raid_session.outcome is not None:
+            self._finalize_raid()
+        return tick
+
+    def resolve_active_raid(self) -> RaidReport:
+        if self.raid_session is None:
+            raise RuntimeError("No active raid")
+        while self.raid_session is not None:
+            self.advance_raid_tick()
+        report = self.last_aar
+        if not isinstance(report, RaidReport):
+            raise RuntimeError("Raid did not produce report")
+        return report
+
+    def raid(self, target: OperationTarget) -> RaidReport:
+        if self.raid_session is not None:
+            raise RuntimeError("Only one active operation allowed")
+        self.start_raid(target)
+        return self.resolve_active_raid()
+
+    def _finalize_raid(self) -> None:
+        if self.raid_session is None or self.raid_target is None:
+            return
+
+        initial_units = (
+            self.task_force.composition.infantry
+            + self.task_force.composition.walkers
+            + self.task_force.composition.support
+        )
+
+        result = self.raid_session.to_result()
+
+        self.task_force.composition.infantry = result.your_remaining["infantry"]
+        self.task_force.composition.walkers = result.your_remaining["walkers"]
+        self.task_force.composition.support = result.your_remaining["support"]
+
+        self.task_force.supplies = Supplies(
+            ammo=self.task_force.supplies.ammo - result.supplies_consumed.ammo,
+            fuel=self.task_force.supplies.fuel - result.supplies_consumed.fuel,
+            med_spares=self.task_force.supplies.med_spares - result.supplies_consumed.med_spares,
+        ).clamp_non_negative()
+
+        casualty_ratio = result.your_casualties_total / max(1, initial_units)
+        readiness_drop = min(0.35, (0.02 * result.ticks) + (0.25 * casualty_ratio))
+        self.task_force.readiness = max(0.0, min(1.0, self.task_force.readiness - readiness_drop))
+        self.task_force.cohesion = self.task_force.readiness
+
+        enemy = self.planet.enemy
+        enemy.infantry = result.enemy_remaining["infantry"]
+        enemy.walkers = result.enemy_remaining["walkers"]
+        enemy.support = result.enemy_remaining["support"]
+        enemy.cohesion = max(0.0, min(1.0, result.enemy_final_cohesion))
+
+        victory = result.outcome == "VICTORY"
+        self._apply_raid_outcome(self.raid_target, victory=victory)
+
+        key_moments: list[str] = []
+        last_event: str | None = None
+        for tick in result.tick_log:
+            if tick.event != last_event:
+                key_moments.append(f"T{tick.tick}: {tick.event}")
+                last_event = tick.event
+            if len(key_moments) >= 5:
+                break
+
+        report = RaidReport(
+            outcome=result.outcome,
+            reason=result.reason,
+            target=self.raid_target,
+            ticks=result.ticks,
+            your_casualties=result.your_casualties_total,
+            enemy_casualties=result.enemy_casualties_total,
+            your_remaining=dict(result.your_remaining),
+            enemy_remaining=dict(result.enemy_remaining),
+            supplies_used=result.supplies_consumed,
+            key_moments=key_moments,
+            tick_log=result.tick_log,
+            top_factors=result.top_factors,
+        )
+        self.last_aar = report
+        self.raid_session = None
+        self.raid_target = None
+
+    def _apply_raid_outcome(self, target: OperationTarget, *, victory: bool) -> None:
+        prior = self._get_objective_status(target)
+        if victory:
+            self.planet.control = min(1.0, self.planet.control + 0.05)
+            self.planet.enemy.fortification = max(0.6, self.planet.enemy.fortification - 0.03)
+
+            if prior == ObjectiveStatus.ENEMY:
+                self._set_objective(target, ObjectiveStatus.CONTESTED)
+            elif prior == ObjectiveStatus.CONTESTED:
+                self._set_objective(target, ObjectiveStatus.SECURED)
+                self.planet.enemy.reinforcement_rate = max(0.0, self.planet.enemy.reinforcement_rate - 0.02)
+                self.planet.enemy.fortification = max(0.6, self.planet.enemy.fortification - 0.10)
+        else:
+            self.planet.control = max(0.0, self.planet.control - 0.05)
+            self.planet.enemy.fortification = min(2.5, self.planet.enemy.fortification + 0.05)
+            if prior == ObjectiveStatus.CONTESTED:
+                self._set_objective(target, ObjectiveStatus.ENEMY)
 
     def _tick_production_and_distribute_to_core(self) -> None:
         """Run production tick and distribute completed items to Core depot."""
@@ -186,8 +332,9 @@ class GameState:
                 med_spares=core_stock.med_spares + quantity,
             )
         elif job_type == ProductionJobType.INFANTRY:
+            troops = quantity
             self.logistics.depot_units[DepotNode.CORE] = UnitStock(
-                infantry=core_units.infantry + quantity,
+                infantry=core_units.infantry + troops,
                 walkers=core_units.walkers,
                 support=core_units.support,
             )
@@ -253,7 +400,7 @@ class GameState:
             self.task_force.readiness = max(0.0, self.task_force.readiness - 0.02)
 
     def _apply_enemy_passive_reactions(self) -> None:
-        """Apply enemy fortification and strength growth influenced by reinforcement rate."""
+        """Apply enemy fortification and force regeneration influenced by reinforcement rate."""
         base_reinforcement_rate = 0.10
         reinforcement_scale = (
             self.planet.enemy.reinforcement_rate / base_reinforcement_rate
@@ -261,20 +408,21 @@ class GameState:
             else 0.0
         )
         reinforcement_scale = min(2.0, max(0.0, reinforcement_scale))
+        enemy = self.planet.enemy
         if self.operation is None:
-            self.planet.enemy.fortification = min(
-                2.5, self.planet.enemy.fortification + (0.03 * reinforcement_scale)
-            )
-            self.planet.enemy.strength_min = min(
-                3.0, self.planet.enemy.strength_min + (0.02 * reinforcement_scale)
-            )
-            self.planet.enemy.strength_max = min(
-                4.0, self.planet.enemy.strength_max + (0.03 * reinforcement_scale)
-            )
+            enemy.fortification = min(2.5, enemy.fortification + (0.03 * reinforcement_scale))
+
+            # Regenerate troops between operations (simple MVP rule).
+            enemy.infantry = min(5000, enemy.infantry + int(round(5 * reinforcement_scale)))
+            if self.rng.random() < (0.05 * reinforcement_scale):
+                enemy.walkers = min(200, enemy.walkers + 1)
+            if self.rng.random() < (0.07 * reinforcement_scale):
+                enemy.support = min(500, enemy.support + 1)
+
+            enemy.cohesion = min(1.0, enemy.cohesion + (0.15 * reinforcement_scale))
         else:
-            self.planet.enemy.fortification = min(
-                2.0, self.planet.enemy.fortification + (0.01 * reinforcement_scale)
-            )
+            enemy.fortification = min(2.0, enemy.fortification + (0.01 * reinforcement_scale))
+            enemy.cohesion = min(1.0, enemy.cohesion + (0.05 * reinforcement_scale))
 
     def _apply_storage_loss_events(self) -> None:
         """Apply storage losses that increase with distance from Core."""
@@ -358,7 +506,7 @@ class GameState:
 
     def start_operation_phased(self, intent: OperationIntent) -> None:
         """Start a new phased operation. Player must submit decisions per phase."""
-        if self.operation is not None:
+        if self.operation is not None or self.raid_session is not None:
             raise RuntimeError("Only one active operation allowed")
 
         # Get operation type config from rules
@@ -380,10 +528,24 @@ class GameState:
         phase_durations = self._calculate_phase_durations(intent.op_type, estimated_days)
 
         # Sample enemy strength once for determinism
-        sampled_strength = self.rng.uniform(
-            self.planet.enemy.strength_min,
-            self.planet.enemy.strength_max,
+        enemy = self.planet.enemy
+        tf = self.task_force
+        enemy_power = calculate_power(
+            enemy.infantry,
+            enemy.walkers,
+            enemy.support,
+            cohesion=max(0.0, min(1.0, enemy.cohesion)),
         )
+        your_power = calculate_power(
+            tf.composition.infantry,
+            tf.composition.walkers,
+            tf.composition.support,
+            cohesion=max(0.0, min(1.0, tf.readiness)),
+        )
+        raw_ratio = enemy_power / max(1.0, your_power)
+        uncertainty = (1.0 - enemy.intel_confidence) * 0.25
+        sampled_strength = raw_ratio + self.rng.uniform(-uncertainty, uncertainty)
+        sampled_strength = max(0.5, min(2.0, sampled_strength))
 
         self.operation = ActiveOperation(
             intent=intent,
@@ -646,11 +808,16 @@ class GameState:
         if support_role and support_role.recon:
             recon_rating = self.task_force.composition.support * support_role.recon.get("variance_reduction", 0.30) / 10.0
             recon_reduction = min(0.5, recon_rating)
-        base_variance = 0.20 * (1.0 - self.planet.enemy.confidence) * variance_mult
+        base_variance = 0.20 * (1.0 - self.planet.enemy.intel_confidence) * variance_mult
         variance = base_variance * (1.0 - recon_reduction)
         noise = self.rng.uniform(-variance, variance)
         progress += noise
-        log("fog_of_war", noise, "progress", f"Combat variance (intel {int(self.planet.enemy.confidence * 100)}%)")
+        log(
+            "fog_of_war",
+            noise,
+            "progress",
+            f"Combat variance (intel {int(self.planet.enemy.intel_confidence * 100)}%)",
+        )
         if recon_reduction > 0.01:
             log("recon_variance_reduction", -base_variance * recon_reduction, "progress", f"Recon units reduce variance by {int(recon_reduction * 100)}%")
 
@@ -680,7 +847,7 @@ class GameState:
             if max_protected > 0:
                 protection_factor = max_protected / max(1, infantry_count)
                 protection_reduction = protection_factor * infantry_role.transport_protection.get("protection_reduction", 0.40)
-                log("transport_protection", -protection_reduction, "losses", f"Walkers protect {max_protected} infantry")
+                log("transport_protection", -protection_reduction, "losses", f"Walkers protect {max_protected} troopers")
 
         # Calculate losses (heaviest in phase 2)
         total_units = (
@@ -777,14 +944,34 @@ class GameState:
         if total_units == 0:
             return
 
-        # Distribute losses (infantry takes more)
-        infantry_losses = min(self.task_force.composition.infantry, int(losses * 0.6))
-        walker_losses = min(self.task_force.composition.walkers, int(losses * 0.3))
-        support_losses = min(self.task_force.composition.support, int(losses * 0.1))
+        losses = min(losses, total_units)
 
-        self.task_force.composition.infantry = max(0, self.task_force.composition.infantry - infantry_losses)
-        self.task_force.composition.walkers = max(0, self.task_force.composition.walkers - walker_losses)
-        self.task_force.composition.support = max(0, self.task_force.composition.support - support_losses)
+        infantry = self.task_force.composition.infantry
+        walkers = self.task_force.composition.walkers
+        support = self.task_force.composition.support
+
+        # Distribute losses (infantry takes more), then reallocate any remainder to available units.
+        infantry_losses = min(infantry, int(losses * 0.6))
+        walker_losses = min(walkers, int(losses * 0.3))
+        support_losses = min(support, int(losses * 0.1))
+        remaining = losses - (infantry_losses + walker_losses + support_losses)
+
+        if remaining > 0:
+            add = min(infantry - infantry_losses, remaining)
+            infantry_losses += add
+            remaining -= add
+        if remaining > 0:
+            add = min(walkers - walker_losses, remaining)
+            walker_losses += add
+            remaining -= add
+        if remaining > 0:
+            add = min(support - support_losses, remaining)
+            support_losses += add
+            remaining -= add
+
+        self.task_force.composition.infantry = max(0, infantry - infantry_losses)
+        self.task_force.composition.walkers = max(0, walkers - walker_losses)
+        self.task_force.composition.support = max(0, support - support_losses)
 
         # Heavy losses reduce readiness
         if losses > total_units * 0.1:
@@ -995,10 +1182,16 @@ class GameState:
         if support_role and support_role.recon:
             recon_rating = self.task_force.composition.support * support_role.recon.get("variance_reduction", 0.30) / 10.0
             recon_reduction = min(0.5, recon_rating)  # Cap at 50% reduction
-        base_variance = 0.25 * (1.0 - self.planet.enemy.confidence) * variance_mult
+        base_variance = 0.25 * (1.0 - self.planet.enemy.intel_confidence) * variance_mult
         variance = base_variance * (1.0 - recon_reduction)
         noise = self.rng.uniform(-variance, variance)
-        log("fog_of_war", "Phase 2", noise, "progress", f"Variance from intel ({int(self.planet.enemy.confidence * 100)}%) and recon")
+        log(
+            "fog_of_war",
+            "Phase 2",
+            noise,
+            "progress",
+            f"Variance from intel ({int(self.planet.enemy.intel_confidence * 100)}%) and recon",
+        )
         if recon_reduction > 0.01:
             log("recon_variance_reduction", "Phase 2", -base_variance * recon_reduction, "progress", f"Recon units reduce variance by {int(recon_reduction * 100)}%")
 
@@ -1136,6 +1329,15 @@ class GameState:
             events=events,
         )
         self.operation = None
+
+    def _get_objective_status(self, target: OperationTarget) -> ObjectiveStatus:
+        match target:
+            case OperationTarget.FOUNDRY:
+                return self.planet.objectives.foundry
+            case OperationTarget.COMMS:
+                return self.planet.objectives.comms
+            case _:
+                return self.planet.objectives.power
 
     def _set_objective(self, target: OperationTarget, status: ObjectiveStatus) -> None:
         match target:

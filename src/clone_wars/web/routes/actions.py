@@ -4,7 +4,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
 
 from clone_wars.web.render.viewmodels import PANEL_SPECS
-from clone_wars.web.session import get_or_create_session
+from clone_wars.web.session import get_or_create_session, reset_session
 
 router = APIRouter()
 
@@ -20,10 +20,18 @@ async def handle_action(request: Request):
     templates = request.app.state.templates
 
     async with session.lock:
-        session.controller.dispatch(action, dict(form), session.state)
+        if action == "btn-reset":
+            reset_session(session)
+            session.controller.message = "SIMULATION RESET"
+            session.controller.message_kind = "info"
+            dirty_panels = set(PANEL_SPECS.keys())
+        else:
+            dirty_panels = session.controller.dispatch(action, dict(form), session.state)
         fragments = []
-        for name in PANEL_SPECS:
-            spec = PANEL_SPECS[name]
+        for name in dirty_panels:
+            spec = PANEL_SPECS.get(name)
+            if spec is None:
+                continue
             vm = spec.builder(session.state, session.controller)
             oob = name != "console"
             html = templates.get_template(spec.template).render({"vm": vm, "oob": oob})

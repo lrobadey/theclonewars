@@ -12,3 +12,8 @@ class WebSession:
     state: GameState
     controller: ConsoleController = field(default_factory=ConsoleController)
     lock: asyncio.Lock = field(default_factory=asyncio.Lock)
+
+    def reset(self, state: GameState) -> None:
+        """Reinitialize the session state and controller."""
+        self.state = state
+        self.controller = ConsoleController()

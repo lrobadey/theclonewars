@@ -14,6 +14,10 @@ def _load_initial_state():
     return load_game_state(data_path)
 
 
+def reset_session(session: WebSession) -> None:
+    session.reset(_load_initial_state())
+
+
 def get_or_create_session(session_id: str | None) -> tuple[str, WebSession]:
     if session_id and session_id in _sessions:
         return session_id, _sessions[session_id]

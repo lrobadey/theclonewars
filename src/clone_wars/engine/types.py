@@ -10,7 +10,7 @@ class ObjectiveStatus(str, Enum):
     SECURED = "secured"
 
 
-SQUAD_SIZE = 20
+
 
 
 @dataclass(frozen=True, slots=True)

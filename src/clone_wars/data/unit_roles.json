@@ -17,7 +17,7 @@
       "capabilities": ["combat", "transport", "armor"],
       "transport_protection": {
         "can_protect": true,
-        "protection_capacity": 3,
+        "protection_capacity": 60,
         "degradation_threshold": 0.5
       }
     },

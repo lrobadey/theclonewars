@@ -14,5 +14,76 @@
     <div class="app-shell">
         {% block content %}{% endblock %}
     </div>
+
+    <script>
+        (() => {
+            const storageKey = (panelId) => `cw:panel-collapsed:${panelId}`;
+
+            const safeGet = (key) => {
+                try {
+                    return window.localStorage.getItem(key);
+                } catch {
+                    return null;
+                }
+            };
+
+            const safeSet = (key, value) => {
+                try {
+                    window.localStorage.setItem(key, value);
+                } catch {
+                    /* ignore */
+                }
+            };
+
+            const applyPanelState = (panel) => {
+                if (!panel || !panel.id) return;
+                if (panel.dataset.collapsible !== "true") return;
+
+                const collapsed = safeGet(storageKey(panel.id)) === "1";
+                panel.dataset.collapsed = collapsed ? "true" : "false";
+
+                const toggle = panel.querySelector("[data-panel-toggle]");
+                if (toggle) {
+                    toggle.setAttribute("aria-expanded", (!collapsed).toString());
+                }
+            };
+
+            const initCollapsibles = (root = document) => {
+                if (!(root instanceof Element || root instanceof Document)) return;
+
+                const panels = [];
+                if (root instanceof Element && root.matches(".panel[data-collapsible='true']")) {
+                    panels.push(root);
+                }
+                panels.push(...root.querySelectorAll(".panel[data-collapsible='true']"));
+
+                panels.forEach((panel) => applyPanelState(panel));
+            };
+
+            const onToggleClick = (event) => {
+                const toggle = event.target?.closest?.("[data-panel-toggle]");
+                if (!toggle) return;
+
+                const panel = toggle.closest?.(".panel[data-collapsible='true']");
+                if (!panel || !panel.id) return;
+
+                event.preventDefault();
+
+                const collapsed = panel.dataset.collapsed !== "true";
+                panel.dataset.collapsed = collapsed ? "true" : "false";
+                safeSet(storageKey(panel.id), collapsed ? "1" : "0");
+                toggle.setAttribute("aria-expanded", (!collapsed).toString());
+            };
+
+            document.addEventListener("DOMContentLoaded", () => initCollapsibles(document));
+            document.addEventListener("click", onToggleClick);
+            document.body.addEventListener("htmx:afterSwap", (event) =>
+                initCollapsibles(event.detail?.target ?? event.target),
+            );
+            document.body.addEventListener("htmx:load", (event) =>
+                initCollapsibles(event.detail?.elt ?? event.target),
+            );
+        })();
+    </script>
 </body>
 </html>

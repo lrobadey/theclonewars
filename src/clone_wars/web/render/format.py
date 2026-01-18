@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from clone_wars.engine.types import ObjectiveStatus, SQUAD_SIZE, Supplies, UnitStock
+from clone_wars.engine.types import ObjectiveStatus, Supplies, UnitStock
 
 
 def pct(value: float) -> int:
@@ -11,9 +11,8 @@ def fmt_int(value: int) -> str:
     return f"{value:,}"
 
 
-def fmt_squads(squads: int) -> str:
-    troops = squads * SQUAD_SIZE
-    return f"{fmt_int(squads)} sq ({fmt_int(troops)})"
+def fmt_troops(troopers: int) -> str:
+    return fmt_int(troopers)
 
 
 def bar(value: int, max_value: int, width: int = 18) -> str:

@@ -1,61 +1,65 @@
-<div id="production" class="panel panel--production" {% if oob %}hx-swap-oob="true"{% endif %}>
-    <div class="panel__title">PRODUCTION</div>
-    <div class="production__summary">
-        <div class="stat-row">
-            <span class="stat-label">CAPACITY</span>
-            <span class="stat-value">{{ vm.capacity }} slots/day</span>
+<div id="production" class="panel panel--production" data-collapsible="true" {% if oob %}hx-swap-oob="true"{% endif %}>
+    <button type="button" class="panel__title panel__title--toggle" data-panel-toggle aria-expanded="true">
+        PRODUCTION
+    </button>
+    <div class="panel__body">
+        <div class="production__summary">
+            <div class="stat-row">
+                <span class="stat-label">CAPACITY</span>
+                <span class="stat-value">{{ vm.capacity }} slots/day</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">FACTORIES</span>
+                <span class="stat-value">{{ vm.factories }}/{{ vm.max_factories }} ({{ vm.slots_per_factory }} slot each)</span>
+            </div>
+            <div class="production__queues">
+                <div class="production__queues-title muted">QUEUES</div>
+                {% if vm.jobs %}
+                <div class="production__queue-list">
+                    {% for job in vm.jobs %}
+                    <div class="production__queue-item">
+                        <div class="production__queue-label">{{ job.label }}</div>
+                        <div class="production__queue-meta muted">ETA {{ job.eta }}d -> {{ job.stop_at }}</div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="muted">NO ACTIVE QUEUES</div>
+                {% endif %}
+            </div>
         </div>
-        <div class="stat-row">
-            <span class="stat-label">FACTORIES</span>
-            <span class="stat-value">{{ vm.factories }}/{{ vm.max_factories }} ({{ vm.slots_per_factory }} slot each)</span>
-        </div>
-        <div class="production__queues">
-            <div class="production__queues-title muted">QUEUES</div>
-            {% if vm.jobs %}
-            <div class="production__queue-list">
-                {% for job in vm.jobs %}
-                <div class="production__queue-item">
-                    <div class="production__queue-label">{{ job.label }}</div>
-                    <div class="production__queue-meta muted">ETA {{ job.eta }}d -> {{ job.stop_at }}</div>
+
+        {% if vm.controls %}
+        <div class="production__controls">
+            <div class="production__lines">
+                {% for line in vm.controls.lines %}
+                <div class="production__line{% if line.kind %} production__line--{{ line.kind }}{% endif %}">
+                    {{ line.text }}
                 </div>
                 {% endfor %}
             </div>
-            {% else %}
-            <div class="muted">NO ACTIVE QUEUES</div>
-            {% endif %}
-        </div>
-    </div>
-
-    {% if vm.controls %}
-    <div class="production__controls">
-        <div class="production__lines">
-            {% for line in vm.controls.lines %}
-            <div class="production__line{% if line.kind %} production__line--{{ line.kind }}{% endif %}">
-                {{ line.text }}
+            <div class="production__actions">
+                {% for action in vm.controls.actions %}
+                <button class="terminal-btn{% if action.tone %} terminal-btn--{{ action.tone }}{% endif %}"
+                        hx-post="/action"
+                        hx-vals='{"action":"{{ action.id }}"}'
+                        hx-target="#console"
+                        hx-swap="outerHTML">
+                    {{ action.label }}
+                </button>
+                {% endfor %}
             </div>
-            {% endfor %}
         </div>
-        <div class="production__actions">
-            {% for action in vm.controls.actions %}
-            <button class="terminal-btn{% if action.tone %} terminal-btn--{{ action.tone }}{% endif %}"
+        {% elif vm.cta %}
+        <div class="production__cta">
+            <button class="terminal-btn{% if vm.cta.tone %} terminal-btn--{{ vm.cta.tone }}{% endif %}"
                     hx-post="/action"
-                    hx-vals='{"action":"{{ action.id }}"}'
+                    hx-vals='{"action":"{{ vm.cta.id }}"}'
                     hx-target="#console"
                     hx-swap="outerHTML">
-                {{ action.label }}
+                {{ vm.cta.label }}
             </button>
-            {% endfor %}
         </div>
+        {% endif %}
     </div>
-    {% elif vm.cta %}
-    <div class="production__cta">
-        <button class="terminal-btn{% if vm.cta.tone %} terminal-btn--{{ vm.cta.tone }}{% endif %}"
-                hx-post="/action"
-                hx-vals='{"action":"{{ vm.cta.id }}"}'
-                hx-target="#console"
-                hx-swap="outerHTML">
-            {{ vm.cta.label }}
-        </button>
-    </div>
-    {% endif %}
 </div>

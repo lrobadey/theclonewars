@@ -1,4 +1,8 @@
-<div id="taskforce" class="panel panel--taskforce" {% if oob %}hx-swap-oob="true"{% endif %}>
-    <div class="panel__title">TASK FORCE</div>
-    <pre class="panel__pre">{{ vm.text }}</pre>
+<div id="taskforce" class="panel panel--taskforce" data-collapsible="true" {% if oob %}hx-swap-oob="true"{% endif %}>
+    <button type="button" class="panel__title panel__title--toggle" data-panel-toggle aria-expanded="true">
+        TASK FORCE
+    </button>
+    <div class="panel__body">
+        <pre class="panel__pre">{{ vm.text }}</pre>
+    </div>
 </div>

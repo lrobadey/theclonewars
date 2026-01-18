@@ -129,6 +129,52 @@ body {
     border-bottom: 1px solid var(--border);
     padding-bottom: 6px;
     margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    text-align: left;
+}
+
+/* Reset native button styling when panel titles are clickable. */
+button.panel__title {
+    appearance: none;
+    -webkit-appearance: none;
+    background: transparent;
+    border: 0;
+    border-bottom: 1px solid var(--border);
+    color: inherit;
+    font: inherit;
+    letter-spacing: inherit;
+    text-transform: inherit;
+    padding: 0 0 6px 0;
+}
+
+.panel__title--toggle {
+    cursor: pointer;
+}
+
+.panel__title--toggle::before {
+    content: "▼";
+    color: var(--muted);
+}
+
+.panel[data-collapsible="true"][data-collapsed="true"] .panel__title--toggle::before {
+    content: "▶";
+}
+
+.panel__title--toggle:focus-visible {
+    outline: 2px solid rgba(200, 16, 46, 0.7);
+    outline-offset: 2px;
+    border-radius: 6px;
+}
+
+.panel__body {
+    display: block;
+}
+
+.panel[data-collapsible="true"][data-collapsed="true"] .panel__body {
+    display: none;
 }
 
 .panel__pre {
@@ -190,6 +236,31 @@ body {
 
 .header__line .divider {
     color: var(--border-strong);
+}
+
+.header__actions {
+    margin-top: 12px;
+    display: flex;
+    justify-content: flex-end;
+}
+
+.header__reset {
+    padding: 4px 12px;
+    border-radius: 999px;
+    border: 1px solid rgba(58, 74, 99, 0.6);
+    background: rgba(11, 15, 20, 0.45);
+    color: var(--text);
+    font-family: var(--mono);
+    letter-spacing: 0.2em;
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.header__reset:hover {
+    border-color: rgba(200, 16, 46, 0.7);
+    background: rgba(200, 16, 46, 0.12);
 }
 
 .map__layout {

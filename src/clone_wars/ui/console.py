@@ -12,12 +12,22 @@ from textual.worker import Worker
 from clone_wars.engine.logistics import DepotNode
 from clone_wars.engine.ops import OperationPlan, OperationTarget, OperationTypeId
 from clone_wars.engine.production import ProductionJobType
-from clone_wars.engine.state import AfterActionReport, GameState
-from clone_wars.engine.types import ObjectiveStatus, SQUAD_SIZE, Supplies, UnitStock
+from clone_wars.engine.state import AfterActionReport, GameState, RaidReport
+from clone_wars.engine.types import ObjectiveStatus, Supplies, UnitStock
 
 
 def _fmt_int(n: int) -> str:
     return f"{n:,}"
+
+
+def _estimate_count(actual: int, confidence: float) -> str:
+    confidence = max(0.0, min(1.0, confidence))
+    variance = int(round(actual * (1.0 - confidence) * 0.5))
+    low = max(0, actual - variance)
+    high = actual + variance
+    if confidence > 0.9 or variance <= 0:
+        return _fmt_int(actual)
+    return f"{_fmt_int(low)}-{_fmt_int(high)}"
 
 
 class CommandConsole(Widget):
@@ -26,7 +36,7 @@ class CommandConsole(Widget):
     It sits at the bottom and changes its content based on 'mode'.
     """
 
-    # Modes: "menu", "sector", "plan:target", "plan:type", "plan:axis", "plan:prep", "plan:posture",
+    # Modes: "menu", "sector", "raid", "plan:target", "plan:type", "plan:axis", "plan:prep", "plan:posture",
     #        "plan:risk", "plan:exploit", "plan:end",
     #        "production", "production:item", "production:quantity", "production:stop",
     #        "logistics", "logistics:package", "executing", "aar"
@@ -45,18 +55,23 @@ class CommandConsole(Widget):
         self._message: str | None = None
         self._last_content_key: str = ""
         self._refresh_worker: Worker[None] | None = None
+        self._raid_auto: bool = False
+        self._raid_auto_interval_s: float = 0.5
 
     def compose(self) -> ComposeResult:
         yield Vertical(id="console-content")
 
     def on_mount(self) -> None:
         self._request_refresh()
+        self.set_interval(self._raid_auto_interval_s, self._auto_advance_raid)
 
     def update_view(self) -> None:
         """Safe entry point for external updates. Only triggers mode changes or guarded refreshes."""
         if self.state.last_aar is not None and self.mode != "aar":
             self.mode = "aar"
-        elif self.mode in {"menu", "sector"}:
+        elif self.state.raid_session is not None and self.mode != "raid":
+            self.mode = "raid"
+        elif self.mode in {"menu", "sector", "raid"}:
             self._request_refresh()
 
     @property
@@ -65,7 +80,7 @@ class CommandConsole(Widget):
 
     def open_sector(self, target: OperationTarget) -> None:
         """Open a mission-select / sector briefing for the clicked objective."""
-        if self.state.operation is not None:
+        if self.state.operation is not None or self.state.raid_session is not None:
             self._message = "[#ff3b3b]OPERATION ALREADY ACTIVE[/]"
             self.mode = "menu"
             return
@@ -77,7 +92,7 @@ class CommandConsole(Widget):
             self._request_refresh()
 
     def start_plan_with_target(self, target: OperationTarget) -> None:
-        if self.state.operation is not None:
+        if self.state.operation is not None or self.state.raid_session is not None:
             self._message = "[#ff3b3b]OPERATION ALREADY ACTIVE[/]"
             self.mode = "menu"
             return
@@ -120,6 +135,22 @@ class CommandConsole(Widget):
         self._last_content_key = ""
         self._request_refresh()
 
+    def _auto_advance_raid(self) -> None:
+        if not self._raid_auto:
+            return
+        if self.state.raid_session is None:
+            self._raid_auto = False
+            return
+        try:
+            self.state.advance_raid_tick()
+        except RuntimeError:
+            self._raid_auto = False
+            return
+        if self.state.raid_session is None and self.state.last_aar is not None:
+            self._raid_auto = False
+            self.mode = "aar"
+        self._request_refresh()
+
     def _request_refresh(self) -> None:
         if not self.is_attached:
             return
@@ -136,6 +167,9 @@ class CommandConsole(Widget):
         if self.mode == "menu" and self.state.last_aar is not None:
             self.mode = "aar"
             return
+        if self.mode == "raid" and self.state.raid_session is None and self.state.last_aar is None:
+            self.mode = "menu"
+            return
         if self.mode == "logistics:package" and not self._pending_route:
             self.mode = "logistics"
             return
@@ -144,9 +178,11 @@ class CommandConsole(Widget):
             return
 
         op_day = self.state.operation.day_in_operation if self.state.operation else -1
+        raid_tick = self.state.raid_session.tick if self.state.raid_session else -1
         content_key = (
             f"{self.mode}:{self.state.operation is not None}:{op_day}:{self.state.last_aar is not None}:"
-            f"{self._target}:{self._op_type.value}:{self._message}:"
+            f"{self.state.raid_session is not None}:{raid_tick}:{self.state.raid_target}:"
+            f"{self._target}:{self._op_type.value}:{self._message}:{self._raid_auto}:"
             f"{self._prod_category}:{self._prod_job_type}:{self._prod_quantity}"
         )
 
@@ -172,13 +208,15 @@ class CommandConsole(Widget):
                     Static("waiting for daily reports... (press 'n' or click button to advance day)"),
                     Button("[N] NEXT DAY", id="btn-next"),
                 )
+            elif self.state.raid_session is not None:
+                self.mode = "raid"
+                return
             else:
                 container.mount(
-                    Static("[bold]COMMAND LINK ESTABLISHED. AWAITING ORDERS.[/]", markup=True),
-                    Button("[1] PLAN OFFENSIVE", id="btn-plan"),
-                    Button("[2] PRODUCTION", id="btn-production"),
-                    Button("[3] LOGISTICS", id="btn-logistics"),
-                    Button("[4] NEXT DAY", id="btn-next"),
+                    Static("[bold]COMMAND LINK ESTABLISHED. SELECT A SECTOR TO RAID.[/]", markup=True),
+                    Button("[1] PRODUCTION", id="btn-production"),
+                    Button("[2] LOGISTICS", id="btn-logistics"),
+                    Button("[3] NEXT DAY", id="btn-next"),
                 )
 
         # --- SECTOR DETAIL / MISSION SELECT ---
@@ -215,20 +253,65 @@ class CommandConsole(Widget):
                     markup=True,
                 ),
                 Static(
-                    f"ENEMY: {enemy.strength_min:.1f}–{enemy.strength_max:.1f} "
-                    f"({int(enemy.confidence * 100)}% conf)  |  "
+                    f"ENEMY: I {_estimate_count(enemy.infantry, enemy.intel_confidence)}  |  "
+                    f"W {_estimate_count(enemy.walkers, enemy.intel_confidence)}  |  "
+                    f"S {_estimate_count(enemy.support, enemy.intel_confidence)}  |  "
+                    f"CONF: {int(enemy.intel_confidence * 100)}%  |  "
                     f"FORT: {enemy.fortification:.2f}  |  REINF: {enemy.reinforcement_rate:.2f}  |  "
+                    f"COH: {int(enemy.cohesion * 100)}%  |  "
                     f"CONTROL: {control_pct}%",
                 ),
                 Static(""),
                 Static("[bold]ON-SITE DETAILS[/]", markup=True),
                 Static(description or "No details available."),
                 Static(""),
-                Static("[bold]SELECT OPERATION TYPE[/]", markup=True),
-                Button(f"[A] {_op_line(OperationTypeId.RAID)}", id="sector-raid"),
-                Button(f"[B] {_op_line(OperationTypeId.CAMPAIGN)}", id="sector-campaign"),
-                Button(f"[C] {_op_line(OperationTypeId.SIEGE)}", id="sector-siege"),
+                Static("[bold]AVAILABLE ACTION[/]", markup=True),
+                Static("RAID COST: A50 F30 M15 | MAX 12 TICKS"),
+                Button("[A] EXECUTE RAID", id="btn-raid"),
                 Button("[Q] BACK", id="btn-sector-back"),
+            )
+
+        # --- RAID FLOW ---
+        elif self.mode == "raid":
+            session = self.state.raid_session
+            if session is None:
+                self.mode = "menu"
+                return
+            target_label = self.state.raid_target.value.upper() if self.state.raid_target else "UNKNOWN"
+            auto_label = "AUTO: ON" if self._raid_auto else "AUTO: OFF"
+            container.mount(
+                Static(f"[bold]RAID IN PROGRESS:[/] {target_label}", markup=True),
+                Static(f"TICK {session.tick} OF {session.max_ticks}"),
+                Static(auto_label),
+                Static(
+                    f"YOUR FORCE: I {session.your_infantry}  W {session.your_walkers}  "
+                    f"S {session.your_support}  |  COH {int(session.your_cohesion * 100)}%"
+                ),
+                Static(
+                    f"ENEMY FORCE: I {session.enemy_infantry}  W {session.enemy_walkers}  "
+                    f"S {session.enemy_support}  |  COH {int(session.enemy_cohesion * 100)}%"
+                ),
+                Static(
+                    f"CASUALTIES: YOU {session.your_casualties_total}  |  ENEMY {session.enemy_casualties_total}"
+                ),
+            )
+            if session.tick_log:
+                recent = session.tick_log[-6:]
+                tick_log = "\n".join(
+                    (
+                        f"T{t.tick} | P {t.your_power:.1f}/{t.enemy_power:.1f} | "
+                        f"COH {int(t.your_cohesion * 100)}%/{int(t.enemy_cohesion * 100)}% | "
+                        f"CAS {t.your_casualties}/{t.enemy_casualties} | {t.event}"
+                    )
+                    for t in recent
+                )
+                container.mount(Static(f"RECENT TICKS:\n{tick_log}"))
+            else:
+                container.mount(Static("READY TO ENGAGE. ADVANCE TICK TO BEGIN."))
+            container.mount(
+                Button("[A] NEXT TICK", id="btn-raid-tick"),
+                Button("[B] RESOLVE ALL", id="btn-raid-resolve"),
+                Button("[T] TOGGLE AUTO", id="btn-raid-auto"),
             )
 
         # --- PLANNING FLOW ---
@@ -332,7 +415,7 @@ class CommandConsole(Widget):
                 )
             else:
                 container.mount(
-                    Button("[A] INFANTRY (SQUADS)", id="prod-item-inf"),
+                    Button("[A] INFANTRY (Troopers)", id="prod-item-inf"),
                     Button("[B] WALKERS", id="prod-item-walkers"),
                     Button("[C] SUPPORT", id="prod-item-support"),
                 )
@@ -343,9 +426,7 @@ class CommandConsole(Widget):
                 self.mode = "production"
                 return
             job_label = self._prod_job_type.value.upper()
-            quantity_line = f"{self._prod_quantity}"
-            if self._prod_job_type == ProductionJobType.INFANTRY:
-                quantity_line += f" squads ({_fmt_int(self._prod_quantity * SQUAD_SIZE)} troops)"
+            quantity_line = _fmt_int(self._prod_quantity)
             container.mount(
                 Static("[bold]PRODUCTION - QUANTITY[/]", markup=True),
                 Static(f"ITEM: {job_label}"),
@@ -366,9 +447,7 @@ class CommandConsole(Widget):
                 self.mode = "production"
                 return
             job_label = self._prod_job_type.value.upper()
-            quantity_line = f"{self._prod_quantity}"
-            if self._prod_job_type == ProductionJobType.INFANTRY:
-                quantity_line += f" squads ({_fmt_int(self._prod_quantity * SQUAD_SIZE)} troops)"
+            quantity_line = _fmt_int(self._prod_quantity)
             container.mount(
                 Static("[bold]PRODUCTION - DELIVER TO[/]", markup=True),
                 Static(f"ITEM: {job_label}"),
@@ -391,7 +470,6 @@ class CommandConsole(Widget):
 
         elif self.mode == "logistics:package":
             origin, destination = cast(tuple[DepotNode, DepotNode], self._pending_route)
-            inf_4 = f"{4 * SQUAD_SIZE} troops"
             container.mount(
                 Static(
                     f"[bold]SHIPMENT PACKAGE[/] {origin.value} -> {destination.value}",
@@ -401,25 +479,64 @@ class CommandConsole(Widget):
                 Button("[B] AMMO RUN (A60)", id="ship-ammo-1"),
                 Button("[C] FUEL RUN (F50)", id="ship-fuel-1"),
                 Button("[D] MED/SPARES (M30)", id="ship-med-1"),
-                Button(f"[E] INFANTRY (I4 / {inf_4})", id="ship-inf-1"),
+                Button("[E] INFANTRY (80 troops)", id="ship-inf-1"),
                 Button("[F] WALKERS (W2)", id="ship-walk-1"),
                 Button("[G] SUPPORT (S3)", id="ship-sup-1"),
-                Button(f"[H] MIXED UNITS (I4/{inf_4} W1 S2)", id="ship-units-1"),
+                Button("[H] MIXED UNITS (I80 W1 S2)", id="ship-units-1"),
                 Button("[Q] BACK", id="btn-logistics-back"),
             )
 
         # --- AAR REPORT ---
         elif self.mode == "aar":
-            aar = cast(AfterActionReport, self.state.last_aar)
-            color = "#e5e7eb" if "CAPTURED" in aar.outcome or "RAIDED" in aar.outcome else "#ff3b3b"
-            container.mount(
-                Static(f"[bold {color}]MISSION COMPLETE: {aar.outcome}[/]", markup=True),
-                Static(
-                    f"TARGET: {aar.target.value} | LOSSES: {aar.losses} | DAYS: {aar.days}\n"
-                    f"KEY FACTOR: {aar.top_factors[0].why if aar.top_factors else 'N/A'}"
-                ),
-                Button("[ACKNOWLEDGE]", id="btn-ack"),
-            )
+            report = self.state.last_aar
+            if report is None:
+                container.mount(
+                    Static("[#a7adb5]NO AFTER ACTION REPORT AVAILABLE.[/]", markup=True),
+                    Button("[ACKNOWLEDGE]", id="btn-ack"),
+                )
+            elif isinstance(report, RaidReport):
+                color = "#e5e7eb" if report.outcome == "VICTORY" else "#ff3b3b"
+                moments = "\n".join(report.key_moments) if report.key_moments else "N/A"
+                tick_log = "\n".join(
+                    (
+                        f"T{t.tick} | P {t.your_power:.1f}/{t.enemy_power:.1f} | "
+                        f"COH {int(t.your_cohesion * 100)}%/{int(t.enemy_cohesion * 100)}% | "
+                        f"CAS {t.your_casualties}/{t.enemy_casualties} | {t.event}"
+                    )
+                    for t in report.tick_log
+                )
+                top_factors_str = ""
+                if report.top_factors:
+                    factor_lines = [f"  • {f.why}" for f in report.top_factors[:5]]
+                    top_factors_str = "\n".join(factor_lines)
+                else:
+                    top_factors_str = "  N/A"
+                container.mount(
+                    Static(f"[bold {color}]RAID RESULT: {report.outcome}[/]", markup=True),
+                    Static(
+                        f"TARGET: {report.target.value} | TICKS: {report.ticks}\n"
+                        f"REASON: {report.reason}\n"
+                        f"CASUALTIES: YOU {report.your_casualties} | ENEMY {report.enemy_casualties}\n"
+                        f"SUPPLIES USED: A {report.supplies_used.ammo} | F {report.supplies_used.fuel} | M {report.supplies_used.med_spares}\n"
+                        f"REMAINING: YOU I {report.your_remaining['infantry']} W {report.your_remaining['walkers']} S {report.your_remaining['support']} | "
+                        f"ENEMY I {report.enemy_remaining['infantry']} W {report.enemy_remaining['walkers']} S {report.enemy_remaining['support']}\n\n"
+                        f"TOP FACTORS:\n{top_factors_str}\n\n"
+                        f"KEY MOMENTS:\n{moments}\n\n"
+                        f"TICK LOG:\n{tick_log}"
+                    ),
+                    Button("[ACKNOWLEDGE]", id="btn-ack"),
+                )
+            else:
+                aar = cast(AfterActionReport, report)
+                color = "#e5e7eb" if "CAPTURED" in aar.outcome or "RAIDED" in aar.outcome else "#ff3b3b"
+                container.mount(
+                    Static(f"[bold {color}]MISSION COMPLETE: {aar.outcome}[/]", markup=True),
+                    Static(
+                        f"TARGET: {aar.target.value} | LOSSES: {aar.losses} | DAYS: {aar.days}\n"
+                        f"KEY FACTOR: {aar.top_factors[0].why if aar.top_factors else 'N/A'}"
+                    ),
+                    Button("[ACKNOWLEDGE]", id="btn-ack"),
+                )
 
         self._last_content_key = content_key
 
@@ -430,8 +547,14 @@ class CommandConsole(Widget):
 
         # Main Menu handlers
         if bid == "btn-plan":
-            self.mode = "plan:target"
+            self._message = "[#ff3b3b]PHASED OPS DEPRECATED — USE RAID[/]"
+            self._request_refresh()
+            return
         elif bid == "btn-next":
+            if self.state.raid_session is not None:
+                self._message = "[#ff3b3b]RAID IN PROGRESS[/]"
+                self._request_refresh()
+                return
             ran = await self.app.run_action("next_day")
             if not ran and hasattr(self.app, "action_next_day"):
                 self.app.action_next_day()
@@ -454,6 +577,7 @@ class CommandConsole(Widget):
         elif bid == "btn-ack":
             self.state.last_aar = None
             self.mode = "menu"
+            self._raid_auto = False
         elif bid == "btn-production":
             self._prod_category = None
             self._prod_job_type = None
@@ -461,6 +585,53 @@ class CommandConsole(Widget):
             self.mode = "production"
         elif bid == "btn-logistics":
             self.mode = "logistics"
+        elif bid == "btn-raid":
+            if self._target is None:
+                self._message = "[#ff3b3b]NO TARGET SELECTED[/]"
+                self.mode = "menu"
+                return
+            try:
+                self._raid_auto = False
+                self.state.start_raid(self._target)
+            except RuntimeError as exc:
+                self._message = f"[#ff3b3b]{str(exc).upper()}[/]"
+                self.mode = "menu"
+            else:
+                self._message = "[#c8102e]RAID STARTED[/]"
+                self.mode = "raid"
+                self._request_refresh()
+        elif bid == "btn-raid-tick":
+            try:
+                self.state.advance_raid_tick()
+            except RuntimeError as exc:
+                self._message = f"[#ff3b3b]{str(exc).upper()}[/]"
+                self.mode = "menu"
+            else:
+                if self.state.raid_session is None and self.state.last_aar is not None:
+                    self.mode = "aar"
+                else:
+                    self.mode = "raid"
+            self._request_refresh()
+        elif bid == "btn-raid-resolve":
+            try:
+                self._raid_auto = False
+                self.state.resolve_active_raid()
+            except RuntimeError as exc:
+                self._message = f"[#ff3b3b]{str(exc).upper()}[/]"
+                self.mode = "menu"
+            else:
+                self._message = "[#c8102e]RAID RESOLVED[/]"
+                self.mode = "aar"
+            self._request_refresh()
+        elif bid == "btn-raid-auto":
+            if self.state.raid_session is None:
+                self._message = "[#ff3b3b]NO ACTIVE RAID[/]"
+                self.mode = "menu"
+            else:
+                self._raid_auto = not self._raid_auto
+                self._message = "[#a7adb5]AUTO ADVANCE ON[/]" if self._raid_auto else "[#a7adb5]AUTO ADVANCE OFF[/]"
+                self.mode = "raid"
+            self._request_refresh()
         elif bid == "prod-upgrade-factory":
             try:
                 self.state.production.add_factory()
@@ -480,8 +651,20 @@ class CommandConsole(Widget):
             chosen = op_map.get(bid)
             if chosen is None or self._target is None:
                 return
-            self._op_type = chosen
-            self.mode = "plan:axis"
+            if chosen != OperationTypeId.RAID:
+                self._message = "[#ff3b3b]ONLY RAID AVAILABLE[/]"
+                self._request_refresh()
+                return
+            try:
+                self._raid_auto = False
+                self.state.start_raid(self._target)
+            except RuntimeError as exc:
+                self._message = f"[#ff3b3b]{str(exc).upper()}[/]"
+                self.mode = "menu"
+            else:
+                self._message = "[#c8102e]RAID STARTED[/]"
+                self.mode = "raid"
+                self._request_refresh()
 
         # Planning Handlers
         elif bid.startswith("target-"):
@@ -528,6 +711,13 @@ class CommandConsole(Widget):
         elif bid.startswith("end-"):
             self._plan_draft["end_state"] = bid.split("-")[1]
             if self._target:
+                if self.state.operation is not None or self.state.raid_session is not None:
+                    self._message = "[#ff3b3b]OPERATION ALREADY ACTIVE[/]"
+                    self.mode = "menu"
+                    self._plan_draft.clear()
+                    self._target = None
+                    self._op_type = OperationTypeId.CAMPAIGN
+                    return
                 plan = OperationPlan(
                     target=self._target,
                     approach_axis=self._plan_draft["approach_axis"],
@@ -647,10 +837,10 @@ class CommandConsole(Widget):
                 "ship-ammo-1": (Supplies(ammo=60, fuel=0, med_spares=0), UnitStock(0, 0, 0)),
                 "ship-fuel-1": (Supplies(ammo=0, fuel=50, med_spares=0), UnitStock(0, 0, 0)),
                 "ship-med-1": (Supplies(ammo=0, fuel=0, med_spares=30), UnitStock(0, 0, 0)),
-                "ship-inf-1": (Supplies(ammo=0, fuel=0, med_spares=0), UnitStock(4, 0, 0)),
+                "ship-inf-1": (Supplies(ammo=0, fuel=0, med_spares=0), UnitStock(80, 0, 0)),
                 "ship-walk-1": (Supplies(ammo=0, fuel=0, med_spares=0), UnitStock(0, 2, 0)),
                 "ship-sup-1": (Supplies(ammo=0, fuel=0, med_spares=0), UnitStock(0, 0, 3)),
-                "ship-units-1": (Supplies(ammo=0, fuel=0, med_spares=0), UnitStock(4, 1, 2)),
+                "ship-units-1": (Supplies(ammo=0, fuel=0, med_spares=0), UnitStock(80, 1, 2)),
             }
             package = package_map.get(bid)
             if package and self._pending_route:

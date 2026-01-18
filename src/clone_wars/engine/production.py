@@ -19,6 +19,16 @@ class ProductionJobType(str, Enum):
     SUPPORT = "support"
 
 
+PRODUCTION_COSTS: dict[ProductionJobType, int] = {
+    ProductionJobType.AMMO: 20,
+    ProductionJobType.FUEL: 20,
+    ProductionJobType.MED_SPARES: 20,
+    ProductionJobType.INFANTRY: 1,
+    ProductionJobType.WALKERS: 20,
+    ProductionJobType.SUPPORT: 20,
+}
+
+
 @dataclass(slots=True)
 class ProductionJob:
     """A production job in the queue."""
@@ -51,7 +61,7 @@ class ProductionState:
     def new(
         capacity: int | None = None,
         factories: int = 3,
-        slots_per_factory: int = 1,
+        slots_per_factory: int = 20,
         max_factories: int = 6,
     ) -> ProductionState:
         """Create initial production state."""
@@ -87,10 +97,11 @@ class ProductionState:
             raise ValueError("Production quantity must be positive")
         if self.capacity <= 0:
             raise ValueError("Production capacity must be positive")
+
         job = ProductionJob(
             job_type=job_type,
             quantity=quantity,
-            remaining=quantity,
+            remaining=quantity * PRODUCTION_COSTS.get(job_type, 20),
             stop_at=stop_at,
         )
         self.jobs.append(job)

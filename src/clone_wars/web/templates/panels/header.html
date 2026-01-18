@@ -17,4 +17,14 @@
         <span class="label">GLOBAL UNITS</span>
         <span class="value">INF {{ vm.units.infantry }} | WLK {{ vm.units.walkers }} | SUP {{ vm.units.support }}</span>
     </div>
+    <div class="header__actions">
+        <button class="header__reset"
+                hx-post="/action"
+                hx-vals='{"action":"btn-reset"}'
+                hx-target="#console"
+                hx-swap="outerHTML"
+                title="Restart the simulation">
+            RESET TO START
+        </button>
+    </div>
 </div>

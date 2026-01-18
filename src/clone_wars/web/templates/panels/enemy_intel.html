@@ -1,19 +1,35 @@
-<div id="enemy" class="panel panel--enemy" {% if oob %}hx-swap-oob="true"{% endif %}>
-    <div class="panel__title">ENEMY INTEL</div>
-    <div class="stat-row">
-        <span class="stat-label">STRENGTH</span>
-        <span class="stat-value accent">{{ vm.strength_range }}</span>
-    </div>
-    <div class="stat-row">
-        <span class="stat-label">CONFIDENCE</span>
-        <span class="stat-value">{{ vm.confidence_pct }}%</span>
-    </div>
-    <div class="stat-row">
-        <span class="stat-label">FORTIFICATION</span>
-        <span class="stat-value">{{ vm.fort_label }}</span>
-    </div>
-    <div class="stat-row">
-        <span class="stat-label">REINFORCEMENT</span>
-        <span class="stat-value">{{ vm.reinf_label }}</span>
+<div id="enemy" class="panel panel--enemy" data-collapsible="true" {% if oob %}hx-swap-oob="true"{% endif %}>
+    <button type="button" class="panel__title panel__title--toggle" data-panel-toggle aria-expanded="true">
+        ENEMY INTEL
+    </button>
+    <div class="panel__body">
+        <div class="stat-row">
+            <span class="stat-label">INFANTRY</span>
+            <span class="stat-value accent">{{ vm.infantry_est }}</span>
+        </div>
+        <div class="stat-row">
+            <span class="stat-label">WALKERS</span>
+            <span class="stat-value accent">{{ vm.walkers_est }}</span>
+        </div>
+        <div class="stat-row">
+            <span class="stat-label">SUPPORT</span>
+            <span class="stat-value accent">{{ vm.support_est }}</span>
+        </div>
+        <div class="stat-row">
+            <span class="stat-label">CONFIDENCE</span>
+            <span class="stat-value">{{ vm.confidence_pct }}%</span>
+        </div>
+        <div class="stat-row">
+            <span class="stat-label">COHESION</span>
+            <span class="stat-value">{{ vm.cohesion_pct }}%</span>
+        </div>
+        <div class="stat-row">
+            <span class="stat-label">FORTIFICATION</span>
+            <span class="stat-value">{{ vm.fort_label }}</span>
+        </div>
+        <div class="stat-row">
+            <span class="stat-label">REINFORCEMENT</span>
+            <span class="stat-value">{{ vm.reinf_label }}</span>
+        </div>
     </div>
 </div>

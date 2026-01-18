@@ -37,6 +37,8 @@ class CloneWarsApp(App[None]):
         return []
 
     def action_next_day(self) -> None:
+        if self.state.raid_session is not None:
+            return
         self.state.advance_day()
         if isinstance(self.screen, DashboardScreen):
             self.screen.refresh_dashboard()

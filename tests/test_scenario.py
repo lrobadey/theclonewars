@@ -13,9 +13,13 @@ def test_load_valid_scenario() -> None:
     scenario_path = data_dir / "scenario.json"
     state = load_game_state(scenario_path)
     assert state.day == 1
-    assert state.planet.enemy.strength_min == 1.2
-    assert state.planet.enemy.strength_max == 2.0
-    assert state.planet.enemy.confidence == 0.7
+    assert state.planet.enemy.infantry == 6
+    assert state.planet.enemy.walkers == 2
+    assert state.planet.enemy.support == 1
+    assert state.planet.enemy.cohesion == 1.0
+    assert state.planet.enemy.fortification == 1.2
+    assert state.planet.enemy.reinforcement_rate == 0.0
+    assert state.planet.enemy.intel_confidence == 0.7
 
 
 def test_scenario_backward_compatibility() -> None:
@@ -43,4 +47,3 @@ def test_scenario_missing_required_field() -> None:
             load_game_state(temp_path)
     finally:
         temp_path.unlink()
-

@@ -13,11 +13,13 @@ from clone_wars.engine.types import Supplies
 @dataclass(frozen=True, slots=True)
 class ScenarioData:
     seed: int
-    strength_min: float
-    strength_max: float
-    confidence: float
+    enemy_infantry: int
+    enemy_walkers: int
+    enemy_support: int
+    enemy_cohesion: float
     fortification: float
     reinforcement_rate: float
+    intel_confidence: float
 
 
 class ScenarioError(ValueError):
@@ -29,11 +31,13 @@ def load_game_state(path: Path) -> GameState:
     scenario = _parse_scenario(data)
     data_dir = path.parent
     state = GameState.new(seed=scenario.seed, data_dir=data_dir)
-    state.planet.enemy.strength_min = scenario.strength_min
-    state.planet.enemy.strength_max = scenario.strength_max
-    state.planet.enemy.confidence = scenario.confidence
+    state.planet.enemy.infantry = scenario.enemy_infantry
+    state.planet.enemy.walkers = scenario.enemy_walkers
+    state.planet.enemy.support = scenario.enemy_support
+    state.planet.enemy.cohesion = scenario.enemy_cohesion
     state.planet.enemy.fortification = scenario.fortification
     state.planet.enemy.reinforcement_rate = scenario.reinforcement_rate
+    state.planet.enemy.intel_confidence = scenario.intel_confidence
 
     # Optional: planet control
     if "control" in data.get("planet", {}):
@@ -84,28 +88,32 @@ def _parse_scenario(data: dict) -> ScenarioData:
     objectives = _require_list(planet, "objectives")
     _validate_objectives(objectives)
     enemy = _require_dict(planet, "enemy")
-    strength_range = _require_list(enemy, "strength_range")
-    if len(strength_range) != 2:
-        raise ScenarioError("enemy.strength_range must have 2 numbers")
-    strength_min = _require_number_value(strength_range[0], "enemy.strength_range[0]")
-    strength_max = _require_number_value(strength_range[1], "enemy.strength_range[1]")
-    if strength_min <= 0 or strength_max <= 0 or strength_min > strength_max:
-        raise ScenarioError("enemy.strength_range must be positive and ordered")
+    infantry = _require_int(enemy, "infantry")
+    walkers = _require_int(enemy, "walkers")
+    support = _require_int(enemy, "support")
+    if infantry < 0 or walkers < 0 or support < 0:
+        raise ScenarioError("enemy troop counts must be non-negative")
 
-    confidence = _require_number(enemy, "confidence")
+    cohesion = _require_number(enemy, "cohesion")
+    if not (0.0 <= cohesion <= 1.0):
+        raise ScenarioError("enemy.cohesion must be between 0 and 1")
+
+    confidence = _require_number(enemy, "intel_confidence")
     if not (0.0 <= confidence <= 1.0):
-        raise ScenarioError("enemy.confidence must be between 0 and 1")
+        raise ScenarioError("enemy.intel_confidence must be between 0 and 1")
 
     fortification = _require_number(enemy, "fortification")
     reinforcement_rate = _require_number(enemy, "reinforcement_rate")
 
     return ScenarioData(
         seed=seed,
-        strength_min=float(strength_min),
-        strength_max=float(strength_max),
-        confidence=float(confidence),
+        enemy_infantry=infantry,
+        enemy_walkers=walkers,
+        enemy_support=support,
+        enemy_cohesion=float(cohesion),
         fortification=float(fortification),
         reinforcement_rate=float(reinforcement_rate),
+        intel_confidence=float(confidence),
     )
 
 

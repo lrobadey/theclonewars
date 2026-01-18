@@ -78,3 +78,6 @@ For any coding task:
 
 Remember: The game specification document exists to prevent design drift and ensure consistency. Always consult it first.
 
+## Platform Focus
+
+The textual TUI is now legacy; prioritize the web interface for new work and significant UI adjustments.

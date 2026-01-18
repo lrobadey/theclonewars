@@ -1,65 +1,81 @@
-<div id="map" class="panel panel--map" {% if oob %}hx-swap-oob="true"{% endif %}>
-    <div class="panel__title">SITUATION MAP</div>
-    <div class="map__layout">
-        <div class="map__plate">
-            <pre class="map__art">{{ vm.art }}</pre>
-        </div>
-        <div class="map__stack">
-            <div class="map__nodes">
-                {% for node in vm.nodes %}
-                <button class="terminal-btn map-node {{ node.status_class }}{% if node.active %} map-node--active{% endif %}{% if node.selected %} map-node--selected{% endif %}"
-                        hx-post="/action"
-                        hx-vals='{"action":"{{ node.action }}"}'
-                        hx-target="#console"
-                        hx-swap="outerHTML">
-                    <div class="map-node__head">
-                        <span class="map-node__code">{{ node.code }}</span>
-                        <span class="map-node__name">{{ node.name }}</span>
-                        <span class="status-chip {{ node.status_class }}">{{ node.status_label }}</span>
-                    </div>
-                    <div class="map-node__meta">
-                        <span class="muted">TYPE {{ node.type }}</span>
-                        <span class="muted">DIFF x{{ node.difficulty }}</span>
-                    </div>
-                </button>
-                {% endfor %}
+<div id="map" class="panel panel--map" data-collapsible="true" {% if oob %}hx-swap-oob="true"{% endif %}>
+    <button type="button" class="panel__title panel__title--toggle" data-panel-toggle aria-expanded="true">
+        SITUATION MAP
+    </button>
+    <div class="panel__body">
+        <div class="map__layout">
+            <div class="map__plate">
+                <pre class="map__art">{{ vm.art }}</pre>
             </div>
-            <div class="map__intel">
-                <div class="map__intel-title">PLANET INTEL</div>
-                <div class="stat-row">
-                    <span class="stat-label">STRENGTH</span>
-                    <span class="stat-value accent">{{ vm.enemy.strength_range }}</span>
+            <div class="map__stack">
+                <div class="map__nodes">
+                    {% for node in vm.nodes %}
+                    <button class="terminal-btn map-node {{ node.status_class }}{% if node.active %} map-node--active{% endif %}{% if node.selected %} map-node--selected{% endif %}"
+                            hx-post="/action"
+                            hx-vals='{"action":"{{ node.action }}"}'
+                            hx-target="#console"
+                            hx-swap="outerHTML">
+                        <div class="map-node__head">
+                            <span class="map-node__code">{{ node.code }}</span>
+                            <span class="map-node__name">{{ node.name }}</span>
+                            <span class="status-chip {{ node.status_class }}">{{ node.status_label }}</span>
+                        </div>
+                        <div class="map-node__meta">
+                            <span class="muted">TYPE {{ node.type }}</span>
+                            <span class="muted">DIFF x{{ node.difficulty }}</span>
+                        </div>
+                    </button>
+                    {% endfor %}
                 </div>
-                <div class="stat-row">
-                    <span class="stat-label">CONFIDENCE</span>
-                    <span class="stat-value">{{ vm.enemy.confidence_pct }}%</span>
-                </div>
-                <div class="confidence-bar">
-                    <div class="confidence-bar__fill" style="width: {{ vm.enemy.confidence_pct }}%"></div>
-                </div>
-                <div class="stat-row">
-                    <span class="stat-label">CONTROL</span>
-                    <span class="stat-value">{{ vm.enemy.control_pct }}%</span>
-                </div>
-                <div class="stat-row">
-                    <span class="stat-label">FORTIFICATION</span>
-                    <span class="stat-value">{{ vm.enemy.fortification }}</span>
-                </div>
-                <div class="stat-row">
-                    <span class="stat-label">REINFORCEMENT</span>
-                    <span class="stat-value">{{ vm.enemy.reinforcement }}</span>
+                <div class="map__intel">
+                    <div class="map__intel-title">PLANET INTEL</div>
+                    <div class="stat-row">
+                        <span class="stat-label">INFANTRY</span>
+                        <span class="stat-value accent">{{ vm.enemy.infantry_est }}</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">WALKERS</span>
+                        <span class="stat-value accent">{{ vm.enemy.walkers_est }}</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">SUPPORT</span>
+                        <span class="stat-value accent">{{ vm.enemy.support_est }}</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">CONFIDENCE</span>
+                        <span class="stat-value">{{ vm.enemy.confidence_pct }}%</span>
+                    </div>
+                    <div class="confidence-bar">
+                        <div class="confidence-bar__fill" style="width: {{ vm.enemy.confidence_pct }}%"></div>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">CONTROL</span>
+                        <span class="stat-value">{{ vm.enemy.control_pct }}%</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">FORTIFICATION</span>
+                        <span class="stat-value">{{ vm.enemy.fortification }}</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">COHESION</span>
+                        <span class="stat-value">{{ vm.enemy.cohesion_pct }}%</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">REINFORCEMENT</span>
+                        <span class="stat-value">{{ vm.enemy.reinforcement }}</span>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
-    <div class="map__hint muted">{{ vm.hint }}</div>
-    <div class="map__sector">
-        <div class="map__sector-title">{{ vm.selected.name }}</div>
-        <div class="map__sector-meta">
-            <span class="status-chip {{ vm.selected.status_class }}">{{ vm.selected.status_label }}</span>
-            <span class="muted">TYPE {{ vm.selected.type }}</span>
-            <span class="muted">DIFF x{{ vm.selected.difficulty }}</span>
+        <div class="map__hint muted">{{ vm.hint }}</div>
+        <div class="map__sector">
+            <div class="map__sector-title">{{ vm.selected.name }}</div>
+            <div class="map__sector-meta">
+                <span class="status-chip {{ vm.selected.status_class }}">{{ vm.selected.status_label }}</span>
+                <span class="muted">TYPE {{ vm.selected.type }}</span>
+                <span class="muted">DIFF x{{ vm.selected.difficulty }}</span>
+            </div>
+            <div class="map__sector-desc muted">{{ vm.selected.description }}</div>
         </div>
-        <div class="map__sector-desc muted">{{ vm.selected.description }}</div>
     </div>
 </div>
