@@ -31,20 +31,6 @@ class DepotNode(str, Enum):
                 return "FRONT"
 
 
-STORAGE_RISK_PER_DAY: dict[DepotNode, float] = {
-    DepotNode.CORE: 0.00,
-    DepotNode.MID: 0.01,
-    DepotNode.FRONT: 0.06,
-}
-
-
-STORAGE_LOSS_PCT_RANGE: dict[DepotNode, tuple[float, float]] = {
-    DepotNode.CORE: (0.00, 0.00),
-    DepotNode.MID: (0.05, 0.10),
-    DepotNode.FRONT: (0.10, 0.20),
-}
-
-
 @dataclass(slots=True)
 class Route:
     """A route between two depots."""

@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import TYPE_CHECKING
 
+from clone_wars.engine.rules import GlobalConfig
 from clone_wars.engine.types import Supplies
 
 if TYPE_CHECKING:
@@ -62,21 +63,10 @@ class CombatResult:
     top_factors: list[RaidFactor] = field(default_factory=list)
 
 
-RAID_MAX_TICKS = 12
-RAID_AMMO_COST = 50
-RAID_FUEL_COST = 30
-RAID_MED_COST = 15
-RAID_BASE_DAMAGE_RATE = 0.08
-RAID_CASUALTY_RATE = 0.02
-
-# Initiative and event thresholds
-AMMO_PINCH_THRESHOLD = 0.5
-WALKER_SCREEN_INFANTRY_PROTECT = 0.4
-
-
 @dataclass(slots=True)
 class RaidCombatSession:
     rng: random.Random
+    config: GlobalConfig
     supply_mod: float
     enemy_fortification: float
     supplies_before: Supplies
@@ -91,6 +81,8 @@ class RaidCombatSession:
     enemy_support: int
     enemy_cohesion: float
 
+    max_ticks: int
+
     # Captured ratios for event triggers
     ammo_ratio: float = 1.0
     fuel_ratio: float = 1.0
@@ -98,8 +90,6 @@ class RaidCombatSession:
 
     # Initial walker count (for "walker screen" tracking)
     initial_walkers: int = 0
-
-    max_ticks: int = RAID_MAX_TICKS
     tick: int = 0
     your_casualties_total: int = 0
     enemy_casualties_total: int = 0
@@ -151,7 +141,7 @@ class RaidCombatSession:
             self.initiative_losses += 1
 
         # Ammo pinch check
-        ammo_pinch = self.ammo_ratio < AMMO_PINCH_THRESHOLD
+        ammo_pinch = self.ammo_ratio < self.config.ammo_pinch_threshold
         if ammo_pinch:
             self.ammo_pinch_ticks += 1
 
@@ -198,8 +188,8 @@ class RaidCombatSession:
         your_roll = self.rng.uniform(0.95, 1.05)
         enemy_roll = self.rng.uniform(0.95, 1.05)
 
-        damage_to_enemy_coh = RAID_BASE_DAMAGE_RATE * your_advantage * your_roll * init_damage_bonus
-        damage_to_you_coh = RAID_BASE_DAMAGE_RATE * enemy_advantage * enemy_roll
+        damage_to_enemy_coh = self.config.raid_base_damage_rate * your_advantage * your_roll * init_damage_bonus
+        damage_to_you_coh = self.config.raid_base_damage_rate * enemy_advantage * enemy_roll
 
         # Enemy counterattack check: triggered in BREACH if enemy has fort > 1.1, you lack initiative, and low cohesion
         enemy_counterattack = False
@@ -308,9 +298,9 @@ class RaidCombatSession:
             self._finalize_stall()
 
         supplies_consumed = Supplies(
-            ammo=min(self.supplies_before.ammo, RAID_AMMO_COST),
-            fuel=min(self.supplies_before.fuel, RAID_FUEL_COST),
-            med_spares=min(self.supplies_before.med_spares, RAID_MED_COST),
+            ammo=min(self.supplies_before.ammo, self.config.raid_ammo_cost),
+            fuel=min(self.supplies_before.fuel, self.config.raid_fuel_cost),
+            med_spares=min(self.supplies_before.med_spares, self.config.raid_med_cost),
         )
 
         top_factors = self._build_top_factors()
@@ -402,7 +392,7 @@ class RaidCombatSession:
             self.reason = f"Raid stalled after {self.max_ticks} ticks, forced to withdraw"
 
     def _sample_casualties(self, force_size: int, cohesion_damage: float) -> int:
-        expected = max(0.0, force_size * cohesion_damage * RAID_CASUALTY_RATE)
+        expected = max(0.0, force_size * cohesion_damage * self.config.raid_casualty_rate)
         whole = int(expected)
         if self.rng.random() < (expected - whole):
             whole += 1
@@ -452,9 +442,9 @@ class RaidCombatSession:
         # Normal weights: (infantry=0.7, walkers=0.2, support=0.1)
         # With walker screen: shift weight from infantry to walkers
         if walker_screen and walkers > 0:
-            # Walkers take WALKER_SCREEN_INFANTRY_PROTECT (40%) of what infantry would take
-            inf_weight = 0.7 * (1.0 - WALKER_SCREEN_INFANTRY_PROTECT)
-            walk_weight = 0.2 + 0.7 * WALKER_SCREEN_INFANTRY_PROTECT
+            # Walkers take walker_screen_infantry_protect of what infantry would take
+            inf_weight = 0.7 * (1.0 - self.config.walker_screen_infantry_protect)
+            walk_weight = 0.2 + 0.7 * self.config.walker_screen_infantry_protect
             sup_weight = 0.1
         else:
             inf_weight = 0.7
@@ -509,15 +499,17 @@ def get_supply_modifier(supplies: Supplies, ammo_needed: int, fuel_needed: int) 
 def start_raid_session(state: GameState, rng: random.Random) -> RaidCombatSession:
     tf = state.task_force
     enemy = state.planet.enemy
+    config = state.rules.globals
 
-    supply_mod = get_supply_modifier(tf.supplies, RAID_AMMO_COST, RAID_FUEL_COST)
+    supply_mod = get_supply_modifier(tf.supplies, config.raid_ammo_cost, config.raid_fuel_cost)
 
     # Compute ammo/fuel ratios for event triggers
-    ammo_ratio = min(1.0, tf.supplies.ammo / max(1, RAID_AMMO_COST))
-    fuel_ratio = min(1.0, tf.supplies.fuel / max(1, RAID_FUEL_COST))
+    ammo_ratio = min(1.0, tf.supplies.ammo / max(1, config.raid_ammo_cost))
+    fuel_ratio = min(1.0, tf.supplies.fuel / max(1, config.raid_fuel_cost))
 
     return RaidCombatSession(
         rng=rng,
+        config=config,
         supply_mod=supply_mod,
         enemy_fortification=enemy.fortification,
         supplies_before=tf.supplies,
@@ -533,6 +525,7 @@ def start_raid_session(state: GameState, rng: random.Random) -> RaidCombatSessio
         fuel_ratio=fuel_ratio,
         intel_confidence=enemy.intel_confidence,
         initial_walkers=tf.composition.walkers,
+        max_ticks=config.raid_max_ticks,
     )
 
 

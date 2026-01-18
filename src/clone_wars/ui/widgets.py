@@ -9,7 +9,7 @@ from textual.reactive import reactive
 from textual.widget import Widget
 from textual.widgets import Button, Static
 
-from clone_wars.engine.logistics import DepotNode, STORAGE_LOSS_PCT_RANGE, STORAGE_RISK_PER_DAY
+from clone_wars.engine.logistics import DepotNode
 from clone_wars.engine.ops import OperationTarget
 from clone_wars.engine.state import GameState
 from clone_wars.engine.types import ObjectiveStatus, Supplies, UnitStock
@@ -598,8 +598,10 @@ class LogisticsPanel(Widget):
         depot = self.selected_depot
         stock = self._stock_for_display(depot)
         units = self.state.logistics.depot_units[depot]
-        risk = STORAGE_RISK_PER_DAY.get(depot, 0.0)
-        loss_min, loss_max = STORAGE_LOSS_PCT_RANGE.get(depot, (0.0, 0.0))
+        storage_risk = self.state.rules.globals.storage_risk_per_day
+        storage_loss = self.state.rules.globals.storage_loss_pct_range
+        risk = storage_risk.get(depot, 0.0)
+        loss_min, loss_max = storage_loss.get(depot, (0.0, 0.0))
         risk_label = _risk_label(risk)
         detail = (
             f"[bold]SELECTED:[/] {depot.value}\n"

@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Callable
 
-from clone_wars.engine.logistics import DepotNode, STORAGE_LOSS_PCT_RANGE, STORAGE_RISK_PER_DAY
+from clone_wars.engine.logistics import DepotNode
 from clone_wars.engine.ops import OperationTarget, OperationTypeId
 from clone_wars.engine.production import ProductionJobType
 from clone_wars.engine.state import AfterActionReport, GameState, RaidReport
@@ -327,12 +327,14 @@ def logistics_vm(state: GameState, controller: ConsoleController) -> dict:
     lines = ["LOGISTICS NETWORK"]
     stocks = state.logistics.depot_stocks
     units = state.logistics.depot_units
+    storage_risk = state.rules.globals.storage_risk_per_day
+    storage_loss = state.rules.globals.storage_loss_pct_range
     depots = []
     for depot in DepotNode:
         stock = state.task_force.supplies if depot == DepotNode.FRONT else stocks[depot]
         unit = units[depot]
-        risk = STORAGE_RISK_PER_DAY.get(depot, 0.0)
-        loss_min, loss_max = STORAGE_LOSS_PCT_RANGE.get(depot, (0.0, 0.0))
+        risk = storage_risk.get(depot, 0.0)
+        loss_min, loss_max = storage_loss.get(depot, (0.0, 0.0))
         depots.append(
             {
                 "short": depot.short_label,

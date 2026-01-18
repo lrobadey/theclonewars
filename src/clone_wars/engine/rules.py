@@ -7,6 +7,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from clone_wars.engine.logistics import DepotNode
+
 
 class RulesError(ValueError):
     """Error loading or validating rules."""
@@ -58,6 +60,20 @@ class ObjectiveDef:
 
 
 @dataclass(frozen=True, slots=True)
+class GlobalConfig:
+    raid_max_ticks: int
+    raid_ammo_cost: int
+    raid_fuel_cost: int
+    raid_med_cost: int
+    raid_base_damage_rate: float
+    raid_casualty_rate: float
+    ammo_pinch_threshold: float
+    walker_screen_infantry_protect: float
+    storage_risk_per_day: dict[DepotNode, float]
+    storage_loss_pct_range: dict[DepotNode, tuple[float, float]]
+
+
+@dataclass(frozen=True, slots=True)
 class Ruleset:
     """Loaded and validated ruleset."""
 
@@ -71,6 +87,7 @@ class Ruleset:
     risk_tolerances: dict[str, dict[str, float]]
     exploit_vs_secure: dict[str, dict[str, float]]
     end_states: dict[str, dict[str, float]]
+    globals: GlobalConfig
 
     @staticmethod
     def load(data_dir: Path) -> Ruleset:
@@ -80,6 +97,7 @@ class Ruleset:
         operation_types = _load_operation_types(data_dir / "operation_types.json")
         objectives = _load_objectives(data_dir / "objectives.json")
         operation_rules = _load_operation_rules(data_dir / "operation_types.json")
+        global_config = _load_globals(data_dir / "globals.json")
 
         return Ruleset(
             supply_classes=supply_classes,
@@ -92,6 +110,7 @@ class Ruleset:
             risk_tolerances=operation_rules["risk_tolerances"],
             exploit_vs_secure=operation_rules["exploit_vs_secure"],
             end_states=operation_rules["end_states"],
+            globals=global_config,
         )
 
 
@@ -231,3 +250,64 @@ def _load_operation_rules(path: Path) -> dict[str, Any]:
             raise RulesError(f"{path}: missing '{key}' key")
         result[key] = data[key]
     return result
+
+
+def _parse_depot_node(value: Any, *, path: Path, field: str) -> DepotNode:
+    if not isinstance(value, str):
+        raise RulesError(f"{path}: {field} keys must be strings")
+    try:
+        return DepotNode(value)
+    except ValueError:
+        try:
+            return DepotNode[value]
+        except KeyError as exc:
+            raise RulesError(f"{path}: unknown depot node '{value}' in {field}") from exc
+
+
+def _load_globals(path: Path) -> GlobalConfig:
+    """Load global balance constants."""
+    data = _load_json(path)
+    try:
+        raid_max_ticks = int(data["raid_max_ticks"])
+        raid_ammo_cost = int(data["raid_ammo_cost"])
+        raid_fuel_cost = int(data["raid_fuel_cost"])
+        raid_med_cost = int(data["raid_med_cost"])
+        raid_base_damage_rate = float(data["raid_base_damage_rate"])
+        raid_casualty_rate = float(data["raid_casualty_rate"])
+        ammo_pinch_threshold = float(data["ammo_pinch_threshold"])
+        walker_screen_infantry_protect = float(data["walker_screen_infantry_protect"])
+    except KeyError as exc:
+        raise RulesError(f"{path}: missing required global config field {exc}") from exc
+    except (TypeError, ValueError) as exc:
+        raise RulesError(f"{path}: invalid global config value: {exc}") from exc
+
+    storage_risk_raw = data.get("storage_risk_per_day")
+    if not isinstance(storage_risk_raw, dict):
+        raise RulesError(f"{path}: storage_risk_per_day must be an object")
+    storage_risk_per_day = {
+        _parse_depot_node(key, path=path, field="storage_risk_per_day"): float(value)
+        for key, value in storage_risk_raw.items()
+    }
+
+    storage_loss_raw = data.get("storage_loss_pct_range")
+    if not isinstance(storage_loss_raw, dict):
+        raise RulesError(f"{path}: storage_loss_pct_range must be an object")
+    storage_loss_pct_range: dict[DepotNode, tuple[float, float]] = {}
+    for key, value in storage_loss_raw.items():
+        depot = _parse_depot_node(key, path=path, field="storage_loss_pct_range")
+        if not isinstance(value, list) or len(value) != 2:
+            raise RulesError(f"{path}: storage_loss_pct_range.{key} must be [min, max]")
+        storage_loss_pct_range[depot] = (float(value[0]), float(value[1]))
+
+    return GlobalConfig(
+        raid_max_ticks=raid_max_ticks,
+        raid_ammo_cost=raid_ammo_cost,
+        raid_fuel_cost=raid_fuel_cost,
+        raid_med_cost=raid_med_cost,
+        raid_base_damage_rate=raid_base_damage_rate,
+        raid_casualty_rate=raid_casualty_rate,
+        ammo_pinch_threshold=ammo_pinch_threshold,
+        walker_screen_infantry_protect=walker_screen_infantry_protect,
+        storage_risk_per_day=storage_risk_per_day,
+        storage_loss_pct_range=storage_loss_pct_range,
+    )
