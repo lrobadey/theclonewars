@@ -15,8 +15,6 @@ from clone_wars.engine.logging import Event, TopFactor
 from clone_wars.engine.logistics import (
     DepotNode,
     LogisticsState,
-    STORAGE_LOSS_PCT_RANGE,
-    STORAGE_RISK_PER_DAY,
 )
 from clone_wars.engine.ops import (
     ActiveOperation,
@@ -426,8 +424,10 @@ class GameState:
 
     def _apply_storage_loss_events(self) -> None:
         """Apply storage losses that increase with distance from Core."""
+        storage_risk_per_day = self.rules.globals.storage_risk_per_day
+        storage_loss_pct_range = self.rules.globals.storage_loss_pct_range
         for depot in DepotNode:
-            risk = STORAGE_RISK_PER_DAY.get(depot, 0.0)
+            risk = storage_risk_per_day.get(depot, 0.0)
             if risk <= 0:
                 continue
             stock = self.logistics.depot_stocks[depot]
@@ -435,7 +435,7 @@ class GameState:
                 continue
             if self.rng.random() >= risk:
                 continue
-            min_loss, max_loss = STORAGE_LOSS_PCT_RANGE.get(depot, (0.0, 0.0))
+            min_loss, max_loss = storage_loss_pct_range.get(depot, (0.0, 0.0))
             loss_pct = min_loss + (self.rng.random() * (max_loss - min_loss))
             self.logistics.depot_stocks[depot] = Supplies(
                 ammo=max(0, int(stock.ammo * (1 - loss_pct))),
