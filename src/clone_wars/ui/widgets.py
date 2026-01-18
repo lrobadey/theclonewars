@@ -3,8 +3,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Tuple
 
+from textual import events
 from textual.app import ComposeResult
 from textual.containers import Container, Horizontal, Vertical
+from textual.reactive import reactive
 from textual.widget import Widget
 from textual.widgets import Button, Static
 
@@ -94,6 +96,118 @@ def _bar(value: int, max_value: int, width: int = 18) -> str:
     value = max(0, value)
     filled = int(min(1.0, value / max_value) * width)
     return "[" + ("█" * filled) + (" " * (width - filled)) + "]"
+
+
+class AnimatedCollapsible(Widget):
+    """Collapsible container with a small expand/collapse animation."""
+
+    class Contents(Container):
+        pass
+
+    collapsed = reactive(False, init=False)
+    title = reactive("Panel")
+
+    def __init__(
+        self,
+        *children: Widget,
+        title: str,
+        collapsed: bool = False,
+        collapsed_symbol: str = "▶",
+        expanded_symbol: str = "▼",
+        name: str | None = None,
+        id: str | None = None,
+        classes: str | None = None,
+        disabled: bool = False,
+    ) -> None:
+        super().__init__(name=name, id=id, classes=classes, disabled=disabled)
+        self._collapsed_symbol = collapsed_symbol
+        self._expanded_symbol = expanded_symbol
+        self.title = title
+        self._contents_list: list[Widget] = list(children)
+        self._toggle = Button("", classes="animated-collapsible__title")
+        self._contents = AnimatedCollapsible.Contents(classes="animated-collapsible__contents")
+        self._expanded_height: int | None = None
+        self.collapsed = collapsed
+
+    def compose(self) -> ComposeResult:
+        yield self._toggle
+        with self._contents:
+            yield from self._contents_list
+
+    def compose_add_child(self, widget: Widget) -> None:
+        self._contents_list.append(widget)
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button is self._toggle:
+            self.collapsed = not self.collapsed
+
+    def _on_mount(self, event: events.Mount) -> None:
+        self._update_title()
+        self.set_class(self.collapsed, "-collapsed")
+        self.styles.height = 3 if self.collapsed else "auto"
+        self.call_after_refresh(self._capture_expanded_height)
+        self._apply_collapsed_styles(animated=False)
+
+    def _watch_title(self, title: str) -> None:
+        self._update_title()
+
+    def _watch_collapsed(self, collapsed: bool) -> None:
+        self._update_title()
+        self.set_class(collapsed, "-collapsed")
+        self.styles.height = 3 if collapsed else "auto"
+        self._apply_collapsed_styles(animated=True)
+
+    def _update_title(self) -> None:
+        symbol = self._collapsed_symbol if self.collapsed else self._expanded_symbol
+        self._toggle.label = f"{symbol} {self.title}"
+
+    def _capture_expanded_height(self) -> None:
+        if self.collapsed:
+            return
+        height = self._contents.size.height
+        if height > 0:
+            self._expanded_height = height
+
+    def _apply_collapsed_styles(self, *, animated: bool) -> None:
+        contents = self._contents
+        duration = 0.12 if animated else 0.0
+
+        if self.collapsed:
+            if contents.styles.display != "none":
+                self._expanded_height = max(contents.size.height, 1)
+            contents.styles.display = "block"
+            contents.styles.overflow = "hidden"
+            contents.styles.opacity = 1.0
+            contents.styles.height = self._expanded_height or contents.size.height or 1
+
+            def finish() -> None:
+                contents.styles.display = "none"
+                contents.styles.height = "auto"
+                contents.styles.opacity = 1.0
+
+            if duration:
+                contents.animate("styles.opacity", 0.0, duration=duration, easing="out_cubic")
+                contents.animate("styles.height", 0, duration=duration, easing="out_cubic", on_complete=finish)
+            else:
+                finish()
+        else:
+            target = max(self._expanded_height or 1, 1)
+            contents.styles.display = "block"
+            contents.styles.overflow = "hidden"
+            contents.styles.opacity = 0.0 if duration else 1.0
+            contents.styles.height = 0 if duration else "auto"
+
+            def finish() -> None:
+                contents.styles.height = "auto"
+                contents.styles.opacity = 1.0
+                contents.styles.overflow = "visible"
+                self.call_after_refresh(self._capture_expanded_height)
+
+            if duration:
+                contents.animate("styles.opacity", 1.0, duration=duration, easing="in_out_cubic")
+                contents.animate("styles.height", target, duration=duration, easing="in_out_cubic", on_complete=finish)
+            else:
+                finish()
 
 
 class HeaderBar(Static):
@@ -362,7 +476,6 @@ class TaskForcePanel(Static):
         med_bar = _bar(s.med_spares, 150)
 
         return (
-            "[bold]TASK FORCE: REPUBLIC HAMMER[/]\n"
             f"[bold]UNITS:[/] INFANTRY ({_fmt_squads(tf.composition.infantry)}),\n"
             f"       WALKERS ({tf.composition.walkers}), SUPPORT ({tf.composition.support})\n\n"
             f"[bold]READINESS:[/] {readiness}%\n"
@@ -391,7 +504,6 @@ class ProductionPanel(Static):
         else:
             job_lines = ["  - NO ACTIVE QUEUES"]
         return (
-            "[bold]PRODUCTION COMMAND[/]\n"
             f"[bold]CAPACITY:[/] {prod.capacity} slots/day\n"
             f"[bold]FACTORIES:[/] {prod.factories}/{prod.max_factories} "
             f"({prod.slots_per_factory} slot each)\n"
@@ -407,7 +519,6 @@ class LogisticsPanel(Widget):
         self.selected_depot = DepotNode.CORE
 
     def compose(self) -> ComposeResult:
-        yield Static("[bold]LOGISTICS NETWORK[/]", id="logistics-title", markup=True)
         with Vertical(id="logistics-network"):
             with Horizontal(classes="depot-row"):
                 yield Button("CORE", id="depot-core", classes="depot-node")

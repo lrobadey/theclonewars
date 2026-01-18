@@ -6,7 +6,15 @@ from textual.screen import Screen
 
 from clone_wars.engine.state import GameState
 from clone_wars.ui.console import CommandConsole
-from clone_wars.ui.widgets import EnemyIntel, HeaderBar, LogisticsPanel, ProductionPanel, SituationMap, TaskForcePanel
+from clone_wars.ui.widgets import (
+    AnimatedCollapsible,
+    EnemyIntel,
+    HeaderBar,
+    LogisticsPanel,
+    ProductionPanel,
+    SituationMap,
+    TaskForcePanel,
+)
 
 
 class DashboardScreen(Screen):
@@ -28,16 +36,16 @@ class DashboardScreen(Screen):
             with Vertical(classes="box", id="map-panel"):
                 yield SituationMap(self.state)
 
-            with Vertical(classes="box", id="enemy-panel"):
+            with AnimatedCollapsible(title="ENEMY INTEL", collapsed=False, classes="box", id="enemy-panel"):
                 yield EnemyIntel(self.state)
 
-            with Vertical(classes="box", id="task-force-panel"):
+            with AnimatedCollapsible(title="TASK FORCE", collapsed=False, classes="box", id="task-force-panel"):
                 yield TaskForcePanel(self.state)
 
-            with Vertical(classes="box", id="production-panel"):
+            with AnimatedCollapsible(title="PRODUCTION", collapsed=False, classes="box", id="production-panel"):
                 yield ProductionPanel(self.state)
 
-            with Vertical(classes="box", id="logistics-panel"):
+            with AnimatedCollapsible(title="LOGISTICS", collapsed=False, classes="box", id="logistics-panel"):
                 yield LogisticsPanel(self.state)
 
         yield CommandConsole(self.state, classes="command-console")

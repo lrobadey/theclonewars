@@ -1,6 +1,6 @@
 # Clone Wars War Sim — MVP Scope & Intent (Agent-Ready)
 
-This repository is intended to become a **turn-based strategic war-machine simulation** (Republic-like) built as a **terminal TUI** game. The focus is **operations**, **logistics**, and a rigorous **After-Action Report (AAR)** explaining outcomes with traceable numeric attribution.
+This repository is intended to become a **turn-based strategic war-machine simulation** (Republic-like). The focus is **operations**, **logistics**, and a rigorous **After-Action Report (AAR)** explaining outcomes with traceable numeric attribution.
 
 This document is the **source of truth** for MVP scope/goal so future agents can implement without revisiting design decisions.
 
@@ -14,7 +14,7 @@ Turn-based strategic war-sim where you run a Republic-like war machine. You mana
 
 ## MVP Constraints (Hard Requirements)
 
-- **UI**: terminal **TUI** with keyboard menu navigation (**arrow keys + enter**). Minimal typing.
+- **UI**: a screen-based interface with minimal typing.
 - **Session**: **no save/load** (single-session only).
 - **Time model**: **turn-based**, where **1 turn = 1 day**.
 - **Operations**: hard cap of **1 active operation at a time**.
@@ -204,7 +204,7 @@ During an operation:
 
 ---
 
-## TUI Screens (Minimum Set)
+## Screens (Minimum Set)
 
 1. **Situation Map**
    - key planet objectives status
@@ -259,7 +259,7 @@ Build as a **data-driven rules engine**:
 
 MVP is complete when a player can:
 
-- play day-by-day in a terminal TUI using arrow keys + enter
+- play day-by-day
 - view Situation / Production / Logistics / Task Force screens
 - create shipments to move supplies through depots to the key planet
 - launch exactly one operation at a time against one of the objectives
@@ -270,4 +270,3 @@ MVP is complete when a player can:
   - phase-by-phase timeline
   - recommendations derived from logged factors
 - win by capturing all 3 objectives; objectives reduce reinforcement and fortification
-
