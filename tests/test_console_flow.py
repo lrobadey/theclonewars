@@ -88,7 +88,8 @@ def test_console_create_shipment() -> None:
 
 def test_console_create_unit_shipment() -> None:
     state = _load_state()
-    state.logistics.depot_units[DepotNode.CORE] = UnitStock(infantry=6, walkers=2, support=3)
+    # Set up depot with enough troopers for the shipment (80 infantry, 1 walker, 2 support)
+    state.logistics.depot_units[DepotNode.CORE] = UnitStock(infantry=100, walkers=2, support=3)
     console = CommandConsole(state)
 
     _press(console, "route-core-mid")
@@ -96,7 +97,8 @@ def test_console_create_unit_shipment() -> None:
 
     assert len(state.logistics.shipments) == 1
     shipment = state.logistics.shipments[0]
-    assert shipment.units.infantry == 4
+    # Shipment carries 80 troopers, 1 walker, 2 support
+    assert shipment.units.infantry == 80
     assert shipment.units.walkers == 1
     assert shipment.units.support == 2
 
