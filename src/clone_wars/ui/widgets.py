@@ -9,10 +9,9 @@ from textual.reactive import reactive
 from textual.widget import Widget
 from textual.widgets import Button, Static
 
-from clone_wars.engine.logistics import DepotNode
 from clone_wars.engine.ops import OperationTarget
 from clone_wars.engine.state import GameState
-from clone_wars.engine.types import ObjectiveStatus, Supplies, UnitStock
+from clone_wars.engine.types import LocationId, ObjectiveStatus, Supplies, UnitStock
 
 
 def _pct(value: float) -> int:
@@ -38,8 +37,8 @@ def _estimate_count(actual: int, confidence: float) -> str:
 
 
 def _sum_supplies(
-    stocks: dict[DepotNode, Supplies],
-    nodes: Tuple[DepotNode, ...] | None = None,
+    stocks: dict[LocationId, Supplies],
+    nodes: Tuple[LocationId, ...] | None = None,
 ) -> Supplies:
     if nodes is None:
         nodes = tuple(stocks.keys())
@@ -50,8 +49,8 @@ def _sum_supplies(
 
 
 def _sum_units(
-    units: dict[DepotNode, UnitStock],
-    nodes: Tuple[DepotNode, ...] | None = None,
+    units: dict[LocationId, UnitStock],
+    nodes: Tuple[LocationId, ...] | None = None,
 ) -> UnitStock:
     if nodes is None:
         nodes = tuple(units.keys())
@@ -79,13 +78,13 @@ def _format_units_summary(units: UnitStock) -> str:
 
 def _status_label(status: ObjectiveStatus) -> tuple[str, str]:
     """Return (label, rich_color_name)."""
-    match status:
-        case ObjectiveStatus.ENEMY:
-            return ("ENEMY HELD", "#ff3b3b")
-        case ObjectiveStatus.CONTESTED:
-            return ("CONTESTED", "#f0b429")
-        case ObjectiveStatus.SECURED:
-            return ("FRIENDLY", "#e5e7eb")
+    if status == ObjectiveStatus.ENEMY:
+        return ("ENEMY HELD", "#ff3b3b")
+    elif status == ObjectiveStatus.CONTESTED:
+        return ("CONTESTED", "#f0b429")
+    elif status == ObjectiveStatus.SECURED:
+        return ("FRIENDLY", "#e5e7eb")
+    return ("UNKNOWN", "#a7adb5")
 
 
 def _risk_label(risk: float) -> str:
@@ -227,8 +226,8 @@ class HeaderBar(Static):
 
     def render(self) -> str:
         depot_nodes = tuple(self.state.logistics.depot_stocks.keys())
-        front_nodes = (DepotNode.FRONT,)
-        rest_nodes = tuple(node for node in depot_nodes if node != DepotNode.FRONT)
+        front_nodes = (LocationId.CONTESTED_WORLD,)
+        rest_nodes = tuple(node for node in depot_nodes if node != LocationId.CONTESTED_WORLD)
 
         front_supplies = _sum_supplies(self.state.logistics.depot_stocks, front_nodes)
         rest_supplies = _sum_supplies(self.state.logistics.depot_stocks, rest_nodes)
@@ -338,16 +337,16 @@ class SituationMap(Widget):
         self.refresh_status()
 
     def refresh_status(self) -> None:
-        obj = self.state.planet.objectives
+        obj = self.state.contested_planet.objectives
         f_label, f_color = _status_label(obj.foundry)
         c_label, c_color = _status_label(obj.comms)
         p_label, p_color = _status_label(obj.power)
 
         hint = "[#a7adb5]Left/Right select | Enter sector briefing | Click node[/]"
 
-        control = _pct(self.state.planet.control)
-        fort = self.state.planet.enemy.fortification
-        reinf = self.state.planet.enemy.reinforcement_rate
+        control = _pct(self.state.contested_planet.control)
+        fort = self.state.contested_planet.enemy.fortification
+        reinf = self.state.contested_planet.enemy.reinforcement_rate
         stats = (
             f"[bold]CONTROL[/] {control}%  "
             f"[bold]FORT[/] {fort:.2f}  "
@@ -457,7 +456,7 @@ class EnemyIntel(Static):
         self.state = state
 
     def render(self) -> str:
-        enemy = self.state.planet.enemy
+        enemy = self.state.contested_planet.enemy
         conf = enemy.intel_confidence
         fort_label = "HIGH" if enemy.fortification >= 1.0 else "LOW"
         reinf_label = "MODERATE" if enemy.reinforcement_rate >= 0.08 else "LOW"
@@ -529,7 +528,7 @@ class LogisticsPanel(Widget):
     def __init__(self, state: GameState, **kwargs) -> None:
         super().__init__(**kwargs)
         self.state = state
-        self.selected_depot = DepotNode.CORE
+        self.selected_depot = LocationId.NEW_SYSTEM_CORE
 
     def compose(self) -> ComposeResult:
         with Vertical(id="logistics-network"):
@@ -562,9 +561,9 @@ class LogisticsPanel(Widget):
         if not bid:
             return
         depot_map = {
-            "depot-core": DepotNode.CORE,
-            "depot-mid": DepotNode.MID,
-            "depot-front": DepotNode.FRONT,
+            "depot-core": LocationId.NEW_SYSTEM_CORE,
+            "depot-mid": LocationId.DEEP_SPACE_A,
+            "depot-front": LocationId.CONTESTED_WORLD,
         }
         depot = depot_map.get(bid)
         if depot is None:
@@ -575,9 +574,9 @@ class LogisticsPanel(Widget):
     def _update_node_counts(self) -> None:
         stocks = self.state.logistics.depot_stocks
         count_map = {
-            DepotNode.CORE: "depot-core-counts",
-            DepotNode.MID: "depot-mid-counts",
-            DepotNode.FRONT: "depot-front-counts",
+            LocationId.NEW_SYSTEM_CORE: "depot-core-counts",
+            LocationId.DEEP_SPACE_A: "depot-mid-counts",
+            LocationId.CONTESTED_WORLD: "depot-front-counts",
         }
         for depot, node_id in count_map.items():
             stock = self._stock_for_display(depot)
@@ -586,9 +585,9 @@ class LogisticsPanel(Widget):
 
     def _update_selection(self) -> None:
         btn_map = {
-            DepotNode.CORE: "depot-core",
-            DepotNode.MID: "depot-mid",
-            DepotNode.FRONT: "depot-front",
+            LocationId.NEW_SYSTEM_CORE: "depot-core",
+            LocationId.DEEP_SPACE_A: "depot-mid",
+            LocationId.CONTESTED_WORLD: "depot-front",
         }
         for depot, node_id in btn_map.items():
             button = self.query_one(f"#{node_id}", Button)
@@ -614,8 +613,8 @@ class LogisticsPanel(Widget):
         )
         self.query_one("#logistics-detail", Static).update(detail)
 
-    def _stock_for_display(self, depot: DepotNode) -> Supplies:
-        if depot == DepotNode.FRONT:
+    def _stock_for_display(self, depot: LocationId) -> Supplies:
+        if depot == LocationId.CONTESTED_WORLD:
             return self.state.task_force.supplies
         return self.state.logistics.depot_stocks[depot]
 
@@ -628,8 +627,8 @@ class LogisticsPanel(Widget):
                     if shipment.interdicted
                     else "[#a7adb5]EN ROUTE[/]"
                 )
-                path = "→".join(node.short_label for node in shipment.path)
-                leg = f"{shipment.origin.short_label}->{shipment.destination.short_label}"
+                path = "→".join(node.value for node in shipment.path)  # Simplification for MVP
+                leg = f"{shipment.origin.value}->{shipment.destination.value}"
                 unit_seg = ""
                 if shipment.units.infantry or shipment.units.walkers or shipment.units.support:
                     unit_seg = (
@@ -646,7 +645,7 @@ class LogisticsPanel(Widget):
         self.query_one("#logistics-shipments", Static).update("\n".join(shipment_lines))
 
 
-@dataclass(slots=True)
+@dataclass()
 class FlashMessage:
     text: str
     kind: str = "info"  # info|ok|warn|err

@@ -7,14 +7,14 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from clone_wars.engine.logistics import DepotNode
+from clone_wars.engine.types import LocationId
 
 
 class RulesError(ValueError):
     """Error loading or validating rules."""
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True)
 class SupplyClass:
     """A supply class definition."""
 
@@ -23,7 +23,7 @@ class SupplyClass:
     shortage_effects: dict[str, float]
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True)
 class UnitRole:
     """A unit role definition."""
 
@@ -36,7 +36,7 @@ class UnitRole:
     recon: dict[str, float] | None = None
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True)
 class OperationType:
     """An operation type definition."""
 
@@ -48,7 +48,7 @@ class OperationType:
     supply_cost_multiplier: float
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True)
 class ObjectiveDef:
     """An objective definition."""
 
@@ -59,7 +59,7 @@ class ObjectiveDef:
     description: str = ""
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True)
 class GlobalConfig:
     raid_max_ticks: int
     raid_ammo_cost: int
@@ -69,11 +69,12 @@ class GlobalConfig:
     raid_casualty_rate: float
     ammo_pinch_threshold: float
     walker_screen_infantry_protect: float
-    storage_risk_per_day: dict[DepotNode, float]
-    storage_loss_pct_range: dict[DepotNode, tuple[float, float]]
+    walker_screen_infantry_protect: float
+    storage_risk_per_day: dict[LocationId, float]
+    storage_loss_pct_range: dict[LocationId, tuple[float, float]]
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True)
 class Ruleset:
     """Loaded and validated ruleset."""
 
@@ -252,16 +253,16 @@ def _load_operation_rules(path: Path) -> dict[str, Any]:
     return result
 
 
-def _parse_depot_node(value: Any, *, path: Path, field: str) -> DepotNode:
+def _parse_location_id(value: Any, *, path: Path, field: str) -> LocationId:
     if not isinstance(value, str):
         raise RulesError(f"{path}: {field} keys must be strings")
     try:
-        return DepotNode(value)
+        return LocationId(value)
     except ValueError:
         try:
-            return DepotNode[value]
+            return LocationId[value]
         except KeyError as exc:
-            raise RulesError(f"{path}: unknown depot node '{value}' in {field}") from exc
+            raise RulesError(f"{path}: unknown location id '{value}' in {field}") from exc
 
 
 def _load_globals(path: Path) -> GlobalConfig:
@@ -285,16 +286,16 @@ def _load_globals(path: Path) -> GlobalConfig:
     if not isinstance(storage_risk_raw, dict):
         raise RulesError(f"{path}: storage_risk_per_day must be an object")
     storage_risk_per_day = {
-        _parse_depot_node(key, path=path, field="storage_risk_per_day"): float(value)
+        _parse_location_id(key, path=path, field="storage_risk_per_day"): float(value)
         for key, value in storage_risk_raw.items()
     }
 
     storage_loss_raw = data.get("storage_loss_pct_range")
     if not isinstance(storage_loss_raw, dict):
         raise RulesError(f"{path}: storage_loss_pct_range must be an object")
-    storage_loss_pct_range: dict[DepotNode, tuple[float, float]] = {}
+    storage_loss_pct_range: dict[LocationId, tuple[float, float]] = {}
     for key, value in storage_loss_raw.items():
-        depot = _parse_depot_node(key, path=path, field="storage_loss_pct_range")
+        depot = _parse_location_id(key, path=path, field="storage_loss_pct_range")
         if not isinstance(value, list) or len(value) != 2:
             raise RulesError(f"{path}: storage_loss_pct_range.{key} must be [min, max]")
         storage_loss_pct_range[depot] = (float(value[0]), float(value[1]))

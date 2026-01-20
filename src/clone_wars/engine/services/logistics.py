@@ -5,14 +5,14 @@ from __future__ import annotations
 from collections import deque
 from random import Random
 
-from clone_wars.engine.logistics import DepotNode, LogisticsState, Route, Shipment
-from clone_wars.engine.types import Supplies, UnitStock
+from clone_wars.engine.logistics import LogisticsState, Route, Shipment
+from clone_wars.engine.types import LocationId, PlanetState, Supplies, UnitStock
 
 
 class LogisticsService:
     """Service for handling logistics operations."""
 
-    def tick(self, state: LogisticsState, rng: Random) -> None:
+    def tick(self, state: LogisticsState, planet: PlanetState, rng: Random) -> None:
         """Advance logistics by one day: move shipments, check interdiction, deliver."""
         # Process each shipment
         remaining_shipments: list[Shipment] = []
@@ -20,7 +20,11 @@ class LogisticsService:
             # Check interdiction (once per leg, on first day of that leg)
             if shipment.days_remaining == shipment.total_days:
                 route = self._find_route(state, shipment.origin, shipment.destination)
-                if route and rng.random() < route.interdiction_risk:
+                risk = 0.0
+                if route:
+                    risk = self._calculate_dynamic_risk(route, state.shipments, planet)
+                
+                if rng.random() < risk:
                     shipment.interdicted = True
                     # Apply loss: 20-40% of supplies
                     loss_factor = 0.7 + (rng.random() * 0.2)  # 0.7 to 0.9 (20-40% loss)
@@ -66,8 +70,8 @@ class LogisticsService:
     def create_shipment(
         self,
         state: LogisticsState,
-        origin: DepotNode,
-        destination: DepotNode,
+        origin: LocationId,
+        destination: LocationId,
         supplies: Supplies,
         units: UnitStock | None,
         rng: Random,
@@ -124,25 +128,25 @@ class LogisticsService:
         state.next_shipment_id += 1
         state.shipments.append(shipment)
 
-    def _find_route(self, state: LogisticsState, origin: DepotNode, destination: DepotNode) -> Route | None:
+    def _find_route(self, state: LogisticsState, origin: LocationId, destination: LocationId) -> Route | None:
         """Find route from origin to destination."""
         for route in state.routes:
             if route.origin == origin and route.destination == destination:
                 return route
         return None
 
-    def _find_path(self, state: LogisticsState, origin: DepotNode, destination: DepotNode) -> tuple[DepotNode, ...] | None:
+    def _find_path(self, state: LogisticsState, origin: LocationId, destination: LocationId) -> tuple[LocationId, ...] | None:
         """Find a path from origin to destination across routes (BFS)."""
         if origin == destination:
             return (origin,)
 
-        adjacency: dict[DepotNode, list[DepotNode]] = {node: [] for node in DepotNode}
+        adjacency: dict[LocationId, list[LocationId]] = {node: [] for node in LocationId}
         for route in state.routes:
             adjacency[route.origin].append(route.destination)
 
-        queue: deque[DepotNode] = deque([origin])
-        visited: set[DepotNode] = {origin}
-        parent: dict[DepotNode, DepotNode] = {}
+        queue: deque[LocationId] = deque([origin])
+        visited: set[LocationId] = {origin}
+        parent: dict[LocationId, LocationId] = {}
 
         while queue:
             node = queue.popleft()
@@ -159,8 +163,38 @@ class LogisticsService:
         if destination not in visited:
             return None
 
-        rev: list[DepotNode] = [destination]
+        rev: list[LocationId] = [destination]
         while rev[-1] != origin:
             rev.append(parent[rev[-1]])
         rev.reverse()
         return tuple(rev)
+
+    def _calculate_dynamic_risk(
+        self, route: Route, shipments: list[Shipment], planet: PlanetState
+    ) -> float:
+        """Calculate interdiction risk based on traffic, intel, and control."""
+        base_risk = route.interdiction_risk
+
+        # Traffic penalty: +2% risk per OTHER active shipment on this specific leg
+        # (Current shipment is already in the list, so we might count is here, 
+        # but the risk usually applies to the group. Let's count all on this leg.)
+        traffic_count = sum(
+            1
+            for s in shipments
+            if s.days_remaining > 0
+            and s.origin == route.origin
+            and s.destination == route.destination
+        )
+        # Using a simple linear scaling for now.
+        # Ensure we don't double count the shipment itself if it's already in the list (it is).
+        # But 'traffic' implies volume. If alone, traffic is 1.
+        traffic_penalty = max(0.0, (traffic_count - 1) * 0.02)
+
+        # Enemy Intel: Scale up risk if enemy knows our moves
+        intel_penalty = planet.enemy.intel_confidence * 0.20
+
+        # Control: Low control increases risk
+        control_penalty = (1.0 - planet.control) * 0.15
+
+        total_risk = base_risk + traffic_penalty + intel_penalty + control_penalty
+        return min(0.95, max(0.0, total_risk))

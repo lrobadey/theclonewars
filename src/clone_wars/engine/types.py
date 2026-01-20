@@ -1,7 +1,35 @@
+"""Common types and enums."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
+
+
+@dataclass(frozen=True)
+class FactionId(str, Enum):
+    NEW_SYSTEM = "new_system"
+    COLLECTIVE = "collective"
+
+
+class LocationId(str, Enum):
+    """Location IDs for the solar system graph."""
+    
+    # New System Territory
+    NEW_SYSTEM_CORE = "new_system_core"
+    DEEP_SPACE_A = "deep_space_a"
+    
+    # Contested
+    CONTESTED_WORLD = "contested_world"
+    
+    # Collective Territory
+    DEEP_SPACE_B = "deep_space_b"
+    COLLECTIVE_CORE = "collective_core"
+
+    # Backward compatibility mappings (temporary)
+    CORE = "new_system_core"  # Default assumption for legacy
+    MID = "deep_space_a"
+    FRONT = "contested_world"
 
 
 class ObjectiveStatus(str, Enum):
@@ -9,11 +37,32 @@ class ObjectiveStatus(str, Enum):
     CONTESTED = "contested"
     SECURED = "secured"
 
+@dataclass()
+class Objectives:
+    foundry: ObjectiveStatus
+    comms: ObjectiveStatus
+    power: ObjectiveStatus
 
 
+@dataclass()
+class EnemyForce:
+    infantry: int
+    walkers: int
+    support: int
+    cohesion: float
+    fortification: float
+    reinforcement_rate: float
+    intel_confidence: float
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass()
+class PlanetState:
+    objectives: Objectives
+    enemy: EnemyForce
+    control: float  # 0.0 to 1.0, player control level
+
+
+@dataclass(frozen=True)
 class Supplies:
     ammo: int
     fuel: int
@@ -27,7 +76,7 @@ class Supplies:
         )
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True)
 class UnitStock:
     infantry: int
     walkers: int

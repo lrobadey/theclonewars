@@ -27,7 +27,7 @@ class OperationPhase(str, Enum):
     COMPLETE = "complete"
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True)
 class OperationIntent:
     """Fixed operation parameters set at start (target + type)."""
 
@@ -35,7 +35,7 @@ class OperationIntent:
     op_type: OperationTypeId
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True)
 class Phase1Decisions:
     """Contact & Shaping phase decisions."""
 
@@ -43,7 +43,7 @@ class Phase1Decisions:
     fire_support_prep: str  # conserve / preparatory
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True)
 class Phase2Decisions:
     """Main Engagement phase decisions."""
 
@@ -51,7 +51,7 @@ class Phase2Decisions:
     risk_tolerance: str  # low / med / high
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True)
 class Phase3Decisions:
     """Exploit & Consolidate phase decisions."""
 
@@ -62,7 +62,7 @@ class Phase3Decisions:
 PhaseDecisions = Union[Phase1Decisions, Phase2Decisions, Phase3Decisions]
 
 
-@dataclass(slots=True)
+@dataclass()
 class OperationDecisions:
     """Collected decisions across all phases (filled incrementally)."""
 
@@ -78,7 +78,7 @@ class OperationDecisions:
         )
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True)
 class PhaseSummary:
     """Summary of what happened in a phase."""
 
@@ -89,7 +89,7 @@ class PhaseSummary:
     cohesion_delta: float = 0.0
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True)
 class OperationPhaseRecord:
     """Complete record of a resolved phase (for AAR timeline)."""
 
@@ -101,7 +101,7 @@ class OperationPhaseRecord:
     events: list[Event]
 
 
-@dataclass(slots=True)
+@dataclass()
 class ActiveOperation:
     """Active operation with phase-by-phase state machine."""
 
@@ -160,7 +160,7 @@ class ActiveOperation:
 
 
 # Legacy support: OperationPlan for backward compatibility during migration
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True)
 class OperationPlan:
     """Legacy plan structure - kept for backward compatibility."""
 

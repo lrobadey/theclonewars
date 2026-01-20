@@ -9,11 +9,12 @@ from textual.widget import Widget
 from textual.widgets import Button, Static
 from textual.worker import Worker
 
-from clone_wars.engine.logistics import DepotNode
+from clone_wars.engine.actions import ActionManager, ActionType, PlayerAction, ActionError
+from clone_wars.engine.logistics import DepotNode  # Kept for strict typing if needed elsewhere, but mostly replaced
 from clone_wars.engine.ops import OperationPlan, OperationTarget, OperationTypeId
 from clone_wars.engine.production import ProductionJobType
 from clone_wars.engine.state import AfterActionReport, GameState, RaidReport
-from clone_wars.engine.types import ObjectiveStatus, Supplies, UnitStock
+from clone_wars.engine.types import LocationId, ObjectiveStatus, Supplies, UnitStock
 
 
 def _fmt_int(n: int) -> str:
@@ -45,10 +46,11 @@ class CommandConsole(Widget):
     def __init__(self, state: GameState, **kwargs) -> None:
         super().__init__(**kwargs)
         self.state = state
+        self.actions = ActionManager(state)
         self._plan_draft: dict[str, str] = {}
         self._target: OperationTarget | None = None
         self._op_type: OperationTypeId = OperationTypeId.CAMPAIGN
-        self._pending_route: tuple[DepotNode, DepotNode] | None = None
+        self._pending_route: tuple[LocationId, LocationId] | None = None
         self._prod_category: str | None = None
         self._prod_job_type: ProductionJobType | None = None
         self._prod_quantity: int = 0
@@ -104,32 +106,32 @@ class CommandConsole(Widget):
             self._request_refresh()
 
     def _objective_id_for_target(self, target: OperationTarget) -> str:
-        match target:
-            case OperationTarget.FOUNDRY:
-                return "foundry"
-            case OperationTarget.COMMS:
-                return "comms"
-            case OperationTarget.POWER:
-                return "power"
+        if target == OperationTarget.FOUNDRY:
+            return "foundry"
+        elif target == OperationTarget.COMMS:
+            return "comms"
+        elif target == OperationTarget.POWER:
+            return "power"
+        return "unknown"
 
     def _objective_status_for_target(self, target: OperationTarget) -> ObjectiveStatus:
-        obj = self.state.planet.objectives
-        match target:
-            case OperationTarget.FOUNDRY:
-                return obj.foundry
-            case OperationTarget.COMMS:
-                return obj.comms
-            case OperationTarget.POWER:
-                return obj.power
+        obj = self.state.contested_planet.objectives
+        if target == OperationTarget.FOUNDRY:
+            return obj.foundry
+        elif target == OperationTarget.COMMS:
+            return obj.comms
+        elif target == OperationTarget.POWER:
+            return obj.power
+        return ObjectiveStatus.ENEMY
 
     def _objective_status_label(self, status: ObjectiveStatus) -> tuple[str, str]:
-        match status:
-            case ObjectiveStatus.ENEMY:
-                return ("ENEMY HELD", "#ff3b3b")
-            case ObjectiveStatus.CONTESTED:
-                return ("CONTESTED", "#f0b429")
-            case ObjectiveStatus.SECURED:
-                return ("FRIENDLY", "#e5e7eb")
+        if status == ObjectiveStatus.ENEMY:
+            return ("ENEMY HELD", "#ff3b3b")
+        elif status == ObjectiveStatus.CONTESTED:
+            return ("CONTESTED", "#f0b429")
+        elif status == ObjectiveStatus.SECURED:
+            return ("FRIENDLY", "#e5e7eb")
+        return ("UNKNOWN", "#a7adb5")
 
     def watch_mode(self, mode: str) -> None:
         self._last_content_key = ""
@@ -212,8 +214,9 @@ class CommandConsole(Widget):
                 self.mode = "raid"
                 return
             else:
+                ap_str = f"[bold]AP: {self.state.action_points}/3[/]"
                 container.mount(
-                    Static("[bold]COMMAND LINK ESTABLISHED. SELECT A SECTOR TO RAID.[/]", markup=True),
+                    Static(f"[bold]COMMAND LINK ESTABLISHED. {ap_str}[/]", markup=True),
                     Button("[1] PRODUCTION", id="btn-production"),
                     Button("[2] LOGISTICS", id="btn-logistics"),
                     Button("[3] NEXT DAY", id="btn-next"),
@@ -235,8 +238,8 @@ class CommandConsole(Widget):
             difficulty = obj_def.base_difficulty if obj_def else 1.0
             description = (obj_def.description if obj_def else "").strip()
 
-            enemy = self.state.planet.enemy
-            control_pct = int(max(0.0, min(1.0, self.state.planet.control)) * 100)
+            enemy = self.state.contested_planet.enemy
+            control_pct = int(max(0.0, min(1.0, self.state.contested_planet.control)) * 100)
 
             def _op_line(op_type: OperationTypeId) -> str:
                 cfg = self.state.rules.operation_types.get(op_type.value)
@@ -469,7 +472,7 @@ class CommandConsole(Widget):
             )
 
         elif self.mode == "logistics:package":
-            origin, destination = cast(tuple[DepotNode, DepotNode], self._pending_route)
+            origin, destination = cast(tuple[LocationId, LocationId], self._pending_route)
             container.mount(
                 Static(
                     f"[bold]SHIPMENT PACKAGE[/] {origin.value} -> {destination.value}",
@@ -555,9 +558,10 @@ class CommandConsole(Widget):
                 self._message = "[#ff3b3b]RAID IN PROGRESS[/]"
                 self._request_refresh()
                 return
-            ran = await self.app.run_action("next_day")
-            if not ran and hasattr(self.app, "action_next_day"):
-                self.app.action_next_day()
+            
+            # End the day explicitly (resets AP)
+            self.actions.end_day()
+            
             self._message = "[#a7adb5]DAY ADVANCED[/]"
             self._request_refresh()
         elif bid == "btn-sector-back":
@@ -634,8 +638,8 @@ class CommandConsole(Widget):
             self._request_refresh()
         elif bid == "prod-upgrade-factory":
             try:
-                self.state.production.add_factory()
-            except ValueError as exc:
+                self.actions.perform_action(PlayerAction(ActionType.UPGRADE_FACTORY))
+            except (ValueError, ActionError) as exc:
                 self._message = f"[#ff3b3b]{exc}[/]"
             else:
                 self._message = "[#a7adb5]FACTORY UPGRADE COMPLETE (+1 SLOT)[/]"
@@ -728,8 +732,12 @@ class CommandConsole(Widget):
                     end_state=self._plan_draft["end_state"],
                     op_type=self._op_type,
                 )
-                self.state.start_operation(plan)
-                self._message = "[bold #c8102e]OPERATION LAUNCHED[/]"
+                try:
+                    self.actions.perform_action(PlayerAction(ActionType.START_OPERATION, payload=plan))
+                    self._message = "[bold #c8102e]OPERATION LAUNCHED[/]"
+                except ActionError as e:
+                    self._message = f"[#ff3b3b]{e}[/]"
+                
                 self.mode = "menu"
 
         # Production handlers
@@ -789,9 +797,9 @@ class CommandConsole(Widget):
                 self.mode = "production:quantity"
                 return
             stop_map = {
-                "prod-stop-core": DepotNode.CORE,
-                "prod-stop-mid": DepotNode.MID,
-                "prod-stop-front": DepotNode.FRONT,
+                "prod-stop-core": LocationId.NEW_SYSTEM_CORE,
+                "prod-stop-mid": LocationId.DEEP_SPACE_A,
+                "prod-stop-front": LocationId.CONTESTED_WORLD,
             }
             stop_at = stop_map.get(bid)
             if stop_at is None:
@@ -823,8 +831,8 @@ class CommandConsole(Widget):
         # Logistics handlers
         elif bid.startswith("route-"):
             route_map = {
-                "route-core-mid": (DepotNode.CORE, DepotNode.MID),
-                "route-mid-front": (DepotNode.MID, DepotNode.FRONT),
+                "route-core-mid": (LocationId.NEW_SYSTEM_CORE, LocationId.DEEP_SPACE_A),
+                "route-mid-front": (LocationId.DEEP_SPACE_A, LocationId.CONTESTED_WORLD),
             }
             route = route_map.get(bid)
             if route:

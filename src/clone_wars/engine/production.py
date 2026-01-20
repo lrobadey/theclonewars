@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 
-from clone_wars.engine.logistics import DepotNode
+from clone_wars.engine.types import LocationId
 
 
 class ProductionJobType(str, Enum):
@@ -29,26 +29,26 @@ PRODUCTION_COSTS: dict[ProductionJobType, int] = {
 }
 
 
-@dataclass(slots=True)
+@dataclass()
 class ProductionJob:
     """A production job in the queue."""
 
     job_type: ProductionJobType
     quantity: int
     remaining: int
-    stop_at: DepotNode
+    stop_at: LocationId
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True)
 class ProductionOutput:
     """A completed production output."""
 
     job_type: ProductionJobType
     quantity: int
-    stop_at: DepotNode
+    stop_at: LocationId
 
 
-@dataclass(slots=True)
+@dataclass()
 class ProductionState:
     """Production system state."""
 
@@ -90,7 +90,7 @@ class ProductionState:
         self.factories += count
 
     def queue_job(
-        self, job_type: ProductionJobType, quantity: int, stop_at: DepotNode = DepotNode.CORE
+        self, job_type: ProductionJobType, quantity: int, stop_at: LocationId = LocationId.NEW_SYSTEM_CORE
     ) -> None:
         """Queue a new production job."""
         if quantity <= 0:

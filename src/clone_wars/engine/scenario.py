@@ -10,7 +10,7 @@ from clone_wars.engine.state import GameState
 from clone_wars.engine.types import Supplies
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True)
 class ScenarioData:
     seed: int
     enemy_infantry: int

@@ -13,7 +13,6 @@ from clone_wars.engine.combat import (
 )
 from clone_wars.engine.logging import Event, TopFactor
 from clone_wars.engine.logistics import (
-    DepotNode,
     LogisticsState,
 )
 from clone_wars.engine.ops import (
@@ -33,53 +32,37 @@ from clone_wars.engine.ops import (
 from clone_wars.engine.production import ProductionJobType, ProductionOutput, ProductionState
 from clone_wars.engine.rules import Ruleset, RulesError
 from clone_wars.engine.services.logistics import LogisticsService
-from clone_wars.engine.types import ObjectiveStatus, Supplies, UnitStock
-
-
-@dataclass(slots=True)
-class Objectives:
-    foundry: ObjectiveStatus
-    comms: ObjectiveStatus
-    power: ObjectiveStatus
-
-
-@dataclass(slots=True)
-class EnemyForce:
-    infantry: int
-    walkers: int
-    support: int
-    cohesion: float
-    fortification: float
-    reinforcement_rate: float
-    intel_confidence: float
-
-
-@dataclass(slots=True)
-class PlanetState:
-    objectives: Objectives
-    enemy: EnemyForce
-    control: float  # 0.0 to 1.0, player control level
-
+from clone_wars.engine.types import (
+    EnemyForce,
+    FactionId,
+    LocationId,
+    Objectives,
+    ObjectiveStatus,
+    PlanetState,
+    Supplies,
+    UnitStock,
+)
 
 # ProductionState moved to production.py module
 
 
-@dataclass(slots=True)
+@dataclass()
 class UnitComposition:
     infantry: int
     walkers: int
     support: int
 
 
-@dataclass(slots=True)
+@dataclass()
 class TaskForceState:
     composition: UnitComposition
     readiness: float
     cohesion: float
     supplies: Supplies
+    location: LocationId = LocationId.CONTESTED_WORLD
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True)
 class RaidReport:
     outcome: str  # "VICTORY" / "DEFEAT" / "STALEMATE"
     reason: str
@@ -95,7 +78,7 @@ class RaidReport:
     top_factors: list[RaidFactor] = field(default_factory=list)
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True)
 class AfterActionReport:
     outcome: str
     target: OperationTarget
@@ -108,17 +91,21 @@ class AfterActionReport:
     events: list[Event]
 
 
-@dataclass(slots=True)
+@dataclass()
 class GameState:
     day: int
     rng_seed: int
     rng: Random
 
-    planet: PlanetState
+    planets: dict[LocationId, PlanetState]
     production: ProductionState
     logistics: LogisticsState
     task_force: TaskForceState
     rules: Ruleset
+    
+    action_points: int
+    faction_turn: FactionId
+    
     logistics_service: LogisticsService = field(default_factory=LogisticsService, init=False)
 
     raid_session: RaidCombatSession | None
@@ -136,27 +123,29 @@ class GameState:
         except RulesError as exc:
             raise RuntimeError(f"Failed to load rules: {exc}") from exc
 
+        contested_planet = PlanetState(
+            objectives=Objectives(
+                foundry=ObjectiveStatus.ENEMY,
+                comms=ObjectiveStatus.ENEMY,
+                power=ObjectiveStatus.ENEMY,
+            ),
+            enemy=EnemyForce(
+                infantry=120,
+                walkers=2,
+                support=1,
+                cohesion=1.00,
+                fortification=1.20,
+                reinforcement_rate=0.0,
+                intel_confidence=0.70,
+            ),
+            control=0.3,  # Initial control level
+        )
+
         return GameState(
             day=1,
             rng_seed=seed,
             rng=rng,
-            planet=PlanetState(
-                objectives=Objectives(
-                    foundry=ObjectiveStatus.ENEMY,
-                    comms=ObjectiveStatus.ENEMY,
-                    power=ObjectiveStatus.ENEMY,
-                ),
-                enemy=EnemyForce(
-                    infantry=120,
-                    walkers=2,
-                    support=1,
-                    cohesion=1.00,
-                    fortification=1.20,
-                    reinforcement_rate=0.0,
-                    intel_confidence=0.70,
-                ),
-                control=0.3,  # Initial control level
-            ),
+            planets={LocationId.CONTESTED_WORLD: contested_planet},
             production=ProductionState.new(factories=3),
             logistics=LogisticsState.new(),
             task_force=TaskForceState(
@@ -164,13 +153,21 @@ class GameState:
                 readiness=1.00,
                 cohesion=1.00,
                 supplies=Supplies(ammo=120, fuel=90, med_spares=40),
+                location=LocationId.CONTESTED_WORLD,
             ),
             rules=rules,
+            action_points=3,
+            faction_turn=FactionId.NEW_SYSTEM,
             raid_session=None,
             raid_target=None,
             operation=None,
             last_aar=None,
         )
+
+    @property
+    def contested_planet(self) -> PlanetState:
+        """Helper to access the main contested planet (MVP assumption)."""
+        return self.planets[LocationId.CONTESTED_WORLD]
 
     def advance_day(self) -> None:
         """Advance game state by one day."""
@@ -188,6 +185,8 @@ class GameState:
     def start_raid(self, target: OperationTarget) -> None:
         if self.operation is not None or self.raid_session is not None:
             raise RuntimeError("Only one active operation allowed")
+        # Use contested planet helper
+        planet = self.contested_planet
         if self._get_objective_status(target) == ObjectiveStatus.SECURED:
             raise RuntimeError(f"Cannot raid {target.value}; objective already secured")
         self.raid_target = target
@@ -244,7 +243,7 @@ class GameState:
         self.task_force.readiness = max(0.0, min(1.0, self.task_force.readiness - readiness_drop))
         self.task_force.cohesion = self.task_force.readiness
 
-        enemy = self.planet.enemy
+        enemy = self.contested_planet.enemy
         enemy.infantry = result.enemy_remaining["infantry"]
         enemy.walkers = result.enemy_remaining["walkers"]
         enemy.support = result.enemy_remaining["support"]
@@ -281,20 +280,21 @@ class GameState:
         self.raid_target = None
 
     def _apply_raid_outcome(self, target: OperationTarget, *, victory: bool) -> None:
+        planet = self.contested_planet
         prior = self._get_objective_status(target)
         if victory:
-            self.planet.control = min(1.0, self.planet.control + 0.05)
-            self.planet.enemy.fortification = max(0.6, self.planet.enemy.fortification - 0.03)
+            planet.control = min(1.0, planet.control + 0.05)
+            planet.enemy.fortification = max(0.6, planet.enemy.fortification - 0.03)
 
             if prior == ObjectiveStatus.ENEMY:
                 self._set_objective(target, ObjectiveStatus.CONTESTED)
             elif prior == ObjectiveStatus.CONTESTED:
                 self._set_objective(target, ObjectiveStatus.SECURED)
-                self.planet.enemy.reinforcement_rate = max(0.0, self.planet.enemy.reinforcement_rate - 0.02)
-                self.planet.enemy.fortification = max(0.6, self.planet.enemy.fortification - 0.10)
+                planet.enemy.reinforcement_rate = max(0.0, planet.enemy.reinforcement_rate - 0.02)
+                planet.enemy.fortification = max(0.6, planet.enemy.fortification - 0.10)
         else:
-            self.planet.control = max(0.0, self.planet.control - 0.05)
-            self.planet.enemy.fortification = min(2.5, self.planet.enemy.fortification + 0.05)
+            planet.control = max(0.0, planet.control - 0.05)
+            planet.enemy.fortification = min(2.5, planet.enemy.fortification + 0.05)
             if prior == ObjectiveStatus.CONTESTED:
                 self._set_objective(target, ObjectiveStatus.ENEMY)
 
@@ -308,51 +308,53 @@ class GameState:
         """Add completed production output to Core depot, then auto-dispatch if needed."""
         job_type = output.job_type
         quantity = output.quantity
-        core_stock = self.logistics.depot_stocks[DepotNode.CORE]
-        core_units = self.logistics.depot_units[DepotNode.CORE]
+        core_id = LocationId.NEW_SYSTEM_CORE
+        
+        core_stock = self.logistics.depot_stocks[core_id]
+        core_units = self.logistics.depot_units[core_id]
         supplies, units = self._build_production_payload(job_type, quantity)
         if job_type == ProductionJobType.AMMO:
-            self.logistics.depot_stocks[DepotNode.CORE] = Supplies(
+            self.logistics.depot_stocks[core_id] = Supplies(
                 ammo=core_stock.ammo + quantity,
                 fuel=core_stock.fuel,
                 med_spares=core_stock.med_spares,
             )
         elif job_type == ProductionJobType.FUEL:
-            self.logistics.depot_stocks[DepotNode.CORE] = Supplies(
+            self.logistics.depot_stocks[core_id] = Supplies(
                 ammo=core_stock.ammo,
                 fuel=core_stock.fuel + quantity,
                 med_spares=core_stock.med_spares,
             )
         elif job_type == ProductionJobType.MED_SPARES:
-            self.logistics.depot_stocks[DepotNode.CORE] = Supplies(
+            self.logistics.depot_stocks[core_id] = Supplies(
                 ammo=core_stock.ammo,
                 fuel=core_stock.fuel,
                 med_spares=core_stock.med_spares + quantity,
             )
         elif job_type == ProductionJobType.INFANTRY:
             troops = quantity
-            self.logistics.depot_units[DepotNode.CORE] = UnitStock(
+            self.logistics.depot_units[core_id] = UnitStock(
                 infantry=core_units.infantry + troops,
                 walkers=core_units.walkers,
                 support=core_units.support,
             )
         elif job_type == ProductionJobType.WALKERS:
-            self.logistics.depot_units[DepotNode.CORE] = UnitStock(
+            self.logistics.depot_units[core_id] = UnitStock(
                 infantry=core_units.infantry,
                 walkers=core_units.walkers + quantity,
                 support=core_units.support,
             )
         elif job_type == ProductionJobType.SUPPORT:
-            self.logistics.depot_units[DepotNode.CORE] = UnitStock(
+            self.logistics.depot_units[core_id] = UnitStock(
                 infantry=core_units.infantry,
                 walkers=core_units.walkers,
                 support=core_units.support + quantity,
             )
 
-        if output.stop_at != DepotNode.CORE:
+        if output.stop_at != core_id:
             self.logistics_service.create_shipment(
                 self.logistics,
-                DepotNode.CORE,
+                core_id,
                 output.stop_at,
                 supplies,
                 units,
@@ -376,7 +378,10 @@ class GameState:
 
     def _tick_logistics(self) -> None:
         """Advance logistics state by one tick."""
-        self.logistics_service.tick(self.logistics, self.rng)
+        # Need to update LogisticsService calls too potentially, but let's stick to state access
+        # LogisticsService.tick expects 'planet', likely uses 'planet.control' for interdiction?
+        # Let's pass contested_planet for now as legacy behavior
+        self.logistics_service.tick(self.logistics, self.contested_planet, self.rng)
 
     def _resupply_task_force_daily(self) -> None:
         """Resupply task force from key planet depot."""
@@ -400,13 +405,15 @@ class GameState:
     def _apply_enemy_passive_reactions(self) -> None:
         """Apply enemy fortification and force regeneration influenced by reinforcement rate."""
         base_reinforcement_rate = 0.10
+        # Access contested planet
+        planet = self.contested_planet
         reinforcement_scale = (
-            self.planet.enemy.reinforcement_rate / base_reinforcement_rate
+            planet.enemy.reinforcement_rate / base_reinforcement_rate
             if base_reinforcement_rate > 0
             else 0.0
         )
         reinforcement_scale = min(2.0, max(0.0, reinforcement_scale))
-        enemy = self.planet.enemy
+        enemy = planet.enemy
         if self.operation is None:
             enemy.fortification = min(2.5, enemy.fortification + (0.03 * reinforcement_scale))
 
@@ -426,18 +433,19 @@ class GameState:
         """Apply storage losses that increase with distance from Core."""
         storage_risk_per_day = self.rules.globals.storage_risk_per_day
         storage_loss_pct_range = self.rules.globals.storage_loss_pct_range
-        for depot in DepotNode:
-            risk = storage_risk_per_day.get(depot, 0.0)
+        # Iterate over location IDs instead of Enum
+        for location_id in self.logistics.depot_stocks.keys():
+            risk = storage_risk_per_day.get(location_id, 0.0)
             if risk <= 0:
                 continue
-            stock = self.logistics.depot_stocks[depot]
+            stock = self.logistics.depot_stocks[location_id]
             if stock.ammo == 0 and stock.fuel == 0 and stock.med_spares == 0:
                 continue
             if self.rng.random() >= risk:
                 continue
-            min_loss, max_loss = storage_loss_pct_range.get(depot, (0.0, 0.0))
+            min_loss, max_loss = storage_loss_pct_range.get(location_id, (0.0, 0.0))
             loss_pct = min_loss + (self.rng.random() * (max_loss - min_loss))
-            self.logistics.depot_stocks[depot] = Supplies(
+            self.logistics.depot_stocks[location_id] = Supplies(
                 ammo=max(0, int(stock.ammo * (1 - loss_pct))),
                 fuel=max(0, int(stock.fuel * (1 - loss_pct))),
                 med_spares=max(0, int(stock.med_spares * (1 - loss_pct))),
@@ -459,7 +467,7 @@ class GameState:
 
     def resupply_task_force(self) -> None:
         caps = Supplies(ammo=300, fuel=200, med_spares=100)
-        depot_node = DepotNode.FRONT
+        depot_node = LocationId.CONTESTED_WORLD
         depot_stock = self.logistics.depot_stocks[depot_node]
         depot_units = self.logistics.depot_units[depot_node]
         tf_supplies = self.task_force.supplies
@@ -519,8 +527,8 @@ class GameState:
             duration_range = op_config.duration_range
 
         # Calculate total duration based on enemy state
-        fort_mod = max(0, int((self.planet.enemy.fortification - 1.0) * 2))
-        control_mod = max(0, int((1.0 - self.planet.control) * 2))
+        fort_mod = max(0, int((self.contested_planet.enemy.fortification - 1.0) * 2))
+        control_mod = max(0, int((1.0 - self.contested_planet.control) * 2))
         estimated_days = base_days + fort_mod + control_mod
         estimated_days = max(duration_range[0], min(estimated_days, duration_range[1]))
 
@@ -528,7 +536,7 @@ class GameState:
         phase_durations = self._calculate_phase_durations(intent.op_type, estimated_days)
 
         # Sample enemy strength once for determinism
-        enemy = self.planet.enemy
+        enemy = self.contested_planet.enemy
         tf = self.task_force
         enemy_power = calculate_power(
             enemy.infantry,
@@ -738,11 +746,11 @@ class GameState:
 
         # Enemy factors affect phase 1
         strength_penalty = -0.10 * (op.sampled_enemy_strength - 1.0)
-        control_penalty = -0.08 * (1.0 - self.planet.control)
+        control_penalty = -0.08 * (1.0 - self.contested_planet.control)
         progress += strength_penalty + control_penalty
 
         log("enemy_strength", strength_penalty, "progress", f"Enemy strength {op.sampled_enemy_strength:.2f}")
-        log("planet_control", control_penalty, "progress", f"Control level {self.planet.control:.2f}")
+        log("planet_control", control_penalty, "progress", f"Control level {self.contested_planet.control:.2f}")
 
         # Supply costs for this phase
         base_ammo = 15 + (5 if d.fire_support_prep == "preparatory" else 0)
@@ -797,7 +805,7 @@ class GameState:
         log(f"risk_{d.risk_tolerance}", risk_rules.get("progress_mod", 0.0), "progress", f"Risk tolerance: {d.risk_tolerance}")
 
         # Fortification is main factor in engagement
-        fort = self.planet.enemy.fortification
+        fort = self.contested_planet.enemy.fortification
         fort_penalty = -0.15 * (fort - 1.0)
         progress += fort_penalty
         log("enemy_fortification", fort_penalty, "progress", f"Fortification {fort:.2f} resists assault")
@@ -808,7 +816,7 @@ class GameState:
         if support_role and support_role.recon:
             recon_rating = self.task_force.composition.support * support_role.recon.get("variance_reduction", 0.30) / 10.0
             recon_reduction = min(0.5, recon_rating)
-        base_variance = 0.20 * (1.0 - self.planet.enemy.intel_confidence) * variance_mult
+        base_variance = 0.20 * (1.0 - self.contested_planet.enemy.intel_confidence) * variance_mult
         variance = base_variance * (1.0 - recon_reduction)
         noise = self.rng.uniform(-variance, variance)
         progress += noise
@@ -1026,19 +1034,21 @@ class GameState:
             reinf_reduction = end_state_rules.get("reinforcement_reduction", 0.0)
             if end_state == "capture":
                 self._set_objective(op.target, ObjectiveStatus.SECURED)
-                self.planet.control = min(1.0, self.planet.control + 0.15)
-                self.planet.enemy.fortification = max(0.6, self.planet.enemy.fortification - fort_reduction)
-                self.planet.enemy.reinforcement_rate = max(0.0, self.planet.enemy.reinforcement_rate - reinf_reduction)
+            if end_state == "capture":
+                self._set_objective(op.target, ObjectiveStatus.SECURED)
+                self.contested_planet.control = min(1.0, self.contested_planet.control + 0.15)
+                self.contested_planet.enemy.fortification = max(0.6, self.contested_planet.enemy.fortification - fort_reduction)
+                self.contested_planet.enemy.reinforcement_rate = max(0.0, self.contested_planet.enemy.reinforcement_rate - reinf_reduction)
             elif end_state == "raid":
-                self.planet.control = min(1.0, self.planet.control + 0.05)
-                self.planet.enemy.reinforcement_rate = max(0.0, self.planet.enemy.reinforcement_rate - reinf_reduction)
+                self.contested_planet.control = min(1.0, self.contested_planet.control + 0.05)
+                self.contested_planet.enemy.reinforcement_rate = max(0.0, self.contested_planet.enemy.reinforcement_rate - reinf_reduction)
             elif end_state == "destroy":
-                self.planet.control = min(1.0, self.planet.control + 0.10)
-                self.planet.enemy.fortification = max(0.6, self.planet.enemy.fortification - fort_reduction)
-                self.planet.enemy.reinforcement_rate = max(0.0, self.planet.enemy.reinforcement_rate - reinf_reduction)
+                self.contested_planet.control = min(1.0, self.contested_planet.control + 0.10)
+                self.contested_planet.enemy.fortification = max(0.6, self.contested_planet.enemy.fortification - fort_reduction)
+                self.contested_planet.enemy.reinforcement_rate = max(0.0, self.contested_planet.enemy.reinforcement_rate - reinf_reduction)
         elif end_state != "withdraw":
-            self.planet.control = max(0.0, self.planet.control - 0.10)
-            self.planet.enemy.fortification = min(2.5, self.planet.enemy.fortification + 0.10)
+            self.contested_planet.control = max(0.0, self.contested_planet.control - 0.10)
+            self.contested_planet.enemy.fortification = min(2.5, self.contested_planet.enemy.fortification + 0.10)
 
         top = self._top_factors(all_events)
         self.last_aar = AfterActionReport(
@@ -1160,20 +1170,20 @@ class GameState:
 
         # Enemy factors
         base_progress = 1.0
-        fort = self.planet.enemy.fortification
+        fort = self.contested_planet.enemy.fortification
         fort_penalty = -0.25 * (fort - 1.0)
         log("enemy_fortification", "Phase 2", fort_penalty, "progress", f"Fortification {fort:.2f} resists assault")
 
         enemy_strength = self.rng.uniform(
-            self.planet.enemy.strength_min,
-            self.planet.enemy.strength_max,
+            0.8,
+            1.2,
         )
         strength_penalty = -0.20 * (enemy_strength - 1.0)
         log("enemy_strength", "Phase 1", strength_penalty, "progress", f"Enemy strength {enemy_strength:.2f}")
 
         # Planet control effect (lower control = harder)
-        control_penalty = -0.15 * (1.0 - self.planet.control)
-        log("planet_control", "Phase 1", control_penalty, "progress", f"Control level {self.planet.control:.2f} affects operations")
+        control_penalty = -0.15 * (1.0 - self.contested_planet.control)
+        log("planet_control", "Phase 1", control_penalty, "progress", f"Control level {self.contested_planet.control:.2f} affects operations")
 
         # Signature Interaction 1: Recon reduces variance
         # Calculate recon rating from support units
@@ -1331,22 +1341,20 @@ class GameState:
         self.operation = None
 
     def _get_objective_status(self, target: OperationTarget) -> ObjectiveStatus:
-        match target:
-            case OperationTarget.FOUNDRY:
-                return self.planet.objectives.foundry
-            case OperationTarget.COMMS:
-                return self.planet.objectives.comms
-            case _:
-                return self.planet.objectives.power
+        if target == OperationTarget.FOUNDRY:
+            return self.contested_planet.objectives.foundry
+        elif target == OperationTarget.COMMS:
+            return self.contested_planet.objectives.comms
+        else:
+            return self.contested_planet.objectives.power
 
     def _set_objective(self, target: OperationTarget, status: ObjectiveStatus) -> None:
-        match target:
-            case OperationTarget.FOUNDRY:
-                self.planet.objectives.foundry = status
-            case OperationTarget.COMMS:
-                self.planet.objectives.comms = status
-            case OperationTarget.POWER:
-                self.planet.objectives.power = status
+        if target == OperationTarget.FOUNDRY:
+            self.contested_planet.objectives.foundry = status
+        elif target == OperationTarget.COMMS:
+            self.contested_planet.objectives.comms = status
+        elif target == OperationTarget.POWER:
+            self.contested_planet.objectives.power = status
 
     @staticmethod
     def _top_factors(events: list[Event]) -> list[TopFactor]:

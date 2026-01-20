@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True)
 class Event:
     name: str
     phase: str
@@ -12,7 +12,7 @@ class Event:
     why: str
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True)
 class TopFactor:
     name: str
     value: float

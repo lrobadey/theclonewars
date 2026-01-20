@@ -31,14 +31,14 @@ def get_beat(tick: int) -> RaidBeat:
         return RaidBeat.EXFILTRATION
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True)
 class RaidFactor:
     name: str
     value: float
     why: str
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True)
 class CombatTick:
     tick: int
     your_power: float
@@ -51,7 +51,7 @@ class CombatTick:
     beat: str = ""
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True)
 class CombatResult:
     outcome: str
     reason: str
@@ -67,7 +67,7 @@ class CombatResult:
     top_factors: list[RaidFactor] = field(default_factory=list)
 
 
-@dataclass(slots=True)
+@dataclass()
 class RaidCombatSession:
     rng: random.Random
     config: GlobalConfig
