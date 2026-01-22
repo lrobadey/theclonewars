@@ -19,7 +19,10 @@
                     {% for job in vm.jobs %}
                     <div class="production__queue-item">
                         <div class="production__queue-label">{{ job.label }}</div>
-                        <div class="production__queue-meta muted">ETA {{ job.eta }}d -> {{ job.stop_at }}</div>
+                        <div class="production__queue-meta muted">
+                            ETA {{ job.eta }}d · {{ job.progress_pct }}% · {{ job.work_remaining }}/{{ job.work_total }} slots
+                            → {{ job.stop_at }}
+                        </div>
                     </div>
                     {% endfor %}
                 </div>

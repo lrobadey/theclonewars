@@ -82,10 +82,59 @@
     <div class="tactical__grid tactical__grid--front">
         <div class="panel tactical__panel">
             <div class="panel__title">TASK FORCE STATUS</div>
-            <pre class="panel__pre">{{ vm.tactical.front.task_force.text }}</pre>
-        </div>
-        <div class="panel tactical__panel">
-            <div class="panel__title">ACTIVE OBJECTIVES</div>
+            {% set task_force = vm.tactical.front.task_force %}
+            <div class="stat-row">
+                <span class="stat-label">TASK FORCE</span>
+                <span class="stat-value">{{ task_force.name }}</span>
+            </div>
+            <div class="stat-group">
+                <div class="stat-row">
+                    <span class="stat-label">INFANTRY</span>
+                    <span class="stat-value accent">{{ task_force.infantry }}</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">WALKERS</span>
+                    <span class="stat-value accent">{{ task_force.walkers }}</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">SUPPORT</span>
+                    <span class="stat-value accent">{{ task_force.support }}</span>
+                </div>
+            </div>
+            <div class="stat-group stat-group--muted">
+                <div class="stat-row">
+                    <span class="stat-label">READINESS</span>
+                    <span class="stat-value">{{ task_force.readiness_pct }}%</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">COHESION</span>
+                    <span class="stat-value">{{ task_force.cohesion_label }} ({{ task_force.cohesion_pct }}%)</span>
+                </div>
+            </div>
+            <div class="stat-group">
+                <div class="stat-row stat-row--bar">
+                    <span class="stat-label">AMMO</span>
+                    <div class="stat-bar">
+                        <div class="stat-bar__fill" style="width: {{ task_force.supplies_pct.ammo }}%"></div>
+                    </div>
+                    <span class="stat-value">{{ task_force.supplies.ammo }}</span>
+                </div>
+                <div class="stat-row stat-row--bar">
+                    <span class="stat-label">FUEL</span>
+                    <div class="stat-bar">
+                        <div class="stat-bar__fill" style="width: {{ task_force.supplies_pct.fuel }}%"></div>
+                    </div>
+                    <span class="stat-value">{{ task_force.supplies.fuel }}</span>
+                </div>
+                <div class="stat-row stat-row--bar">
+                    <span class="stat-label">MED/SPARES</span>
+                    <div class="stat-bar">
+                        <div class="stat-bar__fill" style="width: {{ task_force.supplies_pct.med_spares }}%"></div>
+                    </div>
+                    <span class="stat-value">{{ task_force.supplies.med_spares }}</span>
+                </div>
+            </div>
+            <div class="tactical__section-title">ACTIVE OBJECTIVES</div>
             <div class="tactical__objectives">
                 {% for node in vm.tactical.front.objectives %}
                 <button class="tactical__objective terminal-btn {{ node.status_class }}{% if node.selected %} tactical__objective--selected{% endif %}"
@@ -98,37 +147,49 @@
                 </button>
                 {% endfor %}
             </div>
-            <div class="muted">ISSUE ORDERS VIA THE ACTION HUD BELOW.</div>
         </div>
         <div class="panel tactical__panel">
             <div class="panel__title">ENEMY INTEL</div>
-            <div class="stat-row">
-                <span class="stat-label">INFANTRY</span>
-                <span class="stat-value accent">{{ vm.tactical.front.enemy.infantry_est }}</span>
+            {% set enemy = vm.tactical.front.enemy %}
+            <div class="stat-group">
+                <div class="stat-row">
+                    <span class="stat-label">INFANTRY</span>
+                    <span class="stat-value accent">{{ enemy.infantry_est }}</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">WALKERS</span>
+                    <span class="stat-value accent">{{ enemy.walkers_est }}</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">SUPPORT</span>
+                    <span class="stat-value accent">{{ enemy.support_est }}</span>
+                </div>
             </div>
-            <div class="stat-row">
-                <span class="stat-label">WALKERS</span>
-                <span class="stat-value accent">{{ vm.tactical.front.enemy.walkers_est }}</span>
+            <div class="stat-group">
+                <div class="stat-row stat-row--bar">
+                    <span class="stat-label">CONFIDENCE</span>
+                    <div class="stat-bar">
+                        <div class="stat-bar__fill" style="width: {{ enemy.confidence_pct }}%"></div>
+                    </div>
+                    <span class="stat-value">{{ enemy.confidence_pct }}%</span>
+                </div>
+                <div class="stat-row stat-row--bar">
+                    <span class="stat-label">COHESION</span>
+                    <div class="stat-bar">
+                        <div class="stat-bar__fill" style="width: {{ enemy.cohesion_pct }}%"></div>
+                    </div>
+                    <span class="stat-value">{{ enemy.cohesion_pct }}%</span>
+                </div>
             </div>
-            <div class="stat-row">
-                <span class="stat-label">SUPPORT</span>
-                <span class="stat-value accent">{{ vm.tactical.front.enemy.support_est }}</span>
-            </div>
-            <div class="stat-row">
-                <span class="stat-label">CONFIDENCE</span>
-                <span class="stat-value">{{ vm.tactical.front.enemy.confidence_pct }}%</span>
-            </div>
-            <div class="stat-row">
-                <span class="stat-label">COHESION</span>
-                <span class="stat-value">{{ vm.tactical.front.enemy.cohesion_pct }}%</span>
-            </div>
-            <div class="stat-row">
-                <span class="stat-label">FORT</span>
-                <span class="stat-value">{{ vm.tactical.front.enemy.fort_label }}</span>
-            </div>
-            <div class="stat-row">
-                <span class="stat-label">REINF</span>
-                <span class="stat-value">{{ vm.tactical.front.enemy.reinf_label }}</span>
+            <div class="stat-group">
+                <div class="stat-row">
+                    <span class="stat-label">FORT</span>
+                    <span class="stat-value">{{ enemy.fort_label }}</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">REINF</span>
+                    <span class="stat-value">{{ enemy.reinf_label }}</span>
+                </div>
             </div>
         </div>
     </div>

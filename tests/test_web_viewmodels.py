@@ -16,7 +16,6 @@ from clone_wars.web.render.viewmodels import console_vm
 
 def test_console_vm_operation_aar_payload() -> None:
     state = GameState.new()
-    state.planet = state.contested_planet
 
     summary = PhaseSummary(
         progress_delta=0.2,

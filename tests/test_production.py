@@ -1,13 +1,12 @@
 """Tests for production system."""
 
-from clone_wars.engine.logistics import DepotNode
-from clone_wars.engine.production import PRODUCTION_COSTS, ProductionJobType, ProductionState
+from clone_wars.engine.types import LocationId
+from clone_wars.engine.production import ProductionJobType, ProductionState
 
 
 def test_production_state_new() -> None:
     """Test creating new production state."""
-    # new(capacity=3) interprets 3 as 'factories'
-    prod = ProductionState.new(capacity=3)
+    prod = ProductionState.new(factories=3)
     # Default slots_per_factory is 20
     assert prod.factories == 3
     assert prod.capacity == 60  # 3 * 20
@@ -16,21 +15,21 @@ def test_production_state_new() -> None:
 
 def test_queue_job() -> None:
     """Test queueing a production job."""
-    prod = ProductionState.new(capacity=3)
+    prod = ProductionState.new(factories=3)
     prod.queue_job(ProductionJobType.AMMO, quantity=10)
     assert len(prod.jobs) == 1
     job = prod.jobs[0]
     assert job.job_type == ProductionJobType.AMMO
     assert job.quantity == 10
     # Cost for AMMO is 20 per unit
-    expected_work = 10 * PRODUCTION_COSTS[ProductionJobType.AMMO]
+    expected_work = 10 * prod.costs[ProductionJobType.AMMO.value]
     assert job.remaining == expected_work
-    assert job.stop_at == DepotNode.CORE
+    assert job.stop_at == LocationId.NEW_SYSTEM_CORE
 
 
 def test_production_tick() -> None:
     """Test production daily tick completes jobs."""
-    prod = ProductionState.new(capacity=3) # 60 capacity
+    prod = ProductionState.new(factories=3) # 60 capacity
     # AMMO cost is 20. 6 units = 120 work.
     # 120 work / 60 cap = exactly 2 days.
     prod.queue_job(ProductionJobType.AMMO, quantity=6)
@@ -49,7 +48,7 @@ def test_production_tick() -> None:
 
 def test_production_parallel_jobs() -> None:
     """Test multiple jobs advance in parallel with multiple slots."""
-    prod = ProductionState.new(capacity=3) # 60 capacity
+    prod = ProductionState.new(factories=3) # 60 capacity
     # Queue 3 jobs.
     # AMMO (20 cost), FUEL (20), MED (20).
     # Qty 3 each -> 60 work each.
@@ -71,7 +70,7 @@ def test_production_parallel_jobs() -> None:
 
 def test_get_eta_summary() -> None:
     """Test getting ETA summary."""
-    prod = ProductionState.new(capacity=3) # 60 capacity/day
+    prod = ProductionState.new(factories=3) # 60 capacity/day
     
     # FUEL: 9 units * 20 cost = 180 work.
     # MED: 5 units * 20 cost = 100 work.
@@ -113,4 +112,3 @@ def test_get_eta_summary() -> None:
     # Just check existence and order for now as precise math depends on exact loop logic
     assert summary[0][2] > 0
     assert summary[1][2] > 0
-

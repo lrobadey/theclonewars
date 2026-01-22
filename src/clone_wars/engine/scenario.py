@@ -51,8 +51,11 @@ def load_game_state(path: Path) -> GameState:
                     # Map legacy names if they appear in JSON
                     legacy_map = {
                         "CORE": LocationId.NEW_SYSTEM_CORE,
-                        "MID": LocationId.DEEP_SPACE,
-                        "FRONT": LocationId.CONTESTED_WORLD
+                        "MID": LocationId.CONTESTED_MID_DEPOT,
+                        "MID_DEPOT": LocationId.CONTESTED_MID_DEPOT,
+                        "SPACEPORT": LocationId.CONTESTED_SPACEPORT,
+                        "DEEP": LocationId.DEEP_SPACE,
+                        "FRONT": LocationId.CONTESTED_FRONT,
                     }
                     normalized_name = depot_name.upper().replace(" ", "_")
                     depot = legacy_map.get(normalized_name) or LocationId(normalized_name.lower())
@@ -64,13 +67,22 @@ def load_game_state(path: Path) -> GameState:
                 except (KeyError, ValueError):
                     pass  # Skip invalid depot names
 
-    # Optional: production capacity/factories
+    # Optional: production capacity/factories/barracks
     if "production" in data:
         prod_data = data["production"]
         if "factories" in prod_data:
             state.production.factories = int(prod_data["factories"])
         elif "capacity" in prod_data:
             state.production.factories = int(prod_data["capacity"])
+        if "barracks" in prod_data:
+            state.barracks.barracks = int(prod_data["barracks"])
+
+    # Optional: barracks override (legacy-friendly)
+    if "barracks" in data:
+        try:
+            state.barracks.barracks = int(data["barracks"])
+        except (TypeError, ValueError):
+            pass
 
     return state
 

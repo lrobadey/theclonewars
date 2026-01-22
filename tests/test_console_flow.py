@@ -4,8 +4,9 @@ import asyncio
 from dataclasses import dataclass
 from pathlib import Path
 
-from clone_wars.engine.logistics import DepotNode
+from clone_wars.engine.barracks import BarracksJobType
 from clone_wars.engine.production import ProductionJobType
+from clone_wars.engine.types import LocationId
 from clone_wars.engine.scenario import load_game_state
 from clone_wars.engine.types import Supplies, UnitStock
 from clone_wars.ui.console import CommandConsole
@@ -48,7 +49,7 @@ def test_console_queue_production_job() -> None:
     job = state.production.jobs[0]
     assert job.job_type == ProductionJobType.AMMO
     assert job.quantity == 10
-    assert job.stop_at == DepotNode.CORE
+    assert job.stop_at == LocationId.NEW_SYSTEM_CORE
     assert console.mode == "menu"
 
 
@@ -56,18 +57,17 @@ def test_console_queue_unit_production_job() -> None:
     state = _load_state()
     console = CommandConsole(state)
 
-    _press(console, "btn-production")
-    _press(console, "prod-cat-army")
-    _press(console, "prod-item-inf")
-    _press(console, "prod-qty-plus-10")
-    _press(console, "prod-qty-next")
-    _press(console, "prod-stop-core")
+    _press(console, "btn-barracks")
+    _press(console, "barracks-item-inf")
+    _press(console, "barracks-qty-plus-10")
+    _press(console, "barracks-qty-next")
+    _press(console, "barracks-stop-core")
 
-    assert len(state.production.jobs) == 1
-    job = state.production.jobs[0]
-    assert job.job_type == ProductionJobType.INFANTRY
+    assert len(state.barracks.jobs) == 1
+    job = state.barracks.jobs[0]
+    assert job.job_type == BarracksJobType.INFANTRY
     assert job.quantity == 10
-    assert job.stop_at == DepotNode.CORE
+    assert job.stop_at == LocationId.NEW_SYSTEM_CORE
 
 
 def test_console_create_shipment() -> None:
@@ -81,15 +81,15 @@ def test_console_create_shipment() -> None:
 
     assert len(state.logistics.shipments) == 1
     shipment = state.logistics.shipments[0]
-    assert shipment.origin == DepotNode.CORE
-    assert shipment.destination == DepotNode.MID
+    assert shipment.origin == LocationId.NEW_SYSTEM_CORE
+    assert shipment.destination == LocationId.CONTESTED_MID_DEPOT
     assert console.mode == "menu"
 
 
 def test_console_create_unit_shipment() -> None:
     state = _load_state()
     # Set up depot with enough troopers for the shipment (80 infantry, 1 walker, 2 support)
-    state.logistics.depot_units[DepotNode.CORE] = UnitStock(infantry=100, walkers=2, support=3)
+    state.logistics.depot_units[LocationId.NEW_SYSTEM_CORE] = UnitStock(infantry=100, walkers=2, support=3)
     console = CommandConsole(state)
 
     _press(console, "route-core-mid")
@@ -114,14 +114,14 @@ def test_console_create_shipment_mid_front() -> None:
 
     assert len(state.logistics.shipments) == 1
     shipment = state.logistics.shipments[0]
-    assert shipment.origin == DepotNode.MID
-    assert shipment.destination == DepotNode.FRONT
+    assert shipment.origin == LocationId.CONTESTED_MID_DEPOT
+    assert shipment.destination == LocationId.CONTESTED_FRONT
     assert console.mode == "menu"
 
 
 def test_console_shipment_insufficient_stock() -> None:
     state = _load_state()
-    state.logistics.depot_stocks[DepotNode.CORE] = Supplies(ammo=0, fuel=0, med_spares=0)
+    state.logistics.depot_stocks[LocationId.NEW_SYSTEM_CORE] = Supplies(ammo=0, fuel=0, med_spares=0)
     console = CommandConsole(state)
 
     _press(console, "route-core-mid")

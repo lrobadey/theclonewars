@@ -18,11 +18,22 @@ class Route:
     interdiction_risk: float  # 0.0 to 1.0
 
 
+@dataclass()
+class TransportOrder:
+    """A high-level order to move goods from A to B."""
+    order_id: str
+    origin: LocationId
+    final_destination: LocationId
+    supplies: Supplies
+    units: UnitStock
+    # Tracking
+    current_location: LocationId
+    status: str = "pending" # pending, transit, complete
+
+
 class ShipState(str, Enum):
     IDLE = "idle"         # At a node, ready for orders
-    LOADING = "loading"   # (Not used in MVP, instantaneous)
     TRANSIT = "transit"   # Moving between nodes
-    UNLOADING = "unloading" # (Not used in MVP, instantaneous)
 
 
 @dataclass()
@@ -30,12 +41,11 @@ class CargoShip:
     """A specific cargo ship with fixed capacity."""
     
     ship_id: str
-    location: LocationId    # Current location (or origin if in transit)
+    location: LocationId    # Current location
     state: ShipState = ShipState.IDLE
     
-    # Payload
-    supplies: Supplies = field(default_factory=lambda: Supplies(0, 0, 0))
-    units: UnitStock = field(default_factory=lambda: UnitStock(0, 0, 0))
+    # Payload now tracks which orders are on board
+    orders: list[TransportOrder] = field(default_factory=list)
     
     # Transit info (if state == TRANSIT)
     destination: LocationId | None = None
@@ -53,28 +63,46 @@ class CargoShip:
     def name(self) -> str:
         return f"Ship {self.ship_id}"
 
+    @property
+    def supplies(self) -> Supplies:
+        total = Supplies(0, 0, 0)
+        for o in self.orders:
+            total = Supplies(
+                total.ammo + o.supplies.ammo,
+                total.fuel + o.supplies.fuel,
+                total.med_spares + o.supplies.med_spares
+            )
+        return total
+
+    @property
+    def units(self) -> UnitStock:
+        total = UnitStock(0, 0, 0)
+        for o in self.orders:
+            total = UnitStock(
+                total.infantry + o.units.infantry,
+                total.walkers + o.units.walkers,
+                total.support + o.units.support
+            )
+        return total
+
     def can_load(self, supplies: Supplies, units: UnitStock) -> bool:
-        """Check if load fits in empty slots (simple replacement for MVP)."""
-        # MVP Simplification: Load replaces content or adds?
-        # Let's assume adds, but checks limits.
-        new_ammo = self.supplies.ammo + supplies.ammo
-        new_fuel = self.supplies.fuel + supplies.fuel
-        # Med/Spares usually share volume, but let's assume they share 'small cargo'
-        # Or just give them a slot? User didn't specify Med capacity.
-        # Let's assume Med/Spares fits in Ammo or is negligible?
-        # User said "200 ammo 200 fuel 1000 infantry 5 walkers". 
-        # Let's give Med 100 capacity for now.
-        new_med = self.supplies.med_spares + supplies.med_spares
+        """Check if load fits in empty slots."""
+        current_supplies = self.supplies
+        current_units = self.units
         
-        new_inf = self.units.infantry + units.infantry
-        new_walkers = self.units.walkers + units.walkers
+        new_ammo = current_supplies.ammo + supplies.ammo
+        new_fuel = current_supplies.fuel + supplies.fuel
+        new_med = current_supplies.med_spares + supplies.med_spares
+        
+        new_inf = current_units.infantry + units.infantry
+        new_walkers = current_units.walkers + units.walkers
         
         return (
             new_ammo <= self.CAPACITY_AMMO
             and new_fuel <= self.CAPACITY_FUEL
             and new_inf <= self.CAPACITY_INFANTRY
             and new_walkers <= self.CAPACITY_WALKERS
-            and new_med <= 100  # Implicit limit
+            and new_med <= 100
         )
 
 
@@ -83,10 +111,13 @@ class Shipment:
     """A shipment (Legacy/Ground transport abstraction)."""
 
     shipment_id: int
+    # Path is now just the physical route taken by this specific convoy
     path: tuple[LocationId, ...]
     leg_index: int
-    supplies: Supplies
-    units: UnitStock
+    
+    # Payload
+    orders: list[TransportOrder]
+    
     days_remaining: int
     total_days: int
     interdicted: bool = False
@@ -98,10 +129,25 @@ class Shipment:
     @property
     def destination(self) -> LocationId:
         return self.path[self.leg_index + 1]
-
+    
     @property
-    def final_destination(self) -> LocationId:
-        return self.path[-1]
+    def supplies(self) -> Supplies:
+        total = Supplies(0, 0, 0)
+        for o in self.orders:
+            total = Supplies(
+                total.ammo + o.supplies.ammo,
+                total.fuel + o.supplies.fuel,
+                total.med_spares + o.supplies.med_spares
+            )
+        return total
+
+
+@dataclass(frozen=True)
+class TransitLogEntry:
+    """A log entry for transit events."""
+    day: int
+    message: str
+    event_type: str  # "departed", "arrived", "interdicted", "loaded"
 
 
 @dataclass()
@@ -115,9 +161,15 @@ class LogisticsState:
     # Fleet Management
     ships: dict[str, CargoShip]
     
-    # Ground/Legacy Shipments (Spaceport -> Mid -> Front)
+    # Ground/Legacy Shipments
     shipments: list[Shipment]
     next_shipment_id: int
+    
+    # All active orders in the system (waiting or moving)
+    active_orders: list[TransportOrder] = field(default_factory=list)
+    
+    # Transit activity log (most recent first)
+    transit_log: list[TransitLogEntry] = field(default_factory=list)
     
     @staticmethod
     def new() -> LogisticsState:
@@ -138,10 +190,10 @@ class LogisticsState:
         
         depot_stocks = {
             LocationId.NEW_SYSTEM_CORE: Supplies(ammo=1000, fuel=1000, med_spares=400),
-            LocationId.DEEP_SPACE: Supplies(0, 0, 0), # Not a depot, just a node
+            LocationId.DEEP_SPACE: Supplies(0, 0, 0),
             LocationId.CONTESTED_SPACEPORT: Supplies(ammo=0, fuel=0, med_spares=0),
             LocationId.CONTESTED_MID_DEPOT: Supplies(ammo=0, fuel=0, med_spares=0),
-            LocationId.CONTESTED_FRONT: Supplies(ammo=200, fuel=150, med_spares=50), # Initial stockpiles at front
+            LocationId.CONTESTED_FRONT: Supplies(ammo=200, fuel=150, med_spares=50),
         }
         
         depot_units = {
@@ -164,4 +216,5 @@ class LogisticsState:
             ships=fleet,
             shipments=[],
             next_shipment_id=1,
+            active_orders=[],
         )

@@ -9,8 +9,14 @@
                 <span class="label">TURN</span>
                 <span class="value accent">{{ vm.day }}</span>
                 <span class="divider">|</span>
-                <span class="label has-tooltip" data-tooltip="Factories: {{ vm.factories }}/{{ vm.max_factories }} · {{ vm.capacity_slots }} slots/day">INDUSTRY</span>
-                <span class="value has-tooltip" data-tooltip="Factories: {{ vm.factories }}/{{ vm.max_factories }} · {{ vm.capacity_slots }} slots/day">{{ vm.ic_pct }}%</span>
+                <span class="label has-tooltip"
+                      data-tooltip="Factory: {{ vm.factories }}/{{ vm.max_factories }} · {{ vm.factory_capacity }} slots/day | Barracks: {{ vm.barracks }}/{{ vm.max_barracks }} · {{ vm.barracks_capacity }} slots/day">
+                    INDUSTRY
+                </span>
+                <span class="value has-tooltip"
+                      data-tooltip="Factory: {{ vm.factories }}/{{ vm.max_factories }} · {{ vm.factory_capacity }} slots/day | Barracks: {{ vm.barracks }}/{{ vm.max_barracks }} · {{ vm.barracks_capacity }} slots/day">
+                    {{ vm.ic_pct }}%
+                </span>
                 <span class="divider">|</span>
                 <span class="label">GLOBAL SUPPLIES</span>
                 <span class="value">A {{ vm.supplies.ammo }} F {{ vm.supplies.fuel }} M {{ vm.supplies.med_spares }}</span>

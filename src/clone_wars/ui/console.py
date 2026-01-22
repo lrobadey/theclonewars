@@ -10,6 +10,7 @@ from textual.widgets import Button, Static
 from textual.worker import Worker
 
 from clone_wars.engine.actions import ActionManager, ActionType, PlayerAction, ActionError
+from clone_wars.engine.barracks import BarracksJobType
 from clone_wars.engine.ops import OperationPlan, OperationTarget, OperationTypeId
 from clone_wars.engine.production import ProductionJobType
 from clone_wars.engine.state import AfterActionReport, GameState, RaidReport
@@ -39,6 +40,7 @@ class CommandConsole(Widget):
     # Modes: "menu", "sector", "raid", "plan:target", "plan:type", "plan:axis", "plan:prep", "plan:posture",
     #        "plan:risk", "plan:exploit", "plan:end",
     #        "production", "production:item", "production:quantity", "production:stop",
+    #        "barracks", "barracks:quantity", "barracks:stop",
     #        "logistics", "logistics:package", "executing", "aar"
     mode = reactive("menu")
 
@@ -53,6 +55,8 @@ class CommandConsole(Widget):
         self._prod_category: str | None = None
         self._prod_job_type: ProductionJobType | None = None
         self._prod_quantity: int = 0
+        self._barracks_job_type: BarracksJobType | None = None
+        self._barracks_quantity: int = 0
         self._message: str | None = None
         self._last_content_key: str = ""
         self._refresh_worker: Worker[None] | None = None
@@ -217,8 +221,9 @@ class CommandConsole(Widget):
                 container.mount(
                     Static(f"[bold]COMMAND LINK ESTABLISHED. {ap_str}[/]", markup=True),
                     Button("[1] PRODUCTION", id="btn-production"),
-                    Button("[2] LOGISTICS", id="btn-logistics"),
-                    Button("[3] NEXT DAY", id="btn-next"),
+                    Button("[2] BARRACKS", id="btn-barracks"),
+                    Button("[3] LOGISTICS", id="btn-logistics"),
+                    Button("[4] NEXT DAY", id="btn-next"),
                 )
 
         # --- SECTOR DETAIL / MISSION SELECT ---
@@ -394,10 +399,15 @@ class CommandConsole(Widget):
                 Static("[bold]PRODUCTION COMMAND[/]", markup=True),
                 Static("SELECT CATEGORY:"),
                 Button("[A] SUPPLIES", id="prod-cat-supplies"),
-                Button("[B] ARMY", id="prod-cat-army"),
+                Button("[B] VEHICLES", id="prod-cat-vehicles"),
             )
             if self.state.production.can_add_factory():
-                container.mount(Button("[C] UPGRADE FACTORY (+1 SLOT)", id="prod-upgrade-factory"))
+                container.mount(
+                    Button(
+                        f"[C] UPGRADE FACTORY (+{self.state.production.slots_per_factory} SLOTS/DAY)",
+                        id="prod-upgrade-factory",
+                    )
+                )
             container.mount(Button("[Q] BACK", id="btn-cancel"))
 
         elif self.mode == "production:item":
@@ -416,11 +426,7 @@ class CommandConsole(Widget):
                     Button("[C] MED/SPARES", id="prod-item-med"),
                 )
             else:
-                container.mount(
-                    Button("[A] INFANTRY (Troopers)", id="prod-item-inf"),
-                    Button("[B] WALKERS", id="prod-item-walkers"),
-                    Button("[C] SUPPORT", id="prod-item-support"),
-                )
+                container.mount(Button("[A] WALKERS", id="prod-item-walkers"))
             container.mount(Button("[Q] BACK", id="prod-back-category"))
 
         elif self.mode == "production:quantity":
@@ -458,6 +464,60 @@ class CommandConsole(Widget):
                 Button("[B] MID", id="prod-stop-mid"),
                 Button("[C] FRONT", id="prod-stop-front"),
                 Button("[Q] BACK", id="prod-back-qty"),
+            )
+
+        # --- BARRACKS ---
+        elif self.mode == "barracks":
+            container.mount(
+                Static("[bold]BARRACKS COMMAND[/]", markup=True),
+                Static("SELECT ITEM:"),
+                Button("[A] INFANTRY", id="barracks-item-inf"),
+                Button("[B] SUPPORT", id="barracks-item-support"),
+            )
+            if self.state.barracks.can_add_barracks():
+                container.mount(
+                    Button(
+                        f"[C] UPGRADE BARRACKS (+{self.state.barracks.slots_per_barracks} SLOTS/DAY)",
+                        id="barracks-upgrade",
+                    )
+                )
+            container.mount(Button("[Q] BACK", id="btn-cancel"))
+
+        elif self.mode == "barracks:quantity":
+            if self._barracks_job_type is None:
+                self.mode = "barracks"
+                return
+            job_label = self._barracks_job_type.value.upper()
+            quantity_line = _fmt_int(self._barracks_quantity)
+            container.mount(
+                Static("[bold]BARRACKS - QUANTITY[/]", markup=True),
+                Static(f"ITEM: {job_label}"),
+                Static(f"QUANTITY: {quantity_line}"),
+                Button("[-50]", id="barracks-qty-minus-50"),
+                Button("[-10]", id="barracks-qty-minus-10"),
+                Button("[-1]", id="barracks-qty-minus-1"),
+                Button("[+1]", id="barracks-qty-plus-1"),
+                Button("[+10]", id="barracks-qty-plus-10"),
+                Button("[+50]", id="barracks-qty-plus-50"),
+                Button("[RESET]", id="barracks-qty-reset"),
+                Button("[NEXT] CHOOSE DEPOT", id="barracks-qty-next"),
+                Button("[Q] BACK", id="barracks-back-item"),
+            )
+
+        elif self.mode == "barracks:stop":
+            if self._barracks_job_type is None:
+                self.mode = "barracks"
+                return
+            job_label = self._barracks_job_type.value.upper()
+            quantity_line = _fmt_int(self._barracks_quantity)
+            container.mount(
+                Static("[bold]BARRACKS - DELIVER TO[/]", markup=True),
+                Static(f"ITEM: {job_label}"),
+                Static(f"QUANTITY: {quantity_line}"),
+                Button("[A] CORE", id="barracks-stop-core"),
+                Button("[B] MID", id="barracks-stop-mid"),
+                Button("[C] FRONT", id="barracks-stop-front"),
+                Button("[Q] BACK", id="barracks-back-qty"),
             )
 
         # --- LOGISTICS ---
@@ -576,6 +636,8 @@ class CommandConsole(Widget):
             self._prod_category = None
             self._prod_job_type = None
             self._prod_quantity = 0
+            self._barracks_job_type = None
+            self._barracks_quantity = 0
             self.mode = "menu"
         elif bid == "btn-ack":
             self.state.last_aar = None
@@ -586,6 +648,10 @@ class CommandConsole(Widget):
             self._prod_job_type = None
             self._prod_quantity = 0
             self.mode = "production"
+        elif bid == "btn-barracks":
+            self._barracks_job_type = None
+            self._barracks_quantity = 0
+            self.mode = "barracks"
         elif bid == "btn-logistics":
             self.mode = "logistics"
         elif bid == "btn-raid":
@@ -641,7 +707,9 @@ class CommandConsole(Widget):
             except (ValueError, ActionError) as exc:
                 self._message = f"[#ff3b3b]{exc}[/]"
             else:
-                self._message = "[#a7adb5]FACTORY UPGRADE COMPLETE (+1 SLOT)[/]"
+                self._message = (
+                    f"[#a7adb5]FACTORY UPGRADE COMPLETE (+{self.state.production.slots_per_factory} SLOTS/DAY)[/]"
+                )
             self.mode = "menu"
 
         # Sector (mission select) handlers
@@ -741,7 +809,7 @@ class CommandConsole(Widget):
 
         # Production handlers
         elif bid.startswith("prod-cat-"):
-            self._prod_category = "supplies" if bid == "prod-cat-supplies" else "army"
+            self._prod_category = "supplies" if bid == "prod-cat-supplies" else "vehicles"
             self._prod_job_type = None
             self._prod_quantity = 0
             self.mode = "production:item"
@@ -751,9 +819,7 @@ class CommandConsole(Widget):
                 "prod-item-ammo": ProductionJobType.AMMO,
                 "prod-item-fuel": ProductionJobType.FUEL,
                 "prod-item-med": ProductionJobType.MED_SPARES,
-                "prod-item-inf": ProductionJobType.INFANTRY,
                 "prod-item-walkers": ProductionJobType.WALKERS,
-                "prod-item-support": ProductionJobType.SUPPORT,
             }
             job_type = job_map.get(bid)
             if job_type is None:
@@ -797,8 +863,8 @@ class CommandConsole(Widget):
                 return
             stop_map = {
                 "prod-stop-core": LocationId.NEW_SYSTEM_CORE,
-                "prod-stop-mid": LocationId.DEEP_SPACE_A,
-                "prod-stop-front": LocationId.CONTESTED_WORLD,
+                "prod-stop-mid": LocationId.CONTESTED_MID_DEPOT,
+                "prod-stop-front": LocationId.CONTESTED_FRONT,
             }
             stop_at = stop_map.get(bid)
             if stop_at is None:
@@ -827,11 +893,93 @@ class CommandConsole(Widget):
         elif bid == "prod-back-qty":
             self.mode = "production:quantity"
 
+        # Barracks handlers
+        elif bid == "barracks-upgrade":
+            try:
+                self.actions.perform_action(PlayerAction(ActionType.UPGRADE_BARRACKS))
+            except (ValueError, ActionError) as exc:
+                self._message = f"[#ff3b3b]{exc}[/]"
+            else:
+                self._message = (
+                    f"[#a7adb5]BARRACKS UPGRADE COMPLETE (+{self.state.barracks.slots_per_barracks} SLOTS/DAY)[/]"
+                )
+            self.mode = "menu"
+
+        elif bid.startswith("barracks-item-"):
+            job_map = {
+                "barracks-item-inf": BarracksJobType.INFANTRY,
+                "barracks-item-support": BarracksJobType.SUPPORT,
+            }
+            job_type = job_map.get(bid)
+            if job_type is None:
+                return
+            self._barracks_job_type = job_type
+            self._barracks_quantity = 0
+            self.mode = "barracks:quantity"
+
+        elif bid.startswith("barracks-qty-"):
+            delta_map = {
+                "barracks-qty-minus-50": -50,
+                "barracks-qty-minus-10": -10,
+                "barracks-qty-minus-1": -1,
+                "barracks-qty-plus-1": 1,
+                "barracks-qty-plus-10": 10,
+                "barracks-qty-plus-50": 50,
+            }
+            if bid == "barracks-qty-reset":
+                self._barracks_quantity = 0
+                self._request_refresh()
+                return
+            if bid == "barracks-qty-next":
+                if self._barracks_quantity <= 0:
+                    self._message = "[#ff3b3b]SET A QUANTITY BEFORE CONTINUING[/]"
+                    self._request_refresh()
+                    return
+                self.mode = "barracks:stop"
+                return
+            delta = delta_map.get(bid)
+            if delta is None:
+                return
+            self._barracks_quantity = max(0, self._barracks_quantity + delta)
+            self._request_refresh()
+
+        elif bid.startswith("barracks-stop-"):
+            if self._barracks_job_type is None:
+                return
+            if self._barracks_quantity <= 0:
+                self._message = "[#ff3b3b]SET A QUANTITY BEFORE QUEUING[/]"
+                self.mode = "barracks:quantity"
+                return
+            stop_map = {
+                "barracks-stop-core": LocationId.NEW_SYSTEM_CORE,
+                "barracks-stop-mid": LocationId.CONTESTED_MID_DEPOT,
+                "barracks-stop-front": LocationId.CONTESTED_FRONT,
+            }
+            stop_at = stop_map.get(bid)
+            if stop_at is None:
+                return
+            self.state.barracks.queue_job(self._barracks_job_type, self._barracks_quantity, stop_at)
+            self._message = (
+                f"[#a7adb5]QUEUED {self._barracks_job_type.value.upper()} "
+                f"x{self._barracks_quantity} -> {stop_at.value.upper()}[/]"
+            )
+            self._barracks_job_type = None
+            self._barracks_quantity = 0
+            self.mode = "menu"
+
+        elif bid == "barracks-back-item":
+            self._barracks_job_type = None
+            self._barracks_quantity = 0
+            self.mode = "barracks"
+
+        elif bid == "barracks-back-qty":
+            self.mode = "barracks:quantity"
+
         # Logistics handlers
         elif bid.startswith("route-"):
             route_map = {
-                "route-core-mid": (LocationId.NEW_SYSTEM_CORE, LocationId.DEEP_SPACE_A),
-                "route-mid-front": (LocationId.DEEP_SPACE_A, LocationId.CONTESTED_WORLD),
+                "route-core-mid": (LocationId.NEW_SYSTEM_CORE, LocationId.CONTESTED_MID_DEPOT),
+                "route-mid-front": (LocationId.CONTESTED_MID_DEPOT, LocationId.CONTESTED_FRONT),
             }
             route = route_map.get(bid)
             if route:
@@ -854,7 +1002,7 @@ class CommandConsole(Widget):
                 supplies, units = package
                 origin, destination = self._pending_route
                 try:
-                    self.state.logistics_service.create_shipment(self.state.logistics, origin, destination, supplies, units, self.state.rng)
+                    self.state.logistics_service.create_shipment(self.state.logistics, origin, destination, supplies, units, self.state.rng, current_day=self.state.day)
                 except ValueError as exc:
                     self._message = f"[#ff3b3b]{exc}[/]"
                     self.mode = "logistics"

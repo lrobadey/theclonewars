@@ -1,31 +1,28 @@
 import unittest
 from random import Random
-from clone_wars.engine.logistics import LogisticsState, Route
+
+from clone_wars.engine.logistics import LogisticsState, ShipState
 from clone_wars.engine.services.logistics import LogisticsService
 from clone_wars.engine.types import (
-    LocationId, 
-    PlanetState, 
-    Supplies, 
-    UnitStock, 
-    Objectives, 
-    ObjectiveStatus, 
-    EnemyForce
+    LocationId,
+    PlanetState,
+    Supplies,
+    UnitStock,
+    Objectives,
+    ObjectiveStatus,
+    EnemyForce,
 )
+
 
 class TestLogisticsConstraints(unittest.TestCase):
     def setUp(self):
         self.logistics_state = LogisticsState.new()
-        self.logistics_state.daily_port_capacity = 2
-        self.logistics_state.total_hull_pool = 10
-        self.logistics_state.used_hull_capacity = 0
-        self.logistics_state.convoys_launched_today = 0
-        
         self.planet_state = PlanetState(
             control=1.0,
             objectives=Objectives(
                 foundry=ObjectiveStatus.SECURED,
                 comms=ObjectiveStatus.SECURED,
-                power=ObjectiveStatus.SECURED
+                power=ObjectiveStatus.SECURED,
             ),
             enemy=EnemyForce(
                 infantry=0,
@@ -34,82 +31,66 @@ class TestLogisticsConstraints(unittest.TestCase):
                 cohesion=0.0,
                 fortification=0.0,
                 reinforcement_rate=0.0,
-                intel_confidence=1.0
-            )
+                intel_confidence=1.0,
+            ),
         )
         self.service = LogisticsService()
         self.rng = Random(1)
 
-    def test_port_capacity_limit(self):
-        """Test that we cannot launch more convoys than dail capacity."""
+    def test_ship_capacity_limit(self):
+        """Cargo ships should reject payloads that exceed capacity."""
         origin = LocationId.NEW_SYSTEM_CORE
-        dest = LocationId.DEEP_SPACE_A # Valid route
-        supplies = Supplies(10, 0, 0)
-        
-        # Launch 1
-        self.service.create_shipment(self.logistics_state, origin, dest, supplies, None, self.rng)
-        self.assertEqual(self.logistics_state.convoys_launched_today, 1)
-        
-        # Launch 2
-        self.service.create_shipment(self.logistics_state, origin, dest, supplies, None, self.rng)
-        self.assertEqual(self.logistics_state.convoys_launched_today, 2)
-        
-        # Launch 3 (Should fail)
-        with self.assertRaisesRegex(ValueError, "Daily port capacity reached"):
+        dest = LocationId.DEEP_SPACE
+        supplies = Supplies(500, 0, 0)  # Ammo exceeds ship capacity (200)
+
+        with self.assertRaisesRegex(ValueError, "Cargo exceeds ship capacity"):
             self.service.create_shipment(self.logistics_state, origin, dest, supplies, None, self.rng)
 
-    def test_hull_pool_limit(self):
-        """Test that we cannot launch if hull pool is empty."""
-        self.logistics_state.daily_port_capacity = 100 # Remove port limit for this test
-        self.logistics_state.total_hull_pool = 3
-        
+    def test_no_idle_ship_available(self):
+        """Launching from a location without idle ships should fail."""
         origin = LocationId.NEW_SYSTEM_CORE
-        dest = LocationId.DEEP_SPACE_A
+        dest = LocationId.DEEP_SPACE
         supplies = Supplies(10, 0, 0)
-        
-        # Use all hulls
-        self.service.create_shipment(self.logistics_state, origin, dest, supplies, None, self.rng)
-        self.service.create_shipment(self.logistics_state, origin, dest, supplies, None, self.rng)
-        self.service.create_shipment(self.logistics_state, origin, dest, supplies, None, self.rng)
-        
-        self.assertEqual(self.logistics_state.used_hull_capacity, 3)
-        
-        # Try one more
-        with self.assertRaisesRegex(ValueError, "Hull Pool depleted"):
+
+        for ship in self.logistics_state.ships.values():
+            ship.state = ShipState.TRANSIT
+
+        with self.assertRaisesRegex(ValueError, "No idle Cargo Ships available"):
             self.service.create_shipment(self.logistics_state, origin, dest, supplies, None, self.rng)
 
-    def test_daily_reset(self):
-        """Test that daily port counts reset on tick."""
+    def test_ship_waypoint_to_spaceport(self):
+        """Ships should waypoint through Deep Space en route to the spaceport."""
         origin = LocationId.NEW_SYSTEM_CORE
-        dest = LocationId.DEEP_SPACE_A
+        dest = LocationId.CONTESTED_SPACEPORT
         supplies = Supplies(10, 0, 0)
-        
-        self.service.create_shipment(self.logistics_state, origin, dest, supplies, None, self.rng)
-        self.assertEqual(self.logistics_state.convoys_launched_today, 1)
-        
-        self.service.tick(self.logistics_state, self.planet_state, self.rng)
-        
-        self.assertEqual(self.logistics_state.convoys_launched_today, 0)
 
-    def test_hull_return_on_delivery(self):
-        """Test that hull capacity is freed when shipment arrives."""
-        origin = LocationId.NEW_SYSTEM_CORE
-        dest = LocationId.DEEP_SPACE_A
-        supplies = Supplies(10, 0, 0)
-        
-        # Set route travel time to 1 day
-        for route in self.logistics_state.routes:
-            if route.origin == origin and route.destination == dest:
-                route.travel_days = 1
-                
         self.service.create_shipment(self.logistics_state, origin, dest, supplies, None, self.rng)
-        self.assertEqual(self.logistics_state.used_hull_capacity, 1)
-        
-        # This tick should deliver the shipment
+        ship = next(iter(self.logistics_state.ships.values()))
+        self.assertEqual(ship.state, ShipState.TRANSIT)
+
+        # First tick moves to Deep Space and immediately continues toward spaceport.
         self.service.tick(self.logistics_state, self.planet_state, self.rng)
-        
-        self.assertEqual(len(self.logistics_state.shipments), 0)
-        self.assertEqual(self.logistics_state.used_hull_capacity, 0)
+        self.assertEqual(ship.location, LocationId.DEEP_SPACE)
+        self.assertEqual(ship.destination, LocationId.CONTESTED_SPACEPORT)
+        self.assertEqual(ship.state, ShipState.TRANSIT)
+
+    def test_ship_arrives_and_unloads(self):
+        """Ships should arrive at the spaceport and return to idle."""
+        origin = LocationId.NEW_SYSTEM_CORE
+        dest = LocationId.CONTESTED_SPACEPORT
+        supplies = Supplies(10, 0, 0)
+
+        self.service.create_shipment(self.logistics_state, origin, dest, supplies, None, self.rng)
+        ship = next(iter(self.logistics_state.ships.values()))
+
+        # Two ticks: Core -> Deep Space -> Spaceport
+        self.service.tick(self.logistics_state, self.planet_state, self.rng)
+        self.service.tick(self.logistics_state, self.planet_state, self.rng)
+
+        self.assertEqual(ship.location, LocationId.CONTESTED_SPACEPORT)
+        self.assertEqual(ship.state, ShipState.IDLE)
+        self.assertEqual(ship.orders, [])
+
 
 if __name__ == "__main__":
     unittest.main()

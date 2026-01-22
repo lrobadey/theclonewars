@@ -14,6 +14,11 @@ def mock_state():
     state.production.factories = 5
     state.production.capacity = 10
     state.production.jobs = []
+
+    state.barracks = MagicMock()
+    state.barracks.barracks = 3
+    state.barracks.capacity = 15
+    state.barracks.jobs = []
     
     state.task_force = MagicMock(spec=TaskForceState)
     state.task_force.supplies = Supplies(0,0,0)
@@ -66,7 +71,7 @@ def test_logistics_vm_structure(mock_state, controller):
 @pytest.fixture
 def controller():
     c = MagicMock(spec=ConsoleController)
-    c.selected_system_node = None # Default
+    c.selected_node = None # Default
     c.target = None
     return c
 
@@ -109,5 +114,4 @@ def test_situation_map_deep_space_selection(mock_state, controller):
     # The filter in vm shows: location==DEEP_SPACE or destination==DEEP_SPACE or location==CORE
     assert len(vm["detail"]["ships"]) > 0
     assert vm["detail"]["ships"][0]["name"] == "Ship 1"
-
 

@@ -4,9 +4,29 @@ from random import Random
 
 import pytest
 
-from clone_wars.engine.logistics import DepotNode, LogisticsState
+from clone_wars.engine.logistics import LogisticsState
 from clone_wars.engine.services.logistics import LogisticsService
-from clone_wars.engine.types import Supplies, UnitStock
+from clone_wars.engine.types import EnemyForce, LocationId, Objectives, ObjectiveStatus, PlanetState, Supplies, UnitStock
+
+
+def _dummy_planet() -> PlanetState:
+    return PlanetState(
+        objectives=Objectives(
+            foundry=ObjectiveStatus.ENEMY,
+            comms=ObjectiveStatus.ENEMY,
+            power=ObjectiveStatus.ENEMY,
+        ),
+        enemy=EnemyForce(
+            infantry=100,
+            walkers=2,
+            support=1,
+            cohesion=1.0,
+            fortification=1.0,
+            reinforcement_rate=0.0,
+            intel_confidence=0.7,
+        ),
+        control=0.3,
+    )
 
 
 def test_logistics_initial_state() -> None:
@@ -14,9 +34,9 @@ def test_logistics_initial_state() -> None:
     logistics = LogisticsState.new()
 
     # Verify all depots exist
-    assert DepotNode.CORE in logistics.depot_stocks
-    assert DepotNode.MID in logistics.depot_stocks
-    assert DepotNode.FRONT in logistics.depot_stocks
+    assert LocationId.NEW_SYSTEM_CORE in logistics.depot_stocks
+    assert LocationId.CONTESTED_MID_DEPOT in logistics.depot_stocks
+    assert LocationId.CONTESTED_FRONT in logistics.depot_stocks
 
     # Verify initial stocks are non-negative
     for depot, stock in logistics.depot_stocks.items():
@@ -25,10 +45,10 @@ def test_logistics_initial_state() -> None:
         assert stock.med_spares >= 0
 
     # Verify routes exist
-    assert len(logistics.routes) == 2
+    assert len(logistics.routes) == 4
     for route in logistics.routes:
-        assert route.origin in DepotNode
-        assert route.destination in DepotNode
+        assert route.origin in LocationId
+        assert route.destination in LocationId
         assert route.travel_days > 0
         assert 0.0 <= route.interdiction_risk <= 1.0
 
@@ -38,19 +58,19 @@ def test_create_shipment_all_supplies() -> None:
     logistics = LogisticsState.new()
     service = LogisticsService()
     rng = Random(42)
-    initial_core = logistics.depot_stocks[DepotNode.CORE]
+    initial_core = logistics.depot_stocks[LocationId.NEW_SYSTEM_CORE]
 
     service.create_shipment(
         logistics,
-        DepotNode.CORE,
-        DepotNode.MID_DEPOT,
+        LocationId.NEW_SYSTEM_CORE,
+        LocationId.CONTESTED_MID_DEPOT,
         Supplies(ammo=50, fuel=40, med_spares=20),
         None,
         rng,
     )
 
     # Verify stock deducted
-    new_core = logistics.depot_stocks[DepotNode.CORE]
+    new_core = logistics.depot_stocks[LocationId.NEW_SYSTEM_CORE]
     assert new_core.ammo == initial_core.ammo - 50
     assert new_core.fuel == initial_core.fuel - 40
     assert new_core.med_spares == initial_core.med_spares - 20
@@ -72,8 +92,8 @@ def test_create_shipment_no_route() -> None:
     with pytest.raises(ValueError, match="No route"):
         service.create_shipment(
             logistics,
-            DepotNode.FRONT,
-            DepotNode.CORE,  # Reverse route doesn't exist
+            LocationId.CONTESTED_FRONT,
+            LocationId.NEW_SYSTEM_CORE,  # Reverse route doesn't exist
             Supplies(ammo=10, fuel=10, med_spares=10),
             None,
             rng,
@@ -85,13 +105,13 @@ def test_create_shipment_partial_shortage() -> None:
     logistics = LogisticsState.new()
     service = LogisticsService()
     rng = Random(42)
-    logistics.depot_stocks[DepotNode.CORE] = Supplies(ammo=100, fuel=5, med_spares=100)
+    logistics.depot_stocks[LocationId.NEW_SYSTEM_CORE] = Supplies(ammo=100, fuel=5, med_spares=100)
 
     with pytest.raises(ValueError, match="Insufficient stock"):
         service.create_shipment(
             logistics,
-            DepotNode.CORE,
-            DepotNode.MID,
+            LocationId.NEW_SYSTEM_CORE,
+            LocationId.CONTESTED_MID_DEPOT,
             Supplies(ammo=50, fuel=10, med_spares=50),  # fuel insufficient
             None,
             rng,
@@ -107,24 +127,24 @@ def test_multiple_shipments() -> None:
     # Create multiple shipments
     service.create_shipment(
         logistics,
-        DepotNode.CORE,
-        DepotNode.MID,
+        LocationId.NEW_SYSTEM_CORE,
+        LocationId.CONTESTED_MID_DEPOT,
         Supplies(ammo=50, fuel=0, med_spares=0),
         None,
         rng,
     )
     service.create_shipment(
         logistics,
-        DepotNode.CORE,
-        DepotNode.MID,
+        LocationId.NEW_SYSTEM_CORE,
+        LocationId.CONTESTED_MID_DEPOT,
         Supplies(ammo=30, fuel=20, med_spares=0),
         None,
         rng,
     )
 
     assert len(logistics.shipments) == 2
-    assert logistics.shipments[0].origin == DepotNode.CORE
-    assert logistics.shipments[1].origin == DepotNode.CORE
+    assert logistics.shipments[0].origin == LocationId.NEW_SYSTEM_CORE
+    assert logistics.shipments[1].origin == LocationId.NEW_SYSTEM_CORE
 
 
 def test_shipment_delivery_chain() -> None:
@@ -132,14 +152,15 @@ def test_shipment_delivery_chain() -> None:
     logistics = LogisticsState.new()
     service = LogisticsService()
     rng = Random(42)
-    initial_front = logistics.depot_stocks[DepotNode.FRONT].ammo
+    planet = _dummy_planet()
+    initial_front = logistics.depot_stocks[LocationId.CONTESTED_FRONT].ammo
     for route in logistics.routes:
         route.interdiction_risk = 0.0
 
     service.create_shipment(
         logistics,
-        DepotNode.CORE,
-        DepotNode.FRONT,
+        LocationId.NEW_SYSTEM_CORE,
+        LocationId.CONTESTED_FRONT,
         Supplies(ammo=30, fuel=0, med_spares=0),
         None,
         rng,
@@ -147,20 +168,21 @@ def test_shipment_delivery_chain() -> None:
 
     shipment = logistics.shipments[0]
     while logistics.shipments:
-        service.tick(logistics, rng)
+        service.tick(logistics, planet, rng)
 
-    assert logistics.depot_stocks[DepotNode.FRONT].ammo == initial_front + 30
+    assert logistics.depot_stocks[LocationId.CONTESTED_FRONT].ammo == initial_front + 30
 
 
 def test_interdiction_probability() -> None:
     """Test that interdiction occurs with correct probability over many runs."""
     logistics_initial = LogisticsState.new()
     service = LogisticsService()
+    planet = _dummy_planet()
 
     # Use route with high interdiction risk
     mid_to_front_route = next(
         r for r in logistics_initial.routes
-        if r.origin == DepotNode.MID and r.destination == DepotNode.FRONT
+        if r.origin == LocationId.CONTESTED_MID_DEPOT and r.destination == LocationId.CONTESTED_FRONT
     )
     assert mid_to_front_route.interdiction_risk > 0.1
 
@@ -169,17 +191,17 @@ def test_interdiction_probability() -> None:
 
     for seed in range(total_runs):
         logistics = LogisticsState.new()
-        logistics.depot_stocks[DepotNode.MID] = Supplies(ammo=100, fuel=50, med_spares=30)
+        logistics.depot_stocks[LocationId.CONTESTED_MID_DEPOT] = Supplies(ammo=100, fuel=50, med_spares=30)
         rng = Random(seed)
         service.create_shipment(
             logistics,
-            DepotNode.MID,
-            DepotNode.FRONT,
+            LocationId.CONTESTED_MID_DEPOT,
+            LocationId.CONTESTED_FRONT,
             Supplies(ammo=100, fuel=0, med_spares=0),
             None,
             rng,
         )
-        service.tick(logistics, rng)
+        service.tick(logistics, planet, rng)
         if logistics.shipments[0].interdicted:
             interdicted_count += 1
 
@@ -191,21 +213,22 @@ def test_interdiction_probability() -> None:
 def test_interdiction_supply_loss() -> None:
     """Test that interdiction reduces supplies correctly."""
     service = LogisticsService()
+    planet = _dummy_planet()
     # Find a seed that triggers interdiction
     for seed in range(100):
         logistics = LogisticsState.new()
-        logistics.depot_stocks[DepotNode.MID] = Supplies(ammo=100, fuel=50, med_spares=30)
+        logistics.depot_stocks[LocationId.CONTESTED_MID_DEPOT] = Supplies(ammo=100, fuel=50, med_spares=30)
         rng = Random(seed)
         original_ammo = 100
         service.create_shipment(
             logistics,
-            DepotNode.MID,
-            DepotNode.FRONT,
+            LocationId.CONTESTED_MID_DEPOT,
+            LocationId.CONTESTED_FRONT,
             Supplies(ammo=original_ammo, fuel=50, med_spares=30),
             None,
             rng,
         )
-        service.tick(logistics, rng)
+        service.tick(logistics, planet, rng)
         if logistics.shipments[0].interdicted:
             shipment = logistics.shipments[0]
             # Should have lost 20-40%
@@ -220,11 +243,12 @@ def test_shipment_total_days_tracking() -> None:
     logistics = LogisticsState.new()
     service = LogisticsService()
     rng = Random(42)
+    planet = _dummy_planet()
 
     service.create_shipment(
         logistics,
-        DepotNode.CORE,
-        DepotNode.MID,
+        LocationId.NEW_SYSTEM_CORE,
+        LocationId.CONTESTED_MID_DEPOT,
         Supplies(ammo=50, fuel=0, med_spares=0),
         None,
         rng,
@@ -236,7 +260,7 @@ def test_shipment_total_days_tracking() -> None:
     assert shipment.days_remaining == total_days
 
     # After one tick
-    service.tick(logistics, rng)
+    service.tick(logistics, planet, rng)
     assert shipment.days_remaining == total_days - 1
 
 
@@ -245,9 +269,10 @@ def test_empty_logistics_tick() -> None:
     logistics = LogisticsState.new()
     service = LogisticsService()
     rng = Random(42)
+    planet = _dummy_planet()
 
     # Should not raise error
-    service.tick(logistics, rng)
+    service.tick(logistics, planet, rng)
     assert len(logistics.shipments) == 0
 
 
@@ -256,12 +281,13 @@ def test_shipment_delivery_preserves_other_stocks() -> None:
     logistics = LogisticsState.new()
     service = LogisticsService()
     rng = Random(42)
-    initial_mid = logistics.depot_stocks[DepotNode.MID]
+    planet = _dummy_planet()
+    initial_mid = logistics.depot_stocks[LocationId.CONTESTED_MID_DEPOT]
 
     service.create_shipment(
         logistics,
-        DepotNode.CORE,
-        DepotNode.MID,
+        LocationId.NEW_SYSTEM_CORE,
+        LocationId.CONTESTED_MID_DEPOT,
         Supplies(ammo=50, fuel=0, med_spares=0),
         None,
         rng,
@@ -271,9 +297,9 @@ def test_shipment_delivery_preserves_other_stocks() -> None:
     days = shipment.days_remaining
 
     for _ in range(days):
-        service.tick(logistics, rng)
+        service.tick(logistics, planet, rng)
 
-    final_mid = logistics.depot_stocks[DepotNode.MID]
+    final_mid = logistics.depot_stocks[LocationId.CONTESTED_MID_DEPOT]
     # Only ammo should increase
     assert final_mid.ammo == initial_mid.ammo + 50
     assert final_mid.fuel == initial_mid.fuel
@@ -285,13 +311,14 @@ def test_unit_shipment_delivery() -> None:
     logistics = LogisticsState.new()
     service = LogisticsService()
     rng = Random(7)
-    initial_units = logistics.depot_units[DepotNode.MID]
-    logistics.depot_units[DepotNode.CORE] = UnitStock(infantry=10, walkers=5, support=4)
+    planet = _dummy_planet()
+    initial_units = logistics.depot_units[LocationId.CONTESTED_MID_DEPOT]
+    logistics.depot_units[LocationId.NEW_SYSTEM_CORE] = UnitStock(infantry=10, walkers=5, support=4)
 
     service.create_shipment(
         logistics,
-        DepotNode.CORE,
-        DepotNode.MID,
+        LocationId.NEW_SYSTEM_CORE,
+        LocationId.CONTESTED_MID_DEPOT,
         Supplies(ammo=0, fuel=0, med_spares=0),
         UnitStock(infantry=4, walkers=1, support=2),
         rng=rng,
@@ -299,9 +326,9 @@ def test_unit_shipment_delivery() -> None:
 
     shipment = logistics.shipments[0]
     for _ in range(shipment.days_remaining):
-        service.tick(logistics, rng)
+        service.tick(logistics, planet, rng)
 
-    final_units = logistics.depot_units[DepotNode.MID]
+    final_units = logistics.depot_units[LocationId.CONTESTED_MID_DEPOT]
     assert final_units.infantry == initial_units.infantry + 4
     assert final_units.walkers == initial_units.walkers + 1
     assert final_units.support == initial_units.support + 2

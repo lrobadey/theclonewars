@@ -226,8 +226,8 @@ class HeaderBar(Static):
 
     def render(self) -> str:
         depot_nodes = tuple(self.state.logistics.depot_stocks.keys())
-        front_nodes = (LocationId.CONTESTED_WORLD,)
-        rest_nodes = tuple(node for node in depot_nodes if node != LocationId.CONTESTED_WORLD)
+        front_nodes = (LocationId.CONTESTED_FRONT,)
+        rest_nodes = tuple(node for node in depot_nodes if node != LocationId.CONTESTED_FRONT)
 
         front_supplies = _sum_supplies(self.state.logistics.depot_stocks, front_nodes)
         rest_supplies = _sum_supplies(self.state.logistics.depot_stocks, rest_nodes)
@@ -239,7 +239,11 @@ class HeaderBar(Static):
         front_units_text = _format_units_summary(front_units)
         rest_units_text = _format_units_summary(rest_units)
 
-        ic_pct = min(99, max(10, self.state.production.capacity * 25))
+        max_factory_capacity = max(1, self.state.production.max_factories) * self.state.production.slots_per_factory
+        max_barracks_capacity = max(1, self.state.barracks.max_barracks) * self.state.barracks.slots_per_barracks
+        total_capacity = self.state.production.capacity + self.state.barracks.capacity
+        max_total_capacity = max_factory_capacity + max_barracks_capacity
+        ic_pct = round(100 * (total_capacity / max_total_capacity)) if max_total_capacity > 0 else 0
         return (
             f"[bold]TURN:[/] {_fmt_int(self.state.day):>3}  |  "
             f"[bold]INDUSTRIAL CAPACITY:[/] {ic_pct}%  |  "
@@ -508,19 +512,36 @@ class ProductionPanel(Static):
 
     def render(self) -> str:
         prod = self.state.production
+        barracks = self.state.barracks
+
+        factory_lines = []
         if prod.jobs:
-            job_lines = []
             for job_type, quantity, eta, stop_at in prod.get_eta_summary():
                 label = f"{job_type.upper():<9} x{_fmt_int(quantity)}"
-                job_lines.append(f"  - {label}  ETA {eta}d  -> {stop_at}")
+                factory_lines.append(f"  - {label}  ETA {eta}d  -> {stop_at}")
         else:
-            job_lines = ["  - NO ACTIVE QUEUES"]
+            factory_lines.append("  - NO ACTIVE QUEUES")
+
+        barracks_lines = []
+        if barracks.jobs:
+            for job_type, quantity, eta, stop_at in barracks.get_eta_summary():
+                label = f"{job_type.upper():<9} x{_fmt_int(quantity)}"
+                barracks_lines.append(f"  - {label}  ETA {eta}d  -> {stop_at}")
+        else:
+            barracks_lines.append("  - NO ACTIVE QUEUES")
+
         return (
-            f"[bold]CAPACITY:[/] {prod.capacity} slots/day\n"
+            f"[bold]FACTORY CAPACITY:[/] {prod.capacity} slots/day\n"
             f"[bold]FACTORIES:[/] {prod.factories}/{prod.max_factories} "
             f"({prod.slots_per_factory} slot each)\n"
-            "[bold]QUEUES:[/]\n"
-            + "\n".join(job_lines)
+            "[bold]FACTORY QUEUES:[/]\n"
+            + "\n".join(factory_lines)
+            + "\n\n"
+            f"[bold]BARRACKS CAPACITY:[/] {barracks.capacity} slots/day\n"
+            f"[bold]BARRACKS:[/] {barracks.barracks}/{barracks.max_barracks} "
+            f"({barracks.slots_per_barracks} slot each)\n"
+            "[bold]BARRACKS QUEUES:[/]\n"
+            + "\n".join(barracks_lines)
         )
 
 
@@ -562,8 +583,8 @@ class LogisticsPanel(Widget):
             return
         depot_map = {
             "depot-core": LocationId.NEW_SYSTEM_CORE,
-            "depot-mid": LocationId.DEEP_SPACE_A,
-            "depot-front": LocationId.CONTESTED_WORLD,
+            "depot-mid": LocationId.CONTESTED_MID_DEPOT,
+            "depot-front": LocationId.CONTESTED_FRONT,
         }
         depot = depot_map.get(bid)
         if depot is None:
@@ -575,8 +596,8 @@ class LogisticsPanel(Widget):
         stocks = self.state.logistics.depot_stocks
         count_map = {
             LocationId.NEW_SYSTEM_CORE: "depot-core-counts",
-            LocationId.DEEP_SPACE_A: "depot-mid-counts",
-            LocationId.CONTESTED_WORLD: "depot-front-counts",
+            LocationId.CONTESTED_MID_DEPOT: "depot-mid-counts",
+            LocationId.CONTESTED_FRONT: "depot-front-counts",
         }
         for depot, node_id in count_map.items():
             stock = self._stock_for_display(depot)
@@ -586,8 +607,8 @@ class LogisticsPanel(Widget):
     def _update_selection(self) -> None:
         btn_map = {
             LocationId.NEW_SYSTEM_CORE: "depot-core",
-            LocationId.DEEP_SPACE_A: "depot-mid",
-            LocationId.CONTESTED_WORLD: "depot-front",
+            LocationId.CONTESTED_MID_DEPOT: "depot-mid",
+            LocationId.CONTESTED_FRONT: "depot-front",
         }
         for depot, node_id in btn_map.items():
             button = self.query_one(f"#{node_id}", Button)
@@ -614,7 +635,7 @@ class LogisticsPanel(Widget):
         self.query_one("#logistics-detail", Static).update(detail)
 
     def _stock_for_display(self, depot: LocationId) -> Supplies:
-        if depot == LocationId.CONTESTED_WORLD:
+        if depot == LocationId.CONTESTED_FRONT:
             return self.state.task_force.supplies
         return self.state.logistics.depot_stocks[depot]
 

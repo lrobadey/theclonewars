@@ -75,6 +75,22 @@ class GlobalConfig:
 
 
 @dataclass(frozen=True)
+class ProductionConfig:
+    slots_per_factory: int
+    max_factories: int
+    queue_policy: str
+    costs: dict[str, int]
+
+
+@dataclass(frozen=True)
+class BarracksConfig:
+    slots_per_barracks: int
+    max_barracks: int
+    queue_policy: str
+    costs: dict[str, int]
+
+
+@dataclass(frozen=True)
 class Ruleset:
     """Loaded and validated ruleset."""
 
@@ -89,6 +105,8 @@ class Ruleset:
     exploit_vs_secure: dict[str, dict[str, float]]
     end_states: dict[str, dict[str, float]]
     globals: GlobalConfig
+    production: ProductionConfig
+    barracks: BarracksConfig
 
     @staticmethod
     def load(data_dir: Path) -> Ruleset:
@@ -99,6 +117,7 @@ class Ruleset:
         objectives = _load_objectives(data_dir / "objectives.json")
         operation_rules = _load_operation_rules(data_dir / "operation_types.json")
         global_config = _load_globals(data_dir / "globals.json")
+        production_config, barracks_config = _load_production_config(data_dir / "production.json")
 
         return Ruleset(
             supply_classes=supply_classes,
@@ -112,6 +131,8 @@ class Ruleset:
             exploit_vs_secure=operation_rules["exploit_vs_secure"],
             end_states=operation_rules["end_states"],
             globals=global_config,
+            production=production_config,
+            barracks=barracks_config,
         )
 
 
@@ -311,4 +332,89 @@ def _load_globals(path: Path) -> GlobalConfig:
         walker_screen_infantry_protect=walker_screen_infantry_protect,
         storage_risk_per_day=storage_risk_per_day,
         storage_loss_pct_range=storage_loss_pct_range,
+    )
+
+
+def _load_production_config(path: Path) -> tuple[ProductionConfig, BarracksConfig]:
+    """Load production and barracks tuning config."""
+    data = _load_json(path)
+    if not isinstance(data, dict):
+        raise RulesError(f"{path}: root must be an object")
+
+    def _parse_costs(raw: Any, section: str) -> dict[str, int]:
+        if not isinstance(raw, dict):
+            raise RulesError(f"{path}: {section}.costs must be an object")
+        costs: dict[str, int] = {}
+        for key, value in raw.items():
+            if not isinstance(key, str):
+                raise RulesError(f"{path}: {section}.costs keys must be strings")
+            try:
+                cost = int(value)
+            except (TypeError, ValueError) as exc:
+                raise RulesError(f"{path}: {section}.costs.{key} must be an int") from exc
+            if cost <= 0:
+                raise RulesError(f"{path}: {section}.costs.{key} must be positive")
+            costs[key] = cost
+        if not costs:
+            raise RulesError(f"{path}: {section}.costs must not be empty")
+        return costs
+
+    factory_raw = data.get("factory")
+    if not isinstance(factory_raw, dict):
+        raise RulesError(f"{path}: missing factory config")
+    barracks_raw = data.get("barracks")
+    if not isinstance(barracks_raw, dict):
+        raise RulesError(f"{path}: missing barracks config")
+
+    try:
+        slots_per_factory = int(factory_raw["slots_per_factory"])
+        max_factories = int(factory_raw["max_factories"])
+    except KeyError as exc:
+        raise RulesError(f"{path}: factory missing required field {exc}") from exc
+    except (TypeError, ValueError) as exc:
+        raise RulesError(f"{path}: factory config invalid: {exc}") from exc
+
+    if slots_per_factory <= 0:
+        raise RulesError(f"{path}: factory.slots_per_factory must be positive")
+    if max_factories <= 0:
+        raise RulesError(f"{path}: factory.max_factories must be positive")
+
+    factory_queue_policy = factory_raw.get("queue_policy", "parallel")
+    if not isinstance(factory_queue_policy, str):
+        raise RulesError(f"{path}: factory.queue_policy must be a string")
+
+    factory_costs = _parse_costs(factory_raw.get("costs"), "factory")
+
+    try:
+        slots_per_barracks = int(barracks_raw["slots_per_barracks"])
+        max_barracks = int(barracks_raw["max_barracks"])
+    except KeyError as exc:
+        raise RulesError(f"{path}: barracks missing required field {exc}") from exc
+    except (TypeError, ValueError) as exc:
+        raise RulesError(f"{path}: barracks config invalid: {exc}") from exc
+
+    if slots_per_barracks <= 0:
+        raise RulesError(f"{path}: barracks.slots_per_barracks must be positive")
+    if max_barracks <= 0:
+        raise RulesError(f"{path}: barracks.max_barracks must be positive")
+
+    barracks_queue_policy = barracks_raw.get("queue_policy", "parallel")
+    if not isinstance(barracks_queue_policy, str):
+        raise RulesError(f"{path}: barracks.queue_policy must be a string")
+
+    barracks_costs = _parse_costs(barracks_raw.get("costs"), "barracks")
+
+    return (
+        ProductionConfig(
+            slots_per_factory=slots_per_factory,
+            max_factories=max_factories,
+            queue_policy=factory_queue_policy,
+            costs=factory_costs,
+        ),
+        BarracksConfig(
+            slots_per_barracks=slots_per_barracks,
+            max_barracks=max_barracks,
+            queue_policy=barracks_queue_policy,
+            costs=barracks_costs,
+        ),
     )

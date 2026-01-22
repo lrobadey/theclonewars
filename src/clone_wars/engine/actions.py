@@ -6,8 +6,6 @@ from typing import Any
 
 from clone_wars.engine.ops import OperationPlan
 from clone_wars.engine.state import GameState
-from clone_wars.engine.types import LocationId
-from clone_wars.engine.production import ProductionJobType
 
 
 class ActionType(Enum):
@@ -28,6 +26,7 @@ class ActionType(Enum):
     # - Queue Production: Free (planning).
     
     UPGRADE_FACTORY = auto()
+    UPGRADE_BARRACKS = auto()
 
 
 @dataclass()
@@ -80,6 +79,9 @@ class ActionManager:
 
         elif action.action_type == ActionType.UPGRADE_FACTORY:
             self.state.production.add_factory()
+            self._deduct_ap(1)
+        elif action.action_type == ActionType.UPGRADE_BARRACKS:
+            self.state.barracks.add_barracks()
             self._deduct_ap(1)
 
     def _deduct_ap(self, amount: int) -> None:

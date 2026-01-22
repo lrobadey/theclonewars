@@ -2,7 +2,7 @@
 
 import math
 
-from clone_wars.engine.logistics import DepotNode
+from clone_wars.engine.types import LocationId
 from clone_wars.engine.production import ProductionJobType, ProductionState
 
 
@@ -20,14 +20,14 @@ def test_production_job_duration_calculation() -> None:
     # Capacity 3 factories = 60 slots.
     # AMMO cost 20. 6 units = 120 work.
     # 120/60 = 2 days.
-    prod = ProductionState.new(capacity=3)
+    prod = ProductionState.new(factories=3)
     prod.queue_job(ProductionJobType.AMMO, quantity=6)
     summary = prod.get_eta_summary()
     assert summary[0][2] == 2
 
     # 10 units = 200 work.
     # 200/60 = 3.33 -> 4 days.
-    prod = ProductionState.new(capacity=3)
+    prod = ProductionState.new(factories=3)
     prod.queue_job(ProductionJobType.AMMO, quantity=10)
     summary = prod.get_eta_summary()
     assert summary[0][2] == 4
@@ -35,7 +35,7 @@ def test_production_job_duration_calculation() -> None:
     # Capacity 5 factories = 100 slots.
     # FUEL cost 20. 12 units = 240 work.
     # 240/100 = 2.4 -> 3 days.
-    prod = ProductionState.new(capacity=5)
+    prod = ProductionState.new(factories=5)
     prod.queue_job(ProductionJobType.FUEL, quantity=12)
     summary = prod.get_eta_summary()
     assert summary[0][2] == 3
@@ -44,7 +44,7 @@ def test_production_job_duration_calculation() -> None:
 def test_production_single_unit_job() -> None:
     """Test production job with single unit."""
     # Cap 60. Work 20. 0.33 days -> 1 day.
-    prod = ProductionState.new(capacity=3)
+    prod = ProductionState.new(factories=3)
     prod.queue_job(ProductionJobType.MED_SPARES, quantity=1)
     summary = prod.get_eta_summary()
     assert summary[0][2] == 1  # Should take at least 1 day
@@ -52,7 +52,7 @@ def test_production_single_unit_job() -> None:
 
 def test_production_multiple_jobs_queue() -> None:
     """Test multiple jobs in queue."""
-    prod = ProductionState.new(capacity=3)
+    prod = ProductionState.new(factories=3)
     prod.queue_job(ProductionJobType.AMMO, quantity=6)
     prod.queue_job(ProductionJobType.FUEL, quantity=9)
     prod.queue_job(ProductionJobType.MED_SPARES, quantity=5)
@@ -65,7 +65,7 @@ def test_production_multiple_jobs_queue() -> None:
 
 def test_production_parallel_completion() -> None:
     """Test that jobs complete in parallel across slots."""
-    prod = ProductionState.new(capacity=3)
+    prod = ProductionState.new(factories=3)
     prod.queue_job(ProductionJobType.AMMO, quantity=3)
     prod.queue_job(ProductionJobType.FUEL, quantity=6)
 
@@ -90,7 +90,7 @@ def test_production_parallel_completion() -> None:
 
 def test_production_large_job() -> None:
     """Test production of large quantity job."""
-    prod = ProductionState.new(capacity=3) # 60 cap
+    prod = ProductionState.new(factories=3) # 60 cap
     prod.queue_job(ProductionJobType.AMMO, quantity=100) # 2000 work
 
     summary = prod.get_eta_summary()
@@ -109,7 +109,7 @@ def test_production_large_job() -> None:
 
 def test_production_empty_tick() -> None:
     """Test production tick with no jobs."""
-    prod = ProductionState.new(capacity=3)
+    prod = ProductionState.new(factories=3)
     completed = prod.tick()
     assert len(completed) == 0
     assert len(prod.jobs) == 0
@@ -117,7 +117,7 @@ def test_production_empty_tick() -> None:
 
 def test_production_eta_summary_order() -> None:
     """Test that ETA summary maintains job order."""
-    prod = ProductionState.new(capacity=3)
+    prod = ProductionState.new(factories=3)
     prod.queue_job(ProductionJobType.AMMO, quantity=6)  # 2 days
     prod.queue_job(ProductionJobType.FUEL, quantity=9)  # 3 days
     prod.queue_job(ProductionJobType.MED_SPARES, quantity=5)  # 2 days
@@ -131,7 +131,7 @@ def test_production_eta_summary_order() -> None:
 
 def test_production_eta_summary_updates() -> None:
     """Test that ETA summary updates as jobs progress."""
-    prod = ProductionState.new(capacity=3)
+    prod = ProductionState.new(factories=3)
     prod.queue_job(ProductionJobType.AMMO, quantity=6)  # 2 days
 
     summary = prod.get_eta_summary()
@@ -144,7 +144,7 @@ def test_production_eta_summary_updates() -> None:
 
 def test_production_all_job_types() -> None:
     """Test all production job types."""
-    prod = ProductionState.new(capacity=3)
+    prod = ProductionState.new(factories=3)
 
     for job_type in ProductionJobType:
         prod.queue_job(job_type, quantity=6)
@@ -159,7 +159,7 @@ def test_production_zero_capacity_edge_case() -> None:
     # capacity=1 means 1 factory -> 20 slots
     # Qty 5 -> work 100
     # 100/20 = 5 days.
-    prod = ProductionState.new(capacity=1)
+    prod = ProductionState.new(factories=1)
     prod.queue_job(ProductionJobType.AMMO, quantity=5)
     summary = prod.get_eta_summary()
     assert summary[0][2] == 5
@@ -167,13 +167,13 @@ def test_production_zero_capacity_edge_case() -> None:
 
 def test_production_job_preserves_quantity() -> None:
     """Test that job quantity is preserved through completion."""
-    prod = ProductionState.new(capacity=3)
+    prod = ProductionState.new(factories=3)
     quantity = 15
     prod.queue_job(ProductionJobType.FUEL, quantity=quantity)
 
     job = prod.jobs[0]
     assert job.quantity == quantity
-    assert job.stop_at == DepotNode.CORE
+    assert job.stop_at == LocationId.NEW_SYSTEM_CORE
 
     # Complete job
     # Cost 20. Work = 15 * 20 = 300.
@@ -186,3 +186,40 @@ def test_production_job_preserves_quantity() -> None:
 
     assert len(completed) == 1
     assert completed[0].quantity == quantity  # Quantity preserved
+
+
+def test_production_eta_matches_tick() -> None:
+    prod = ProductionState.new(factories=3)
+    prod.queue_job(ProductionJobType.AMMO, quantity=6)
+    prod.queue_job(ProductionJobType.FUEL, quantity=9)
+    prod.queue_job(ProductionJobType.MED_SPARES, quantity=5)
+
+    eta_summary = prod.get_eta_summary()
+    eta_days = [eta for _, _, eta, _ in eta_summary]
+
+    actual_days: list[int] = []
+    day = 0
+    while len(actual_days) < len(eta_days):
+        day += 1
+        completed = prod.tick()
+        for _ in completed:
+            actual_days.append(day)
+
+    assert actual_days == eta_days
+
+
+def test_production_redistributes_unused_capacity() -> None:
+    costs = {
+        "ammo": 1,
+        "fuel": 10,
+        "med_spares": 10,
+        "walkers": 10,
+    }
+    prod = ProductionState.new(factories=1, slots_per_factory=5, costs=costs)
+    prod.queue_job(ProductionJobType.AMMO, quantity=2)   # 2 work
+    prod.queue_job(ProductionJobType.FUEL, quantity=10)  # 100 work
+
+    prod.tick()
+
+    assert prod.jobs[0].job_type == ProductionJobType.FUEL
+    assert prod.jobs[0].remaining == 97

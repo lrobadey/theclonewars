@@ -29,6 +29,7 @@ from clone_wars.engine.ops import (
     Phase3Decisions,
     PhaseSummary,
 )
+from clone_wars.engine.barracks import BarracksJobType, BarracksOutput, BarracksState
 from clone_wars.engine.production import ProductionJobType, ProductionOutput, ProductionState
 from clone_wars.engine.rules import Ruleset, RulesError
 from clone_wars.engine.services.logistics import LogisticsService
@@ -59,7 +60,7 @@ class TaskForceState:
     readiness: float
     cohesion: float
     supplies: Supplies
-    location: LocationId = LocationId.CONTESTED_WORLD
+    location: LocationId = LocationId.CONTESTED_SPACEPORT
 
 
 @dataclass(frozen=True)
@@ -99,6 +100,7 @@ class GameState:
 
     planets: dict[LocationId, PlanetState]
     production: ProductionState
+    barracks: BarracksState
     logistics: LogisticsState
     task_force: TaskForceState
     rules: Ruleset
@@ -123,6 +125,9 @@ class GameState:
         except RulesError as exc:
             raise RuntimeError(f"Failed to load rules: {exc}") from exc
 
+        prod_cfg = rules.production
+        barracks_cfg = rules.barracks
+
         contested_planet = PlanetState(
             objectives=Objectives(
                 foundry=ObjectiveStatus.ENEMY,
@@ -145,15 +150,28 @@ class GameState:
             day=1,
             rng_seed=seed,
             rng=rng,
-            planets={LocationId.CONTESTED_WORLD: contested_planet},
-            production=ProductionState.new(factories=3),
+            planets={LocationId.CONTESTED_SPACEPORT: contested_planet},
+            production=ProductionState.new(
+                factories=3,
+                slots_per_factory=prod_cfg.slots_per_factory,
+                max_factories=prod_cfg.max_factories,
+                queue_policy=prod_cfg.queue_policy,
+                costs=prod_cfg.costs,
+            ),
+            barracks=BarracksState.new(
+                barracks=2,
+                slots_per_barracks=barracks_cfg.slots_per_barracks,
+                max_barracks=barracks_cfg.max_barracks,
+                queue_policy=barracks_cfg.queue_policy,
+                costs=barracks_cfg.costs,
+            ),
             logistics=LogisticsState.new(),
             task_force=TaskForceState(
                 composition=UnitComposition(infantry=120, walkers=2, support=1),
                 readiness=1.00,
                 cohesion=1.00,
                 supplies=Supplies(ammo=120, fuel=90, med_spares=40),
-                location=LocationId.CONTESTED_WORLD,
+                location=LocationId.CONTESTED_SPACEPORT,
             ),
             rules=rules,
             action_points=3,
@@ -167,7 +185,7 @@ class GameState:
     @property
     def contested_planet(self) -> PlanetState:
         """Helper to access the main contested planet (MVP assumption)."""
-        return self.planets[LocationId.CONTESTED_WORLD]
+        return self.planets[LocationId.CONTESTED_SPACEPORT]
 
     def advance_day(self) -> None:
         """Advance game state by one day."""
@@ -175,6 +193,7 @@ class GameState:
             return
         self.day += 1
         self._tick_production_and_distribute_to_core()
+        self._tick_barracks_and_distribute_to_core()
         self._tick_logistics()
         self._resupply_task_force_daily()
         self._apply_daily_upkeep()
@@ -304,6 +323,12 @@ class GameState:
         for output in completed:
             self._apply_production_output(output)
 
+    def _tick_barracks_and_distribute_to_core(self) -> None:
+        """Run barracks tick and distribute completed items to Core depot."""
+        completed = self.barracks.tick()
+        for output in completed:
+            self._apply_barracks_output(output)
+
     def _apply_production_output(self, output: ProductionOutput) -> None:
         """Add completed production output to Core depot, then auto-dispatch if needed."""
         job_type = output.job_type
@@ -331,25 +356,14 @@ class GameState:
                 fuel=core_stock.fuel,
                 med_spares=core_stock.med_spares + quantity,
             )
-        elif job_type == ProductionJobType.INFANTRY:
-            troops = quantity
-            self.logistics.depot_units[core_id] = UnitStock(
-                infantry=core_units.infantry + troops,
-                walkers=core_units.walkers,
-                support=core_units.support,
-            )
         elif job_type == ProductionJobType.WALKERS:
             self.logistics.depot_units[core_id] = UnitStock(
                 infantry=core_units.infantry,
                 walkers=core_units.walkers + quantity,
                 support=core_units.support,
             )
-        elif job_type == ProductionJobType.SUPPORT:
-            self.logistics.depot_units[core_id] = UnitStock(
-                infantry=core_units.infantry,
-                walkers=core_units.walkers,
-                support=core_units.support + quantity,
-            )
+        else:
+            raise ValueError(f"Unsupported production job type: {job_type}")
 
         if output.stop_at != core_id:
             try:
@@ -360,10 +374,49 @@ class GameState:
                     supplies,
                     units,
                     self.rng,
+                    current_day=self.day,
                 )
             except ValueError:
                 # Failed to create shipment (e.g. no ship available).
                 # Leave goods at Core.
+                pass
+
+    def _apply_barracks_output(self, output: BarracksOutput) -> None:
+        """Add completed barracks output to Core depot, then auto-dispatch if needed."""
+        job_type = output.job_type
+        quantity = output.quantity
+        core_id = LocationId.NEW_SYSTEM_CORE
+
+        core_units = self.logistics.depot_units[core_id]
+        supplies, units = self._build_barracks_payload(job_type, quantity)
+
+        if job_type == BarracksJobType.INFANTRY:
+            self.logistics.depot_units[core_id] = UnitStock(
+                infantry=core_units.infantry + quantity,
+                walkers=core_units.walkers,
+                support=core_units.support,
+            )
+        elif job_type == BarracksJobType.SUPPORT:
+            self.logistics.depot_units[core_id] = UnitStock(
+                infantry=core_units.infantry,
+                walkers=core_units.walkers,
+                support=core_units.support + quantity,
+            )
+        else:
+            raise ValueError(f"Unsupported barracks job type: {job_type}")
+
+        if output.stop_at != core_id:
+            try:
+                self.logistics_service.create_shipment(
+                    self.logistics,
+                    core_id,
+                    output.stop_at,
+                    supplies,
+                    units,
+                    self.rng,
+                    current_day=self.day,
+                )
+            except ValueError:
                 pass
 
     def _build_production_payload(
@@ -375,18 +428,25 @@ class GameState:
             return Supplies(ammo=0, fuel=quantity, med_spares=0), UnitStock(0, 0, 0)
         if job_type == ProductionJobType.MED_SPARES:
             return Supplies(ammo=0, fuel=0, med_spares=quantity), UnitStock(0, 0, 0)
-        if job_type == ProductionJobType.INFANTRY:
-            return Supplies(0, 0, 0), UnitStock(infantry=quantity, walkers=0, support=0)
         if job_type == ProductionJobType.WALKERS:
             return Supplies(0, 0, 0), UnitStock(infantry=0, walkers=quantity, support=0)
-        return Supplies(0, 0, 0), UnitStock(infantry=0, walkers=0, support=quantity)
+        raise ValueError(f"Unsupported production job type: {job_type}")
+
+    def _build_barracks_payload(
+        self, job_type: BarracksJobType, quantity: int
+    ) -> tuple[Supplies, UnitStock]:
+        if job_type == BarracksJobType.INFANTRY:
+            return Supplies(0, 0, 0), UnitStock(infantry=quantity, walkers=0, support=0)
+        if job_type == BarracksJobType.SUPPORT:
+            return Supplies(0, 0, 0), UnitStock(infantry=0, walkers=0, support=quantity)
+        raise ValueError(f"Unsupported barracks job type: {job_type}")
 
     def _tick_logistics(self) -> None:
         """Advance logistics state by one tick."""
         # Need to update LogisticsService calls too potentially, but let's stick to state access
         # LogisticsService.tick expects 'planet', likely uses 'planet.control' for interdiction?
         # Let's pass contested_planet for now as legacy behavior
-        self.logistics_service.tick(self.logistics, self.contested_planet, self.rng)
+        self.logistics_service.tick(self.logistics, self.contested_planet, self.rng, self.day)
 
     def _resupply_task_force_daily(self) -> None:
         """Resupply task force from key planet depot."""
@@ -476,7 +536,7 @@ class GameState:
 
     def resupply_task_force(self) -> None:
         caps = Supplies(ammo=300, fuel=200, med_spares=100)
-        depot_node = LocationId.CONTESTED_WORLD
+        depot_node = LocationId.CONTESTED_SPACEPORT
         depot_stock = self.logistics.depot_stocks[depot_node]
         depot_units = self.logistics.depot_units[depot_node]
         tf_supplies = self.task_force.supplies

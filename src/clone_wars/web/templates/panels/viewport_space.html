@@ -1,75 +1,130 @@
-<div class="viewport__content">
-    <div class="viewport__grid viewport__grid--split">
-        <div class="panel viewport__panel viewport__panel--wide">
-            <div class="panel__title">TRANSIT MONITOR</div>
-            {% if vm.deep.has_transit %}
-            <table class="terminal-table">
-                <thead>
-                    <tr>
-                        <th>SHIP</th>
-                        <th>LOCATION</th>
-                        <th>DESTINATION</th>
-                        <th>PAYLOAD</th>
-                        <th>ETA</th>
-                    </tr>
-                </thead>
-                <tbody>
+<div class="viewport__content deep-space-view">
+    <!-- Animated Starfield Background -->
+    <div class="starfield">
+        <div class="starfield__layer starfield__layer--slow"></div>
+        <div class="starfield__layer"></div>
+        <div class="starfield__layer starfield__layer--fast"></div>
+        <div class="starfield__twinkle"></div>
+    </div>
+
+    <div class="deep-space-view__content">
+        <div class="viewport__grid viewport__grid--split">
+            <div class="panel viewport__panel viewport__panel--wide">
+                <div class="panel__title">TRANSIT MONITOR</div>
+                {% if vm.deep.has_transit %}
+                <!-- Visual Transit Lanes -->
+                <div class="transit-lanes">
                     {% for ship in vm.deep.active_ships %}
-                    <tr>
-                        <td>{{ ship.name }}</td>
-                        <td>{{ ship.location }}</td>
-                        <td>{{ ship.destination }}</td>
-                        <td class="muted">{{ ship.payload }}</td>
-                        <td class="accent">{{ ship.eta }}</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-            {% else %}
-            <div class="empty-state">SECTOR CLEAR. NO SHIPS IN TRANSIT.</div>
-            {% endif %}
-        </div>
-
-        <div class="panel viewport__panel viewport__panel--side">
-            <div class="panel__title">ROUTE CONTROL</div>
-            <div class="logistics__routes">
-                {% for route in vm.deep.routes %}
-                <button class="terminal-btn logistics__route"
-                        hx-post="/action"
-                        hx-vals='{"action":"{{ route.action }}"}'
-                        hx-target="#viewport"
-                        hx-swap="outerHTML">
-                    <span class="logistics__route-label">{{ route.label }}</span>
-                    <span class="logistics__route-meta muted">{{ route.days }}d | {{ route.risk_pct }}% interdiction</span>
-                </button>
-                {% endfor %}
-            </div>
-            <div class="logistics__legend muted">{{ vm.deep.legend }}</div>
-
-            <div class="logistics__constraints muted">
-                <span class="logistics__constraint">
-                    <strong>HULL POOL:</strong> {{ vm.deep.constraints.hull_avail }} / {{ vm.deep.constraints.hull_total }}
-                </span>
-            </div>
-
-            <div class="logistics__shipments">
-                <div class="logistics__shipments-title">GROUND SHIPMENTS</div>
-                {% if vm.deep.shipments %}
-                    {% for shipment in vm.deep.shipments %}
-                    <div class="logistics__shipment">
-                        <div class="logistics__shipment-main">#{{ shipment.id }} {{ shipment.path }} ({{ shipment.leg }})</div>
-                        <div class="logistics__shipment-meta muted">
-                            {{ shipment.supplies }}{% if shipment.units %} | {{ shipment.units }}{% endif %} |
-                            ETA {{ shipment.eta }}d |
-                            <span class="logistics__shipment-status logistics__shipment-status--{{ shipment.status_tone }}">
-                                {{ shipment.status }}
-                            </span>
+                    <div class="transit-lane">
+                        <div class="transit-lane__endpoints">
+                            <span class="transit-lane__node transit-lane__node--origin">{{ ship.origin_short }}</span>
+                            <span class="muted">→</span>
+                            <span class="transit-lane__node transit-lane__node--dest">{{ ship.dest_short }}</span>
+                        </div>
+                        <div class="transit-lane__track">
+                            <div class="transit-lane__progress" style="width: {{ ship.progress_pct }}%;"></div>
+                            <div class="transit-lane__ship" style="left: {{ ship.progress_pct }}%;"></div>
+                        </div>
+                        <div class="transit-lane__info">
+                            <div class="transit-lane__ship-name">{{ ship.name }}</div>
+                            <div class="transit-lane__eta">ETA {{ ship.eta }}d</div>
+                            <div class="transit-lane__payload">{{ ship.payload }}</div>
                         </div>
                     </div>
                     {% endfor %}
+                </div>
+
+                <!-- Traditional Table (collapsed) -->
+                <details class="muted" style="margin-top: 12px;">
+                    <summary style="cursor: pointer; font-size: 0.7rem;">DETAILED MANIFEST</summary>
+                    <table class="terminal-table" style="margin-top: 8px;">
+                        <thead>
+                            <tr>
+                                <th>SHIP</th>
+                                <th>LOCATION</th>
+                                <th>DESTINATION</th>
+                                <th>PAYLOAD</th>
+                                <th>ETA</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for ship in vm.deep.active_ships %}
+                            <tr>
+                                <td>{{ ship.name }}</td>
+                                <td>{{ ship.location }}</td>
+                                <td>{{ ship.destination }}</td>
+                                <td class="muted">{{ ship.payload }}</td>
+                                <td class="accent">{{ ship.eta }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </details>
                 {% else %}
-                <div class="muted">NONE</div>
+                <div class="deep-space-empty">
+                    <div class="deep-space-empty__scanner">▓░░░ LONG RANGE SCAN ░░░▓</div>
+                    <div class="deep-space-empty__status">SECTOR CLEAR</div>
+                    <div class="muted" style="margin-top: 8px; font-size: 0.7rem;">NO SHIPS IN TRANSIT</div>
+                </div>
                 {% endif %}
+
+                <!-- Transit Activity Log -->
+                {% if vm.deep.transit_log %}
+                <div class="transit-log">
+                    <div class="transit-log__title">ACTIVITY LOG</div>
+                    <div class="transit-log__entries">
+                        {% for entry in vm.deep.transit_log %}
+                        <div class="transit-log__entry transit-log__entry--{{ entry.event_type }}">
+                            <span class="transit-log__day">[D{{ entry.day }}]</span>
+                            <span class="transit-log__message">{{ entry.message }}</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+
+            <div class="panel viewport__panel viewport__panel--side">
+                <div class="panel__title">ROUTE CONTROL</div>
+                <div class="logistics__routes">
+                    {% for route in vm.deep.routes %}
+                    <button class="terminal-btn logistics__route"
+                            hx-post="/action"
+                            hx-vals='{"action":"{{ route.action }}"}'
+                            hx-target="#viewport"
+                            hx-swap="outerHTML">
+                        <span class="logistics__route-label">{{ route.label }}</span>
+                        <span class="logistics__route-meta muted">{{ route.days }}d | {{ route.risk_pct }}% interdiction</span>
+                    </button>
+                    {% endfor %}
+                </div>
+                <div class="logistics__legend muted">{{ vm.deep.legend }}</div>
+
+                <div class="logistics__constraints muted">
+                    <span class="logistics__constraint">
+                        <strong>HULL POOL:</strong> {{ vm.deep.constraints.hull_avail }} / {{ vm.deep.constraints.hull_total }}
+                    </span>
+                </div>
+
+                <div class="logistics__shipments">
+                    <div class="logistics__shipments-title">GROUND SHIPMENTS</div>
+                    {% if vm.deep.shipments %}
+                        {% for shipment in vm.deep.shipments %}
+                        <div class="logistics__shipment">
+                            <div class="logistics__shipment-main">#{{ shipment.id }} {{ shipment.path }} ({{ shipment.leg }})</div>
+                            <div class="logistics__shipment-meta muted">
+                                {{ shipment.supplies }}{% if shipment.units %} | {{ shipment.units }}{% endif %} |
+                                ETA {{ shipment.eta }}d |
+                                <span class="logistics__shipment-status logistics__shipment-status--{{ shipment.status_tone }}">
+                                    {{ shipment.status }}
+                                </span>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                    <div class="muted">NONE</div>
+                    {% endif %}
+                </div>
             </div>
         </div>
     </div>

@@ -25,12 +25,6 @@ class LocationId(str, Enum):
     CONTESTED_SPACEPORT = "contested_spaceport"
     CONTESTED_MID_DEPOT = "contested_mid_depot"
     CONTESTED_FRONT = "contested_front"
-    
-    # Backward compatibility mappings (temporary)
-    CORE = "new_system_core"
-    MID = "deep_space"
-    FRONT = "contested_front"
-    CONTESTED_WORLD = "contested_spaceport"  # Default alias for now
 
 
 class ObjectiveStatus(str, Enum):

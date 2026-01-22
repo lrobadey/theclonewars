@@ -1,8 +1,7 @@
 import pytest
 from clone_wars.engine.state import GameState
-from clone_wars.engine.types import UnitStock, Supplies
-from clone_wars.engine.logistics import DepotNode
-from clone_wars.engine.production import ProductionJobType
+from clone_wars.engine.types import UnitStock, Supplies, LocationId
+from clone_wars.engine.barracks import BarracksJobType
 
 def test_granular_trooper_shipment():
     """Verify shipments can handle non-squad-multiple trooper counts."""
@@ -11,15 +10,15 @@ def test_granular_trooper_shipment():
     # Setup: Add exact number of troops to Core
     # We want to ship 13 troops. Ensure Core has enough.
     # Current GameState.new might init with 120 (6 squads).
-    core_units = state.logistics.depot_units[DepotNode.CORE]
+    core_units = state.logistics.depot_units[LocationId.NEW_SYSTEM_CORE]
     # Reset to known state for test clarity
-    state.logistics.depot_units[DepotNode.CORE] = UnitStock(infantry=100, walkers=0, support=0)
+    state.logistics.depot_units[LocationId.NEW_SYSTEM_CORE] = UnitStock(infantry=100, walkers=0, support=0)
     
     # Create shipment of 13 infantry
     state.logistics_service.create_shipment(
         state.logistics,
-        DepotNode.CORE,
-        DepotNode.MID,
+        LocationId.NEW_SYSTEM_CORE,
+        LocationId.CONTESTED_MID_DEPOT,
         Supplies(0, 0, 0),
         UnitStock(13, 0, 0),
         state.rng
@@ -27,7 +26,7 @@ def test_granular_trooper_shipment():
     
     # Process ticks until arrival (Core->Mid is usually 1-2 days)
     # Just tick enough times
-    initial_mid = state.logistics.depot_units[DepotNode.MID].infantry
+    initial_mid = state.logistics.depot_units[LocationId.CONTESTED_MID_DEPOT].infantry
     
     # Route Core->Mid
     # We need to check route time or just tick.
@@ -42,22 +41,21 @@ def test_granular_trooper_shipment():
         state.logistics_service.tick(state.logistics, state.rng)
         
     # Verify arrival
-    new_mid = state.logistics.depot_units[DepotNode.MID].infantry
+    new_mid = state.logistics.depot_units[LocationId.CONTESTED_MID_DEPOT].infantry
     assert new_mid == initial_mid + 13
 
 def test_granular_production():
-    """Verify production output is exact quantity, not multiplied by squad size."""
+    """Verify barracks output is exact quantity, not multiplied by squad size."""
     state = GameState.new()
-    state.production.jobs.clear()
+    state.barracks.jobs.clear()
     
     # Queue 7 infantry
     # Validates that we can queue '7' and get '7', not '7 * 20' = 140
-    state.production.queue_job(ProductionJobType.INFANTRY, 7, DepotNode.CORE)
+    state.barracks.queue_job(BarracksJobType.INFANTRY, 7, LocationId.NEW_SYSTEM_CORE)
     
     # Force tick production
-    # Capacity is default 3 factories * 1 slot = 3/day.
-    # 7 units. Each unit takes 1 slot-day? 
-    # Let's check production logic. 
+    # Capacity is default 2 barracks * 20 slots = 40/day (per rules).
+    # Each infantry costs 1 slot.
     # "job.remaining -= 1; capacity_remaining -= 1"
     # So 1 unit quantity takes 1 capacity-point.
     # If capacity is 3, we can produce 3 units per day.
@@ -71,11 +69,11 @@ def test_granular_production():
     # Day 2: -3 => rem 1
     # Day 3: -1 => rem 0 => complete!
     
-    initial_core_inf = state.logistics.depot_units[DepotNode.CORE].infantry
+    initial_core_inf = state.logistics.depot_units[LocationId.NEW_SYSTEM_CORE].infantry
     
     completed = []
     for _ in range(3):
-        out = state.production.tick()
+        out = state.barracks.tick()
         completed.extend(out)
         
     # Should be done now
@@ -84,8 +82,8 @@ def test_granular_production():
     
     # Apply output
     for out in completed:
-        state._apply_production_output(out)
+        state._apply_barracks_output(out)
         
-    final_core_inf = state.logistics.depot_units[DepotNode.CORE].infantry
+    final_core_inf = state.logistics.depot_units[LocationId.NEW_SYSTEM_CORE].infantry
     # If logic multiplies by SQUAD_SIZE(20), this would be +140. We want +7.
     assert final_core_inf == initial_core_inf + 7

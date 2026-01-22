@@ -13,7 +13,6 @@ from clone_wars.engine.ops import (
     Phase2Decisions,
     Phase3Decisions,
 )
-from clone_wars.engine.production import ProductionJobType
 from clone_wars.engine.state import AfterActionReport, GameState, RaidReport
 from clone_wars.web.console_controller import ConsoleController
 from clone_wars.web.render.format import (
@@ -143,13 +142,22 @@ def header_vm(state: GameState, controller: ConsoleController) -> dict:
     totals = sum_supplies(state.logistics.depot_stocks)
     unit_totals = sum_units(state.logistics.depot_units)
     max_factories = max(1, state.production.max_factories)
-    ic_pct = round(100 * (state.production.factories / max_factories))
+    max_barracks = max(1, state.barracks.max_barracks)
+    max_factory_capacity = max_factories * state.production.slots_per_factory
+    max_barracks_capacity = max_barracks * state.barracks.slots_per_barracks
+    total_capacity = state.production.capacity + state.barracks.capacity
+    total_max_capacity = max_factory_capacity + max_barracks_capacity
+    ic_pct = round(100 * (total_capacity / total_max_capacity)) if total_max_capacity > 0 else 0
     return {
         "day": state.day,
         "ic_pct": ic_pct,
-        "capacity_slots": state.production.capacity,
+        "capacity_slots": total_capacity,
+        "factory_capacity": state.production.capacity,
+        "barracks_capacity": state.barracks.capacity,
         "factories": state.production.factories,
         "max_factories": max_factories,
+        "barracks": state.barracks.barracks,
+        "max_barracks": max_barracks,
         "ap": state.action_points,
         "ap_max": 3,
         "supplies": {
@@ -200,7 +208,10 @@ def _hud_from_controls(
         lines = list(controls.get("lines", []))
         actions = list(controls.get("actions", []))
     elif cta:
-        actions = [cta]
+        if isinstance(cta, list):
+            actions = cta
+        else:
+            actions = [cta]
 
     return {
         "message": controller.message,
@@ -227,8 +238,23 @@ def _loc_short(loc: LocationId | None) -> str:
 
 def core_view_vm(state: GameState, controller: ConsoleController) -> dict:
     prod_vm = production_vm(state, controller)
+    barr_vm = barracks_vm(state, controller)
     stock = state.logistics.depot_stocks[LocationId.NEW_SYSTEM_CORE]
     units = state.logistics.depot_units[LocationId.NEW_SYSTEM_CORE]
+
+    controls = None
+    cta = None
+    if controller.mode.startswith("production"):
+        controls = prod_vm["controls"]
+    elif controller.mode.startswith("barracks"):
+        controls = barr_vm["controls"]
+    else:
+        ctas: list[dict] = []
+        if prod_vm["cta"]:
+            ctas.append(prod_vm["cta"])
+        if barr_vm["cta"]:
+            ctas.append(barr_vm["cta"])
+        cta = ctas if ctas else None
 
     return {
         "factory": {
@@ -239,7 +265,16 @@ def core_view_vm(state: GameState, controller: ConsoleController) -> dict:
             "can_upgrade": prod_vm["can_upgrade"],
             "jobs_count": len(prod_vm["jobs"]),
         },
+        "barracks": {
+            "capacity": barr_vm["capacity"],
+            "barracks": barr_vm["barracks"],
+            "max_barracks": barr_vm["max_barracks"],
+            "slots_per_barracks": barr_vm["slots_per_barracks"],
+            "can_upgrade": barr_vm["can_upgrade"],
+            "jobs_count": len(barr_vm["jobs"]),
+        },
         "jobs": prod_vm["jobs"],
+        "barracks_jobs": barr_vm["jobs"],
         "stockpiles": {
             "supplies": {
                 "ammo": fmt_int(stock.ammo),
@@ -252,7 +287,7 @@ def core_view_vm(state: GameState, controller: ConsoleController) -> dict:
                 "support": fmt_int(units.support),
             },
         },
-        "hud": _hud_from_controls(controller, prod_vm["controls"], prod_vm["cta"]),
+        "hud": _hud_from_controls(controller, controls, cta),
     }
 
 
@@ -271,6 +306,13 @@ def deep_view_vm(state: GameState, controller: ConsoleController) -> dict:
             f"W{fmt_int(ship.units.walkers)} "
             f"S{fmt_int(ship.units.support)}"
         )
+        
+        # Calculate transit progress for visual lane
+        progress_pct = 0
+        if in_transit and ship.total_days > 0:
+            elapsed = ship.total_days - ship.days_remaining
+            progress_pct = int((elapsed / ship.total_days) * 100)
+        
         ships.append(
             {
                 "name": ship.name,
@@ -280,10 +322,22 @@ def deep_view_vm(state: GameState, controller: ConsoleController) -> dict:
                 "payload": f"{payload} | {unit_payload}",
                 "eta": ship.days_remaining if in_transit else "-",
                 "in_transit": in_transit,
+                "progress_pct": progress_pct,
+                "origin_short": _loc_short(ship.location),
+                "dest_short": _loc_short(ship.destination) if ship.destination else "",
             }
         )
 
     log_vm = logistics_vm(state, controller)
+    
+    # Build transit log entries for display
+    transit_log = []
+    for entry in state.logistics.transit_log[:10]:  # Show last 10 entries
+        transit_log.append({
+            "day": entry.day,
+            "message": entry.message,
+            "event_type": entry.event_type,
+        })
 
     return {
         "ships": ships,
@@ -294,6 +348,8 @@ def deep_view_vm(state: GameState, controller: ConsoleController) -> dict:
         "constraints": log_vm["constraints"],
         "legend": log_vm["legend"],
         "hud": logistics_hud_vm(state, controller),
+        "transit_log": transit_log,
+        "current_day": state.day,
     }
 
 
@@ -495,19 +551,19 @@ def situation_map_vm(state: GameState, controller: ConsoleController) -> dict:
             "id": "map-select-core",
             "name": "CORE WORLDS",
             "loc_id": LocationId.NEW_SYSTEM_CORE,
-            "owner": "friendly",
+            "owner": "core",
         },
         {
             "id": "map-select-deep",
             "name": "DEEP SPACE",
             "loc_id": LocationId.DEEP_SPACE,
-            "owner": "friendly", # Or neutral?
+            "owner": "deep", # Or neutral?
         },
         {
             "id": "map-select-spaceport",
             "name": "CONTESTED SYSTEM",
             "loc_id": LocationId.CONTESTED_SPACEPORT,
-            "owner": "contested",
+            "owner": "tactical",
         },
         # Enemy Nodes (Not fully simulated yet, placeholders)
         {
@@ -546,7 +602,10 @@ def situation_map_vm(state: GameState, controller: ConsoleController) -> dict:
             },
             "factories": state.production.factories,
             "capacity": state.production.capacity,
-            "jobs_count": len(state.production.jobs)
+            "jobs_count": len(state.production.jobs),
+            "barracks": state.barracks.barracks,
+            "barracks_capacity": state.barracks.capacity,
+            "barracks_jobs_count": len(state.barracks.jobs),
         }
         
     elif selected_node == LocationId.DEEP_SPACE:
@@ -671,6 +730,11 @@ def task_force_vm(state: GameState, controller: ConsoleController) -> dict:
     fuel_bar = bar(supplies.fuel, 200)
     med_bar = bar(supplies.med_spares, 150)
 
+    def _supply_pct(value: int, capacity: int) -> int:
+        if capacity <= 0:
+            return 0
+        return int(max(0.0, min(1.0, value / capacity)) * 100)
+
     lines = [
         "TASK FORCE: REPUBLIC HAMMER",
         f"UNITS: INFANTRY ({fmt_troops(tf.composition.infantry)}),",
@@ -685,16 +749,48 @@ def task_force_vm(state: GameState, controller: ConsoleController) -> dict:
         f"  M: {fmt_int(supplies.med_spares):>4} {med_bar}",
     ]
 
-    return {"text": "\n".join(lines)}
+    return {
+        "text": "\n".join(lines),
+        "name": "REPUBLIC HAMMER",
+        "infantry": fmt_troops(tf.composition.infantry),
+        "walkers": fmt_int(tf.composition.walkers),
+        "support": fmt_int(tf.composition.support),
+        "readiness_pct": readiness,
+        "cohesion_pct": cohesion,
+        "cohesion_label": coh_label,
+        "supplies": {
+            "ammo": fmt_int(supplies.ammo),
+            "fuel": fmt_int(supplies.fuel),
+            "med_spares": fmt_int(supplies.med_spares),
+        },
+        "supplies_pct": {
+            "ammo": _supply_pct(supplies.ammo, 300),
+            "fuel": _supply_pct(supplies.fuel, 200),
+            "med_spares": _supply_pct(supplies.med_spares, 150),
+        },
+    }
 
 
 def production_vm(state: GameState, controller: ConsoleController) -> dict:
     prod = state.production
     jobs = []
     if prod.jobs:
-        for job_type, quantity, eta, stop_at in prod.get_eta_summary():
+        eta_summary = prod.get_eta_summary()
+        for job, (job_type, quantity, eta, stop_at) in zip(prod.jobs, eta_summary):
+            total_work = max(1, quantity * prod.costs.get(job.job_type.value, 1))
+            completed_work = max(0, total_work - job.remaining)
+            progress_pct = min(100, max(0, int(round(100 * completed_work / total_work))))
             label = f"{job_type.upper()} x{fmt_int(quantity)}"
-            jobs.append({"label": label, "eta": eta, "stop_at": stop_at})
+            jobs.append(
+                {
+                    "label": label,
+                    "eta": eta,
+                    "stop_at": stop_at,
+                    "progress_pct": progress_pct,
+                    "work_remaining": fmt_int(job.remaining),
+                    "work_total": fmt_int(total_work),
+                }
+            )
 
     controls = _production_controls(state, controller)
     cta = None
@@ -707,6 +803,44 @@ def production_vm(state: GameState, controller: ConsoleController) -> dict:
         "max_factories": prod.max_factories,
         "slots_per_factory": prod.slots_per_factory,
         "can_upgrade": prod.can_add_factory(),
+        "jobs": jobs,
+        "controls": controls,
+        "cta": cta,
+    }
+
+
+def barracks_vm(state: GameState, controller: ConsoleController) -> dict:
+    barracks = state.barracks
+    jobs = []
+    if barracks.jobs:
+        eta_summary = barracks.get_eta_summary()
+        for job, (job_type, quantity, eta, stop_at) in zip(barracks.jobs, eta_summary):
+            total_work = max(1, quantity * barracks.costs.get(job.job_type.value, 1))
+            completed_work = max(0, total_work - job.remaining)
+            progress_pct = min(100, max(0, int(round(100 * completed_work / total_work))))
+            label = f"{job_type.upper()} x{fmt_int(quantity)}"
+            jobs.append(
+                {
+                    "label": label,
+                    "eta": eta,
+                    "stop_at": stop_at,
+                    "progress_pct": progress_pct,
+                    "work_remaining": fmt_int(job.remaining),
+                    "work_total": fmt_int(total_work),
+                }
+            )
+
+    controls = _barracks_controls(state, controller)
+    cta = None
+    if controls is None:
+        cta = {"id": "btn-barracks", "label": "QUEUE BARRACKS", "tone": "accent"}
+
+    return {
+        "capacity": barracks.capacity,
+        "barracks": barracks.barracks,
+        "max_barracks": barracks.max_barracks,
+        "slots_per_barracks": barracks.slots_per_barracks,
+        "can_upgrade": barracks.can_add_barracks(),
         "jobs": jobs,
         "controls": controls,
         "cta": cta,
@@ -733,13 +867,20 @@ def _production_controls(state: GameState, controller: ConsoleController) -> dic
             entry["tone"] = tone
         actions.append(entry)
 
+    costs = state.production.costs
+
     if mode == "production":
         line("PRODUCTION COMMAND", "title")
+        line(f"CAPACITY: {state.production.capacity} slots/day", "muted")
         line("SELECT CATEGORY:", "muted")
         action("prod-cat-supplies", "SUPPLIES")
-        action("prod-cat-army", "ARMY")
+        action("prod-cat-vehicles", "VEHICLES")
         if state.production.can_add_factory():
-            action("prod-upgrade-factory", "UPGRADE FACTORY (+1 SLOT)", "accent")
+            action(
+                "prod-upgrade-factory",
+                f"UPGRADE FACTORY (+{state.production.slots_per_factory} slots/day)",
+                "accent",
+            )
         action("btn-cancel", "BACK", "muted")
     elif mode == "production:item":
         if controller.prod_category is None:
@@ -750,13 +891,11 @@ def _production_controls(state: GameState, controller: ConsoleController) -> dic
             line(f"PRODUCTION - {title}", "title")
             line("SELECT ITEM:", "muted")
             if controller.prod_category == "supplies":
-                action("prod-item-ammo", "AMMO")
-                action("prod-item-fuel", "FUEL")
-                action("prod-item-med", "MED/SPARES")
+                action("prod-item-ammo", f"AMMO ({costs.get('ammo', '?')} slots)")
+                action("prod-item-fuel", f"FUEL ({costs.get('fuel', '?')} slots)")
+                action("prod-item-med", f"MED/SPARES ({costs.get('med_spares', '?')} slots)")
             else:
-                action("prod-item-inf", "INFANTRY")
-                action("prod-item-walkers", "WALKERS")
-                action("prod-item-support", "SUPPORT")
+                action("prod-item-walkers", f"WALKERS ({costs.get('walkers', '?')} slots)")
             action("prod-back-category", "BACK", "muted")
     elif mode == "production:quantity":
         if controller.prod_job_type is None:
@@ -767,6 +906,7 @@ def _production_controls(state: GameState, controller: ConsoleController) -> dic
             quantity_line = fmt_int(controller.prod_quantity)
             line("PRODUCTION - QUANTITY", "title")
             line(f"ITEM: {job_label}", "muted")
+            line(f"COST: {costs.get(controller.prod_job_type.value, '?')} slots each", "muted")
             line(f"QUANTITY: {quantity_line}", "muted")
             action("prod-qty-minus-50", "-50")
             action("prod-qty-minus-10", "-10")
@@ -786,11 +926,88 @@ def _production_controls(state: GameState, controller: ConsoleController) -> dic
             quantity_line = fmt_int(controller.prod_quantity)
             line("PRODUCTION - DELIVER TO", "title")
             line(f"ITEM: {job_label}", "muted")
+            line(f"COST: {costs.get(controller.prod_job_type.value, '?')} slots each", "muted")
             line(f"QUANTITY: {quantity_line}", "muted")
             action("prod-stop-core", "CORE")
-            action("prod-stop-mid", "MID")
-            action("prod-stop-front", "FRONT")
+            action("prod-stop-spaceport", "SPACEPORT")
+            action("prod-stop-mid", "MID DEPOT")
+            action("prod-stop-front", "THE FRONT")
             action("prod-back-qty", "BACK", "muted")
+
+    return {"lines": lines, "actions": actions}
+
+
+def _barracks_controls(state: GameState, controller: ConsoleController) -> dict | None:
+    mode = controller.mode
+    if not mode.startswith("barracks"):
+        return None
+
+    lines: list[dict[str, str]] = []
+    actions: list[dict[str, str]] = []
+
+    def line(text: str, kind: str | None = None) -> None:
+        if kind:
+            lines.append({"text": text, "kind": kind})
+        else:
+            lines.append({"text": text})
+
+    def action(action_id: str, label: str, tone: str | None = None) -> None:
+        entry = {"id": action_id, "label": label}
+        if tone:
+            entry["tone"] = tone
+        actions.append(entry)
+
+    costs = state.barracks.costs
+
+    if mode == "barracks":
+        line("BARRACKS COMMAND", "title")
+        line(f"CAPACITY: {state.barracks.capacity} slots/day", "muted")
+        line("SELECT ITEM:", "muted")
+        action("barracks-item-inf", f"INFANTRY ({costs.get('infantry', '?')} slots)")
+        action("barracks-item-support", f"SUPPORT ({costs.get('support', '?')} slots)")
+        if state.barracks.can_add_barracks():
+            action(
+                "barracks-upgrade",
+                f"UPGRADE BARRACKS (+{state.barracks.slots_per_barracks} slots/day)",
+                "accent",
+            )
+        action("btn-cancel", "BACK", "muted")
+    elif mode == "barracks:quantity":
+        if controller.barracks_job_type is None:
+            line("SELECT AN ITEM FIRST.", "alert")
+            action("barracks-back-item", "BACK", "muted")
+        else:
+            job_label = controller.barracks_job_type.value.upper()
+            quantity_line = fmt_int(controller.barracks_quantity)
+            line("BARRACKS - QUANTITY", "title")
+            line(f"ITEM: {job_label}", "muted")
+            line(f"COST: {costs.get(controller.barracks_job_type.value, '?')} slots each", "muted")
+            line(f"QUANTITY: {quantity_line}", "muted")
+            action("barracks-qty-minus-50", "-50")
+            action("barracks-qty-minus-10", "-10")
+            action("barracks-qty-minus-1", "-1")
+            action("barracks-qty-plus-1", "+1")
+            action("barracks-qty-plus-10", "+10")
+            action("barracks-qty-plus-50", "+50")
+            action("barracks-qty-reset", "RESET")
+            action("barracks-qty-next", "CHOOSE DEPOT", "accent")
+            action("barracks-back-item", "BACK", "muted")
+    elif mode == "barracks:stop":
+        if controller.barracks_job_type is None:
+            line("SELECT AN ITEM FIRST.", "alert")
+            action("barracks-back-item", "BACK", "muted")
+        else:
+            job_label = controller.barracks_job_type.value.upper()
+            quantity_line = fmt_int(controller.barracks_quantity)
+            line("BARRACKS - DELIVER TO", "title")
+            line(f"ITEM: {job_label}", "muted")
+            line(f"COST: {costs.get(controller.barracks_job_type.value, '?')} slots each", "muted")
+            line(f"QUANTITY: {quantity_line}", "muted")
+            action("barracks-stop-core", "CORE")
+            action("barracks-stop-spaceport", "SPACEPORT")
+            action("barracks-stop-mid", "MID DEPOT")
+            action("barracks-stop-front", "THE FRONT")
+            action("barracks-back-qty", "BACK", "muted")
 
     return {"lines": lines, "actions": actions}
 
@@ -813,7 +1030,7 @@ def logistics_vm(state: GameState, controller: ConsoleController) -> dict:
     
     depots = []
     for depot in depot_ids:
-        # stock = state.task_force.supplies if depot == LocationId.CONTESTED_WORLD else stocks[depot] 
+        # stock = state.task_force.supplies if depot == LocationId.CONTESTED_FRONT else stocks[depot]
         # (Task Force supply logic might need revisited, but for now just show depot stocks)
         stock = stocks.get(depot, None)
         if stock is None: continue
@@ -878,28 +1095,31 @@ def logistics_vm(state: GameState, controller: ConsoleController) -> dict:
             )
 
     # Routes (Available Actions)
-    action_map = {
-        (LocationId.NEW_SYSTEM_CORE, LocationId.DEEP_SPACE): "route-core-mid",
-        (LocationId.DEEP_SPACE, LocationId.CONTESTED_SPACEPORT): "route-mid-front",
-    }
-    route_by_pair = {(route.origin, route.destination): route for route in state.logistics.routes}
-    ordered_pairs = [
-        (LocationId.NEW_SYSTEM_CORE, LocationId.DEEP_SPACE),
-        (LocationId.DEEP_SPACE, LocationId.CONTESTED_SPACEPORT),
+    # Routes (Available Actions)
+    # Since we now have a graph, we just expose the primary "From Core" options that the Controller expects.
+    # The controller handles the logic of dispatching a ship relative to a theoretical path.
+    
+    # We display these as "Standard Shipping Lanes"
+    routes = [
+        {
+            "action": "route-core-spaceport",
+            "label": "CORE -> SPACEPORT",
+            "days": 2, # Approx
+            "risk_pct": 10,
+        },
+        {
+            "action": "route-core-mid",
+            "label": "CORE -> MID DEPOT",
+            "days": 3,
+            "risk_pct": 15,
+        },
+        {
+            "action": "route-core-front",
+            "label": "CORE -> THE FRONT",
+            "days": 4,
+            "risk_pct": 25,
+        },
     ]
-    routes = []
-    for pair in ordered_pairs:
-        route = route_by_pair.get(pair)
-        if not route:
-            continue
-        routes.append(
-            {
-                "action": action_map[pair],
-                "label": f"{pair[0].value.split('_')[-1].upper()} -> {pair[1].value.split('_')[-1].upper()}",
-                "days": route.travel_days,
-                "risk_pct": int(route.interdiction_risk * 100),
-            }
-        )
         
     # Fleet Status for Constraints
     total_ships = len(state.logistics.ships)
@@ -1158,7 +1378,7 @@ def console_vm(state: GameState, controller: ConsoleController) -> dict:
         line("PRODUCTION COMMAND", "title")
         line("SELECT CATEGORY:", "muted")
         action("prod-cat-supplies", "[A] SUPPLIES")
-        action("prod-cat-army", "[B] ARMY")
+        action("prod-cat-vehicles", "[B] VEHICLES")
         action("btn-cancel", "[Q] BACK", "muted")
 
     elif mode == "production:item":
@@ -1174,9 +1394,7 @@ def console_vm(state: GameState, controller: ConsoleController) -> dict:
                 action("prod-item-fuel", "[B] FUEL")
                 action("prod-item-med", "[C] MED/SPARES")
             else:
-                action("prod-item-inf", "[A] INFANTRY (Troopers)")
-                action("prod-item-walkers", "[B] WALKERS")
-                action("prod-item-support", "[C] SUPPORT")
+                action("prod-item-walkers", "[A] WALKERS")
             action("prod-back-category", "[Q] BACK", "muted")
 
     elif mode == "production:quantity":
@@ -1213,6 +1431,48 @@ def console_vm(state: GameState, controller: ConsoleController) -> dict:
             action("prod-stop-mid", "[B] MID")
             action("prod-stop-front", "[C] FRONT")
             action("prod-back-qty", "[Q] BACK", "muted")
+
+    elif mode == "barracks":
+        line("BARRACKS COMMAND", "title")
+        line("SELECT ITEM:", "muted")
+        action("barracks-item-inf", "[A] INFANTRY")
+        action("barracks-item-support", "[B] SUPPORT")
+        action("btn-cancel", "[Q] BACK", "muted")
+
+    elif mode == "barracks:quantity":
+        if controller.barracks_job_type is None:
+            line("SELECT AN ITEM FIRST.", "alert")
+            action("barracks-back-item", "[Q] BACK", "muted")
+        else:
+            job_label = controller.barracks_job_type.value.upper()
+            quantity_line = fmt_int(controller.barracks_quantity)
+            line("BARRACKS - QUANTITY", "title")
+            line(f"ITEM: {job_label}", "muted")
+            line(f"QUANTITY: {quantity_line}", "muted")
+            action("barracks-qty-minus-50", "[-50]")
+            action("barracks-qty-minus-10", "[-10]")
+            action("barracks-qty-minus-1", "[-1]")
+            action("barracks-qty-plus-1", "[+1]")
+            action("barracks-qty-plus-10", "[+10]")
+            action("barracks-qty-plus-50", "[+50]")
+            action("barracks-qty-reset", "[RESET]")
+            action("barracks-qty-next", "[NEXT] CHOOSE DEPOT", "accent")
+            action("barracks-back-item", "[Q] BACK", "muted")
+
+    elif mode == "barracks:stop":
+        if controller.barracks_job_type is None:
+            line("SELECT AN ITEM FIRST.", "alert")
+            action("barracks-back-item", "[Q] BACK", "muted")
+        else:
+            job_label = controller.barracks_job_type.value.upper()
+            quantity_line = fmt_int(controller.barracks_quantity)
+            line("BARRACKS - DELIVER TO", "title")
+            line(f"ITEM: {job_label}", "muted")
+            line(f"QUANTITY: {quantity_line}", "muted")
+            action("barracks-stop-core", "[A] CORE")
+            action("barracks-stop-mid", "[B] MID")
+            action("barracks-stop-front", "[C] FRONT")
+            action("barracks-back-qty", "[Q] BACK", "muted")
 
     elif mode == "logistics":
         line("LOGISTICS COMMAND", "title")

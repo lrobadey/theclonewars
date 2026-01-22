@@ -49,6 +49,14 @@ The game’s “feel” comes from three primary bottlenecks:
 - Output is pushed via **route-based supply lines** to the key planet, through **depots/staging nodes**.
 - MVP can use a **small simplified graph** (e.g., Core → Mid → Front).
 
+**Barracks addendum (MVP clarification)**  
+To keep the “global production pool” feel while clarifying throughput, industrial capacity is now modeled as **two parallel pools**:
+
+- **Factory pool**: produces **Supplies** (Ammo/Fuel/Med+Spares) + **Walkers**.
+- **Barracks pool**: produces **Infantry** + **Support**.
+- Each building contributes **slots/day**; totals are **data-driven** (rules config) and can be tuned per scenario.
+- Both pools use the same **deterministic fair‑share** queue policy for MVP.
+
 ---
 
 ## Supplies (MVP = 3 classes)

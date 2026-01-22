@@ -21,7 +21,44 @@
                     {% for job in vm.core.jobs %}
                     <div class="production__queue-item">
                         <div class="production__queue-label">{{ job.label }}</div>
-                        <div class="production__queue-meta muted">ETA {{ job.eta }}d -> {{ job.stop_at }}</div>
+                        <div class="production__queue-meta muted">
+                            ETA {{ job.eta }}d · {{ job.progress_pct }}% · {{ job.work_remaining }}/{{ job.work_total }} slots
+                            → {{ job.stop_at }}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="muted">NO ACTIVE QUEUES</div>
+                {% endif %}
+            </div>
+
+            <div class="panel__divider"></div>
+
+            <div class="panel__title">BARRACKS STATUS</div>
+            <div class="stat-row">
+                <span class="stat-label">CAPACITY</span>
+                <span class="stat-value">{{ vm.core.barracks.capacity }} slots/day</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">BARRACKS</span>
+                <span class="stat-value">{{ vm.core.barracks.barracks }}/{{ vm.core.barracks.max_barracks }} ({{ vm.core.barracks.slots_per_barracks }} slot)</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">ACTIVE QUEUES</span>
+                <span class="stat-value">{{ vm.core.barracks.jobs_count }}</span>
+            </div>
+            <div class="production__queues">
+                <div class="production__queues-title muted">QUEUE</div>
+                {% if vm.core.barracks_jobs %}
+                <div class="production__queue-list">
+                    {% for job in vm.core.barracks_jobs %}
+                    <div class="production__queue-item">
+                        <div class="production__queue-label">{{ job.label }}</div>
+                        <div class="production__queue-meta muted">
+                            ETA {{ job.eta }}d · {{ job.progress_pct }}% · {{ job.work_remaining }}/{{ job.work_total }} slots
+                            → {{ job.stop_at }}
+                        </div>
                     </div>
                     {% endfor %}
                 </div>

@@ -45,7 +45,7 @@ The simulation runs day-by-day. The player cannot micro-manage everything.
 War is moving matter through space.
 *   **Topology (MVP):** `[Core World A] <==> [Deep Space] <==> [Contested Planet] <==> [Core World B]`
 *   **The Pipeline:**
-    1.  **Production:** Factories on Core World generate stock (Ammo, Fuel, Units).
+    1.  **Production:** **Factories** generate supplies + walkers; **Barracks** generate infantry + support (each with its own slots/day pool).
     2.  **Lift:** Items move to the **Spaceport** stockpile.
     3.  **Transit:** Items are loaded onto **Convoys** (requires Hull capacity).
     4.  **Travel:** Convoy physically traverses the graph (takes days).

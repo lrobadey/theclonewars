@@ -13,13 +13,13 @@ def test_load_valid_scenario() -> None:
     scenario_path = data_dir / "scenario.json"
     state = load_game_state(scenario_path)
     assert state.day == 1
-    assert state.planet.enemy.infantry == 6
-    assert state.planet.enemy.walkers == 2
-    assert state.planet.enemy.support == 1
-    assert state.planet.enemy.cohesion == 1.0
-    assert state.planet.enemy.fortification == 1.2
-    assert state.planet.enemy.reinforcement_rate == 0.0
-    assert state.planet.enemy.intel_confidence == 0.7
+    assert state.contested_planet.enemy.infantry == 120
+    assert state.contested_planet.enemy.walkers == 2
+    assert state.contested_planet.enemy.support == 1
+    assert state.contested_planet.enemy.cohesion == 1.0
+    assert state.contested_planet.enemy.fortification == 1.2
+    assert state.contested_planet.enemy.reinforcement_rate == 0.0
+    assert state.contested_planet.enemy.intel_confidence == 0.7
 
 
 def test_scenario_backward_compatibility() -> None:
@@ -30,6 +30,7 @@ def test_scenario_backward_compatibility() -> None:
     state = load_game_state(scenario_path)
     assert state.logistics is not None
     assert state.production is not None
+    assert state.barracks is not None
     assert state.rules is not None
 
 

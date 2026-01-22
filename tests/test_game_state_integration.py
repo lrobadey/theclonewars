@@ -4,11 +4,11 @@ from pathlib import Path
 
 import pytest
 
-from clone_wars.engine.logistics import DepotNode
+from clone_wars.engine.barracks import BarracksJobType
 from clone_wars.engine.ops import OperationTarget
 from clone_wars.engine.production import ProductionJobType
 from clone_wars.engine.scenario import load_game_state
-from clone_wars.engine.types import ObjectiveStatus, Supplies, UnitStock
+from clone_wars.engine.types import LocationId, ObjectiveStatus, Supplies, UnitStock
 
 
 def test_gamestate_initialization() -> None:
@@ -20,8 +20,9 @@ def test_gamestate_initialization() -> None:
     assert state.day == 1
     assert state.logistics is not None
     assert state.production is not None
+    assert state.barracks is not None
     assert state.rules is not None
-    assert state.planet is not None
+    assert state.contested_planet is not None
     assert state.task_force is not None
     assert state.operation is None
     assert state.last_aar is None
@@ -36,11 +37,11 @@ def test_advance_day_integrates_all_systems() -> None:
     state.production.queue_job(ProductionJobType.AMMO, quantity=6)
 
     # Set up shipment
-    initial_core = state.logistics.depot_stocks[DepotNode.CORE].ammo
+    initial_core = state.logistics.depot_stocks[LocationId.NEW_SYSTEM_CORE].ammo
     state.logistics_service.create_shipment(
         state.logistics,
-        DepotNode.CORE,
-        DepotNode.MID,
+        LocationId.NEW_SYSTEM_CORE,
+        LocationId.CONTESTED_MID_DEPOT,
         Supplies(ammo=50, fuel=0, med_spares=0),
         None,
         state.rng,
@@ -68,7 +69,7 @@ def test_production_outputs_to_core_depot() -> None:
     data_dir = Path(__file__).resolve().parents[1] / "src" / "clone_wars" / "data"
     state = load_game_state(data_dir / "scenario.json")
 
-    initial_core_ammo = state.logistics.depot_stocks[DepotNode.CORE].ammo
+    initial_core_ammo = state.logistics.depot_stocks[LocationId.NEW_SYSTEM_CORE].ammo
 
     # Queue production job
     state.production.queue_job(ProductionJobType.AMMO, quantity=20)
@@ -78,28 +79,23 @@ def test_production_outputs_to_core_depot() -> None:
         state.advance_day()
 
     # Core depot should have received the production
-    final_core_ammo = state.logistics.depot_stocks[DepotNode.CORE].ammo
+    final_core_ammo = state.logistics.depot_stocks[LocationId.NEW_SYSTEM_CORE].ammo
     assert final_core_ammo == initial_core_ammo + 20
 
 
-def test_unit_production_outputs_to_core_depot() -> None:
-    """Test that unit production outputs go to Core depot units.
-
-    Infantry production uses a quantity in "production units" which produces
-    quantity * SQUAD_SIZE troopers (e.g., 4 production units = 80 troopers).
-    """
+def test_barracks_outputs_to_core_depot() -> None:
+    """Test that barracks outputs go to Core depot units."""
     data_dir = Path(__file__).resolve().parents[1] / "src" / "clone_wars" / "data"
     state = load_game_state(data_dir / "scenario.json")
 
-    initial_units = state.logistics.depot_units[DepotNode.CORE]
+    initial_units = state.logistics.depot_units[LocationId.NEW_SYSTEM_CORE]
 
-    state.production.queue_job(ProductionJobType.INFANTRY, quantity=4)
-    while len(state.production.jobs) > 0:
+    state.barracks.queue_job(BarracksJobType.INFANTRY, quantity=4)
+    while len(state.barracks.jobs) > 0:
         state.advance_day()
 
-    final_units = state.logistics.depot_units[DepotNode.CORE]
-    # 4 production units × 20 troopers per unit = 80 troopers
-    assert final_units.infantry == initial_units.infantry + 80
+    final_units = state.logistics.depot_units[LocationId.NEW_SYSTEM_CORE]
+    assert final_units.infantry == initial_units.infantry + 4
 
 
 def test_production_auto_dispatches_to_stop() -> None:
@@ -110,7 +106,7 @@ def test_production_auto_dispatches_to_stop() -> None:
     state.production.queue_job(
         ProductionJobType.AMMO,
         quantity=6,
-        stop_at=DepotNode.MID,
+        stop_at=LocationId.CONTESTED_MID_DEPOT,
     )
 
     while len(state.production.jobs) > 0:
@@ -118,7 +114,7 @@ def test_production_auto_dispatches_to_stop() -> None:
 
     assert len(state.logistics.shipments) == 1
     shipment = state.logistics.shipments[0]
-    assert shipment.final_destination == DepotNode.MID
+    assert shipment.final_destination == LocationId.CONTESTED_MID_DEPOT
 
 
 def test_raid_updates_state_and_sets_report() -> None:
@@ -130,13 +126,13 @@ def test_raid_updates_state_and_sets_report() -> None:
     state.task_force.composition.infantry = 200
     state.task_force.composition.walkers = 0
     state.task_force.composition.support = 0
-    state.planet.enemy.infantry = 25
-    state.planet.enemy.walkers = 0
-    state.planet.enemy.support = 0
-    state.planet.enemy.fortification = 1.0
+    state.contested_planet.enemy.infantry = 25
+    state.contested_planet.enemy.walkers = 0
+    state.contested_planet.enemy.support = 0
+    state.contested_planet.enemy.fortification = 1.0
 
     initial_ammo = state.task_force.supplies.ammo
-    initial_enemy_inf = state.planet.enemy.infantry
+    initial_enemy_inf = state.contested_planet.enemy.infantry
 
     report = state.raid(OperationTarget.FOUNDRY)
 
@@ -144,7 +140,7 @@ def test_raid_updates_state_and_sets_report() -> None:
     assert report.target == OperationTarget.FOUNDRY
     assert report.outcome == "VICTORY"
     assert state.task_force.supplies.ammo < initial_ammo
-    assert state.planet.enemy.infantry <= initial_enemy_inf
+    assert state.contested_planet.enemy.infantry <= initial_enemy_inf
 
 
 def test_multiple_days_full_integration() -> None:
@@ -158,8 +154,8 @@ def test_multiple_days_full_integration() -> None:
     # Set up logistics
     state.logistics_service.create_shipment(
         state.logistics,
-        DepotNode.CORE,
-        DepotNode.MID,
+        LocationId.NEW_SYSTEM_CORE,
+        LocationId.CONTESTED_MID_DEPOT,
         Supplies(ammo=30, fuel=20, med_spares=10),
         None,
         state.rng,
@@ -180,17 +176,17 @@ def test_enemy_passive_effects() -> None:
     data_dir = Path(__file__).resolve().parents[1] / "src" / "clone_wars" / "data"
     state = load_game_state(data_dir / "scenario.json")
 
-    initial_fort = state.planet.enemy.fortification
-    initial_infantry = state.planet.enemy.infantry
+    initial_fort = state.contested_planet.enemy.fortification
+    initial_infantry = state.contested_planet.enemy.infantry
 
     # Advance multiple days
     for _ in range(10):
         state.advance_day()
 
     # Fortification should increase (capped)
-    assert state.planet.enemy.fortification >= initial_fort
-    assert state.planet.enemy.fortification <= 2.5
-    assert state.planet.enemy.infantry >= initial_infantry
+    assert state.contested_planet.enemy.fortification >= initial_fort
+    assert state.contested_planet.enemy.fortification <= 2.5
+    assert state.contested_planet.enemy.infantry >= initial_infantry
 
 
 def test_front_stock_is_available_to_task_force() -> None:
@@ -199,20 +195,20 @@ def test_front_stock_is_available_to_task_force() -> None:
     state = load_game_state(data_dir / "scenario.json")
 
     # Seed Front depot and drain task force to force resupply.
-    state.logistics.depot_stocks[DepotNode.FRONT] = Supplies(ammo=50, fuel=40, med_spares=30)
-    state.logistics.depot_units[DepotNode.FRONT] = UnitStock(infantry=4, walkers=1, support=2)
+    state.logistics.depot_stocks[LocationId.CONTESTED_FRONT] = Supplies(ammo=50, fuel=40, med_spares=30)
+    state.logistics.depot_units[LocationId.CONTESTED_FRONT] = UnitStock(infantry=4, walkers=1, support=2)
     state.task_force.supplies = Supplies(ammo=0, fuel=0, med_spares=0)
 
     initial_task_force_ammo = state.task_force.supplies.ammo
     initial_infantry = state.task_force.composition.infantry
-    front_ammo = state.logistics.depot_stocks[DepotNode.FRONT].ammo
+    front_ammo = state.logistics.depot_stocks[LocationId.CONTESTED_FRONT].ammo
 
     state.resupply_task_force()
 
     assert state.task_force.supplies.ammo == initial_task_force_ammo + front_ammo
-    assert state.logistics.depot_stocks[DepotNode.FRONT].ammo == 0
+    assert state.logistics.depot_stocks[LocationId.CONTESTED_FRONT].ammo == 0
     assert state.task_force.composition.infantry == initial_infantry + 4
-    assert state.logistics.depot_units[DepotNode.FRONT].infantry == 0
+    assert state.logistics.depot_units[LocationId.CONTESTED_FRONT].infantry == 0
 
 
 def test_win_condition_all_objectives() -> None:
@@ -225,11 +221,11 @@ def test_win_condition_all_objectives() -> None:
     state.task_force.composition.walkers = 0
     state.task_force.composition.support = 0
     state.task_force.supplies = Supplies(ammo=10_000, fuel=10_000, med_spares=10_000)
-    state.planet.enemy.infantry = 10
-    state.planet.enemy.walkers = 0
-    state.planet.enemy.support = 0
-    state.planet.enemy.fortification = 1.0
-    state.planet.enemy.cohesion = 1.0
+    state.contested_planet.enemy.infantry = 10
+    state.contested_planet.enemy.walkers = 0
+    state.contested_planet.enemy.support = 0
+    state.contested_planet.enemy.fortification = 1.0
+    state.contested_planet.enemy.cohesion = 1.0
 
     objectives = [
         OperationTarget.FOUNDRY,
@@ -246,9 +242,9 @@ def test_win_condition_all_objectives() -> None:
         report2 = state.raid(target)
         assert report2.outcome == "VICTORY"
 
-    assert state.planet.objectives.foundry == ObjectiveStatus.SECURED
-    assert state.planet.objectives.comms == ObjectiveStatus.SECURED
-    assert state.planet.objectives.power == ObjectiveStatus.SECURED
+    assert state.contested_planet.objectives.foundry == ObjectiveStatus.SECURED
+    assert state.contested_planet.objectives.comms == ObjectiveStatus.SECURED
+    assert state.contested_planet.objectives.power == ObjectiveStatus.SECURED
 
 
 def test_raid_fails_against_secured_objective() -> None:
@@ -260,18 +256,18 @@ def test_raid_fails_against_secured_objective() -> None:
     state.task_force.composition.walkers = 0
     state.task_force.composition.support = 0
     state.task_force.supplies = Supplies(ammo=10_000, fuel=10_000, med_spares=10_000)
-    state.planet.enemy.infantry = 10
-    state.planet.enemy.walkers = 0
-    state.planet.enemy.support = 0
-    state.planet.enemy.fortification = 1.0
-    state.planet.enemy.cohesion = 1.0
+    state.contested_planet.enemy.infantry = 10
+    state.contested_planet.enemy.walkers = 0
+    state.contested_planet.enemy.support = 0
+    state.contested_planet.enemy.fortification = 1.0
+    state.contested_planet.enemy.cohesion = 1.0
 
     target = OperationTarget.FOUNDRY
     report1 = state.raid(target)
     assert report1.outcome == "VICTORY"
     report2 = state.raid(target)
     assert report2.outcome == "VICTORY"
-    assert state.planet.objectives.foundry == ObjectiveStatus.SECURED
+    assert state.contested_planet.objectives.foundry == ObjectiveStatus.SECURED
 
     with pytest.raises(RuntimeError, match="already secured"):
         state.raid(target)

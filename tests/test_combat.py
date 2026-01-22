@@ -24,10 +24,10 @@ def test_raid_equal_forces_last_multiple_ticks() -> None:
     state.task_force.composition.infantry = 100
     state.task_force.composition.walkers = 0
     state.task_force.composition.support = 0
-    state.planet.enemy.infantry = 100
-    state.planet.enemy.walkers = 0
-    state.planet.enemy.support = 0
-    state.planet.enemy.fortification = 1.0
+    state.contested_planet.enemy.infantry = 100
+    state.contested_planet.enemy.walkers = 0
+    state.contested_planet.enemy.support = 0
+    state.contested_planet.enemy.fortification = 1.0
 
     result = execute_raid(state, random.Random(42))
     assert result.ticks >= 6
@@ -38,10 +38,10 @@ def test_superior_force_wins() -> None:
     state.task_force.composition.infantry = 200
     state.task_force.composition.walkers = 0
     state.task_force.composition.support = 0
-    state.planet.enemy.infantry = 50
-    state.planet.enemy.walkers = 0
-    state.planet.enemy.support = 0
-    state.planet.enemy.fortification = 1.0
+    state.contested_planet.enemy.infantry = 50
+    state.contested_planet.enemy.walkers = 0
+    state.contested_planet.enemy.support = 0
+    state.contested_planet.enemy.fortification = 1.0
 
     result = execute_raid(state, random.Random(42))
     assert result.outcome == "VICTORY"
@@ -52,19 +52,19 @@ def test_fortification_affects_combat_power_in_raid() -> None:
     base.task_force.composition.infantry = 100
     base.task_force.composition.walkers = 0
     base.task_force.composition.support = 0
-    base.planet.enemy.infantry = 100
-    base.planet.enemy.walkers = 0
-    base.planet.enemy.support = 0
-    base.planet.enemy.fortification = 1.0
+    base.contested_planet.enemy.infantry = 100
+    base.contested_planet.enemy.walkers = 0
+    base.contested_planet.enemy.support = 0
+    base.contested_planet.enemy.fortification = 1.0
 
     fortified = GameState.new(seed=42)
     fortified.task_force.composition.infantry = 100
     fortified.task_force.composition.walkers = 0
     fortified.task_force.composition.support = 0
-    fortified.planet.enemy.infantry = 100
-    fortified.planet.enemy.walkers = 0
-    fortified.planet.enemy.support = 0
-    fortified.planet.enemy.fortification = 1.5
+    fortified.contested_planet.enemy.infantry = 100
+    fortified.contested_planet.enemy.walkers = 0
+    fortified.contested_planet.enemy.support = 0
+    fortified.contested_planet.enemy.fortification = 1.5
 
     result1 = execute_raid(base, random.Random(42))
     result2 = execute_raid(fortified, random.Random(42))

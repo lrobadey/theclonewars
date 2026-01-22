@@ -12,6 +12,7 @@ from clone_wars.engine.ops import (
     Phase2Decisions,
     Phase3Decisions,
 )
+from clone_wars.engine.barracks import BarracksJobType
 from clone_wars.engine.production import ProductionJobType
 from clone_wars.engine.state import GameState
  
@@ -50,6 +51,8 @@ class ConsoleController:
     prod_category: str | None = None
     prod_job_type: ProductionJobType | None = None
     prod_quantity: int = 0
+    barracks_job_type: BarracksJobType | None = None
+    barracks_quantity: int = 0
     message: str | None = None
     message_kind: str = "info"
     raid_auto: bool = False
@@ -60,6 +63,10 @@ class ConsoleController:
         self.prod_category = None
         self.prod_job_type = None
         self.prod_quantity = 0
+
+    def _reset_barracks_state(self) -> None:
+        self.barracks_job_type = None
+        self.barracks_quantity = 0
 
     def _reset_logistics_state(self) -> None:
         self.pending_route = None
@@ -161,6 +168,8 @@ class ConsoleController:
             self.mode = "production"
         if self.mode in {"production:quantity", "production:stop"} and self.prod_job_type is None:
             self.mode = "production"
+        if self.mode in {"barracks:quantity", "barracks:stop"} and self.barracks_job_type is None:
+            self.mode = "barracks"
         if state.operation is not None:
             op = state.operation
             if op.pending_phase_record is not None:
@@ -189,7 +198,7 @@ class ConsoleController:
             self.mode = "menu"
 
         # Sync viewport mode with active interaction flows.
-        if self.mode.startswith("production"):
+        if self.mode.startswith("production") or self.mode.startswith("barracks"):
             self.view_mode = "core"
         elif self.mode.startswith("logistics"):
             self.view_mode = "deep"
@@ -223,12 +232,18 @@ class ConsoleController:
             if self.mode.startswith("production"):
                 self._reset_production_state()
                 self.mode = "menu"
+            if self.mode.startswith("barracks"):
+                self._reset_barracks_state()
+                self.mode = "menu"
             dirty.add("navigator")
             return dirty
         if action_id == "view-tactical":
             self.view_mode = "tactical"
             if self.mode.startswith("production"):
                 self._reset_production_state()
+                self.mode = "menu"
+            if self.mode.startswith("barracks"):
+                self._reset_barracks_state()
                 self.mode = "menu"
             elif self.mode.startswith("logistics"):
                 self._reset_logistics_state()
@@ -281,6 +296,7 @@ class ConsoleController:
                 self.target = None
                 self.op_type = OperationTypeId.CAMPAIGN
             self._reset_production_state()
+            self._reset_barracks_state()
             self.mode = "menu"
         elif action_id == "btn-ack":
             state.last_aar = None
@@ -304,6 +320,11 @@ class ConsoleController:
             self.prod_job_type = None
             self.prod_quantity = 0
             self.mode = "production"
+            self.view_mode = "core"
+            dirty.add("navigator")
+        elif action_id == "btn-barracks":
+            self._reset_barracks_state()
+            self.mode = "barracks"
             self.view_mode = "core"
             dirty.add("navigator")
         elif action_id == "btn-logistics":
@@ -519,16 +540,23 @@ class ConsoleController:
             self.view_mode = "tactical"
 
         elif action_id == "prod-upgrade-factory":
+            if state.action_points < 1:
+                self._set_message("NOT ENOUGH ACTION POINTS (NEED 1)", "error")
+                return dirty
             try:
                 state.production.add_factory()
             except ValueError as exc:
                 self._set_message(str(exc).upper(), "error")
                 return dirty
-            self._set_message("FACTORY UPGRADE COMPLETE (+1 SLOT)", "accent")
+            state.action_points -= 1
+            self._set_message(
+                f"FACTORY UPGRADE COMPLETE (+{state.production.slots_per_factory} SLOTS/DAY)",
+                "accent",
+            )
             self.mode = "menu"
 
         elif action_id.startswith("prod-cat-"):
-            self.prod_category = "supplies" if action_id == "prod-cat-supplies" else "army"
+            self.prod_category = "supplies" if action_id == "prod-cat-supplies" else "vehicles"
             self.prod_job_type = None
             self.prod_quantity = 0
             self.mode = "production:item"
@@ -540,9 +568,7 @@ class ConsoleController:
                 "prod-item-ammo": ProductionJobType.AMMO,
                 "prod-item-fuel": ProductionJobType.FUEL,
                 "prod-item-med": ProductionJobType.MED_SPARES,
-                "prod-item-inf": ProductionJobType.INFANTRY,
                 "prod-item-walkers": ProductionJobType.WALKERS,
-                "prod-item-support": ProductionJobType.SUPPORT,
             }
             job_type = job_map.get(action_id)
             if job_type is None:
@@ -585,17 +611,22 @@ class ConsoleController:
                 self._set_message("SET A QUANTITY BEFORE QUEUING", "error")
                 self.mode = "production:quantity"
                 return dirty
+            if state.action_points < 1:
+                self._set_message("NOT ENOUGH ACTION POINTS (NEED 1)", "error")
+                return dirty
             stop_map = {
                 "prod-stop-core": LocationId.NEW_SYSTEM_CORE,
-                "prod-stop-mid": LocationId.DEEP_SPACE,
-                "prod-stop-front": LocationId.CONTESTED_SPACEPORT,
+                "prod-stop-spaceport": LocationId.CONTESTED_SPACEPORT,
+                "prod-stop-mid": LocationId.CONTESTED_MID_DEPOT,
+                "prod-stop-front": LocationId.CONTESTED_FRONT,
             }
             stop_at = stop_map.get(action_id)
             if stop_at is None:
                 return dirty
             state.production.queue_job(self.prod_job_type, self.prod_quantity, stop_at)
+            state.action_points -= 1
             self._set_message(
-                f"QUEUED {self.prod_job_type.value.upper()} x{self.prod_quantity:,} -> {stop_at.value.upper()}",
+                f"QUEUED {self.prod_job_type.value.upper()} x{self.prod_quantity:,} -> {stop_at.value.replace('_', ' ').upper()}",
                 "info",
             )
             self.prod_category = None
@@ -625,10 +656,108 @@ class ConsoleController:
             self.view_mode = "core"
             dirty.add("navigator")
 
+        elif action_id == "barracks-upgrade":
+            if state.action_points < 1:
+                self._set_message("NOT ENOUGH ACTION POINTS (NEED 1)", "error")
+                return dirty
+            try:
+                state.barracks.add_barracks()
+            except ValueError as exc:
+                self._set_message(str(exc).upper(), "error")
+                return dirty
+            state.action_points -= 1
+            self._set_message(
+                f"BARRACKS UPGRADE COMPLETE (+{state.barracks.slots_per_barracks} SLOTS/DAY)",
+                "accent",
+            )
+            self.mode = "menu"
+
+        elif action_id.startswith("barracks-item-"):
+            job_map = {
+                "barracks-item-inf": BarracksJobType.INFANTRY,
+                "barracks-item-support": BarracksJobType.SUPPORT,
+            }
+            job_type = job_map.get(action_id)
+            if job_type is None:
+                return dirty
+            self.barracks_job_type = job_type
+            self.barracks_quantity = 0
+            self.mode = "barracks:quantity"
+            self.view_mode = "core"
+            dirty.add("navigator")
+
+        elif action_id.startswith("barracks-qty-"):
+            delta_map = {
+                "barracks-qty-minus-50": -50,
+                "barracks-qty-minus-10": -10,
+                "barracks-qty-minus-1": -1,
+                "barracks-qty-plus-1": 1,
+                "barracks-qty-plus-10": 10,
+                "barracks-qty-plus-50": 50,
+            }
+            if action_id == "barracks-qty-reset":
+                self.barracks_quantity = 0
+                return dirty
+            if action_id == "barracks-qty-next":
+                if self.barracks_quantity <= 0:
+                    self._set_message("SET A QUANTITY BEFORE CONTINUING", "error")
+                    return dirty
+                self.mode = "barracks:stop"
+                return dirty
+            delta = delta_map.get(action_id)
+            if delta is None:
+                return dirty
+            self.barracks_quantity = max(0, self.barracks_quantity + delta)
+            self.view_mode = "core"
+            dirty.add("navigator")
+
+        elif action_id.startswith("barracks-stop-"):
+            if self.barracks_job_type is None:
+                return dirty
+            if self.barracks_quantity <= 0:
+                self._set_message("SET A QUANTITY BEFORE QUEUING", "error")
+                self.mode = "barracks:quantity"
+                return dirty
+            if state.action_points < 1:
+                self._set_message("NOT ENOUGH ACTION POINTS (NEED 1)", "error")
+                return dirty
+            stop_map = {
+                "barracks-stop-core": LocationId.NEW_SYSTEM_CORE,
+                "barracks-stop-spaceport": LocationId.CONTESTED_SPACEPORT,
+                "barracks-stop-mid": LocationId.CONTESTED_MID_DEPOT,
+                "barracks-stop-front": LocationId.CONTESTED_FRONT,
+            }
+            stop_at = stop_map.get(action_id)
+            if stop_at is None:
+                return dirty
+            state.barracks.queue_job(self.barracks_job_type, self.barracks_quantity, stop_at)
+            state.action_points -= 1
+            self._set_message(
+                f"QUEUED {self.barracks_job_type.value.upper()} x{self.barracks_quantity:,} -> {stop_at.value.replace('_', ' ').upper()}",
+                "info",
+            )
+            self._reset_barracks_state()
+            self.mode = "menu"
+            self.view_mode = "core"
+            dirty.add("navigator")
+
+        elif action_id == "barracks-back-item":
+            self.barracks_job_type = None
+            self.barracks_quantity = 0
+            self.mode = "barracks"
+            self.view_mode = "core"
+            dirty.add("navigator")
+
+        elif action_id == "barracks-back-qty":
+            self.mode = "barracks:quantity"
+            self.view_mode = "core"
+            dirty.add("navigator")
+
         elif action_id.startswith("route-"):
             route_map = {
-                "route-core-mid": (LocationId.NEW_SYSTEM_CORE, LocationId.DEEP_SPACE),
-                "route-mid-front": (LocationId.DEEP_SPACE, LocationId.CONTESTED_SPACEPORT),
+                "route-core-spaceport": (LocationId.NEW_SYSTEM_CORE, LocationId.CONTESTED_SPACEPORT),
+                "route-core-mid": (LocationId.NEW_SYSTEM_CORE, LocationId.CONTESTED_MID_DEPOT),
+                "route-core-front": (LocationId.NEW_SYSTEM_CORE, LocationId.CONTESTED_FRONT),
             }
             route = route_map.get(action_id)
             if route:
@@ -659,7 +788,7 @@ class ConsoleController:
                 supplies, units = package
                 origin, destination = self.pending_route
                 try:
-                    state.logistics_service.create_shipment(state.logistics, origin, destination, supplies, units, state.rng)
+                    state.logistics_service.create_shipment(state.logistics, origin, destination, supplies, units, state.rng, current_day=state.day)
                     state.action_points -= 1
                 except ValueError as exc:
                     self._set_message(str(exc), "error")
@@ -692,6 +821,7 @@ class ConsoleController:
             if node:
                 self.selected_node = node
                 self.view_mode = "tactical"
+                dirty.add("map")
 
         else:
             self._set_message(f"UNKNOWN ACTION: {action_id}", "error")

@@ -12,10 +12,10 @@ def test_walker_screen_reduces_infantry_casualties() -> None:
     state_with.task_force.composition.infantry = 100
     state_with.task_force.composition.walkers = 10
     state_with.task_force.composition.support = 0
-    state_with.planet.enemy.infantry = 100
-    state_with.planet.enemy.walkers = 0
-    state_with.planet.enemy.support = 0
-    state_with.planet.enemy.fortification = 1.2
+    state_with.contested_planet.enemy.infantry = 100
+    state_with.contested_planet.enemy.walkers = 0
+    state_with.contested_planet.enemy.support = 0
+    state_with.contested_planet.enemy.fortification = 1.2
     report_with = state_with.raid(OperationTarget.FOUNDRY)
 
     # Run raid WITHOUT walkers (same seed)
@@ -23,10 +23,10 @@ def test_walker_screen_reduces_infantry_casualties() -> None:
     state_without.task_force.composition.infantry = 100
     state_without.task_force.composition.walkers = 0
     state_without.task_force.composition.support = 0
-    state_without.planet.enemy.infantry = 100
-    state_without.planet.enemy.walkers = 0
-    state_without.planet.enemy.support = 0
-    state_without.planet.enemy.fortification = 1.2
+    state_without.contested_planet.enemy.infantry = 100
+    state_without.contested_planet.enemy.walkers = 0
+    state_without.contested_planet.enemy.support = 0
+    state_without.contested_planet.enemy.fortification = 1.2
     report_without = state_without.raid(OperationTarget.FOUNDRY)
 
     # With walkers, infantry losses should be reduced (walkers absorb some)
@@ -49,8 +49,8 @@ def test_low_ammo_increases_defeat_likelihood_or_casualties() -> None:
     state_full.task_force.composition.walkers = 0
     state_full.task_force.composition.support = 0
     state_full.task_force.supplies = Supplies(ammo=100, fuel=90, med_spares=40)
-    state_full.planet.enemy.infantry = 50
-    state_full.planet.enemy.fortification = 1.0
+    state_full.contested_planet.enemy.infantry = 50
+    state_full.contested_planet.enemy.fortification = 1.0
     report_full = state_full.raid(OperationTarget.FOUNDRY)
 
     # Run with critically low ammo (same seed)
@@ -59,8 +59,8 @@ def test_low_ammo_increases_defeat_likelihood_or_casualties() -> None:
     state_low.task_force.composition.walkers = 0
     state_low.task_force.composition.support = 0
     state_low.task_force.supplies = Supplies(ammo=20, fuel=90, med_spares=40)
-    state_low.planet.enemy.infantry = 50
-    state_low.planet.enemy.fortification = 1.0
+    state_low.contested_planet.enemy.infantry = 50
+    state_low.contested_planet.enemy.fortification = 1.0
     report_low = state_low.raid(OperationTarget.FOUNDRY)
 
     # Low ammo should result in worse outcome or more casualties
@@ -102,7 +102,7 @@ def test_tick_log_includes_event_tags() -> None:
     state = GameState.new(seed=42)
     state.task_force.composition.walkers = 5
     state.task_force.supplies = Supplies(ammo=20, fuel=90, med_spares=40)
-    state.planet.enemy.fortification = 1.3  # High to trigger fortification events
+    state.contested_planet.enemy.fortification = 1.3  # High to trigger fortification events
     report = state.raid(OperationTarget.FOUNDRY)
 
     all_events = " ".join(t.event for t in report.tick_log)
