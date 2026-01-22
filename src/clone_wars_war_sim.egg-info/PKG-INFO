@@ -6,3 +6,4 @@ Requires-Python: >=3.11
 Requires-Dist: textual>=0.50.0
 Provides-Extra: dev
 Requires-Dist: pytest>=7.0.0; extra == "dev"
+Requires-Dist: watchfiles>=0.21.0; extra == "dev"

@@ -10,7 +10,6 @@ from textual.widgets import Button, Static
 from textual.worker import Worker
 
 from clone_wars.engine.actions import ActionManager, ActionType, PlayerAction, ActionError
-from clone_wars.engine.logistics import DepotNode  # Kept for strict typing if needed elsewhere, but mostly replaced
 from clone_wars.engine.ops import OperationPlan, OperationTarget, OperationTypeId
 from clone_wars.engine.production import ProductionJobType
 from clone_wars.engine.state import AfterActionReport, GameState, RaidReport

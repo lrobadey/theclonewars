@@ -34,6 +34,16 @@
             {% endfor %}
         </div>
 
+        <div class="logistics__constraints muted" style="margin-bottom: 0.5rem; font-size: 0.85em;">
+            <span class="logistics__constraint">
+                <strong>PORT CAP:</strong> {{ vm.constraints.port_used }}/{{ vm.constraints.port_cap }} daily
+            </span>
+            <span class="logistics__constraint-sep">|</span>
+            <span class="logistics__constraint">
+                <strong>HULL POOL:</strong> {{ vm.constraints.hull_avail }} / {{ vm.constraints.hull_total }}
+            </span>
+        </div>
+
         <div class="logistics__shipments">
             <div class="logistics__shipments-title">IN TRANSIT</div>
             {% if vm.shipments %}

@@ -1,30 +1,45 @@
 <div id="header" class="panel panel--header" {% if oob %}hx-swap-oob="true"{% endif %}>
-    <div class="header__title">
-        <div class="header__name">REPUBLIC COMMAND NETWORK</div>
-        <div class="header__sub muted">GEONOSIS PRIME THEATER</div>
-    </div>
-    <div class="header__line">
-        <span class="label">TURN</span>
-        <span class="value accent">{{ vm.day }}</span>
-        <span class="divider">|</span>
-        <span class="label">IND CAP</span>
-        <span class="value">{{ vm.ic_pct }}%</span>
-        <span class="divider">|</span>
-        <span class="label">GLOBAL SUPPLIES</span>
-        <span class="value">A {{ vm.supplies.ammo }} F {{ vm.supplies.fuel }} M {{ vm.supplies.med_spares }}</span>
-    </div>
-    <div class="header__line muted">
-        <span class="label">GLOBAL UNITS</span>
-        <span class="value">INF {{ vm.units.infantry }} | WLK {{ vm.units.walkers }} | SUP {{ vm.units.support }}</span>
-    </div>
-    <div class="header__actions">
-        <button class="header__reset"
-                hx-post="/action"
-                hx-vals='{"action":"btn-reset"}'
-                hx-target="#console"
-                hx-swap="outerHTML"
-                title="Restart the simulation">
-            RESET TO START
-        </button>
+    <div class="header__layout">
+        <div class="header__status">
+            <div class="header__title">
+                <div class="header__name">REPUBLIC COMMAND NETWORK</div>
+                <div class="header__sub muted">GEONOSIS PRIME THEATER</div>
+            </div>
+            <div class="header__line">
+                <span class="label">TURN</span>
+                <span class="value accent">{{ vm.day }}</span>
+                <span class="divider">|</span>
+                <span class="label has-tooltip" data-tooltip="Factories: {{ vm.factories }}/{{ vm.max_factories }} · {{ vm.capacity_slots }} slots/day">INDUSTRY</span>
+                <span class="value has-tooltip" data-tooltip="Factories: {{ vm.factories }}/{{ vm.max_factories }} · {{ vm.capacity_slots }} slots/day">{{ vm.ic_pct }}%</span>
+                <span class="divider">|</span>
+                <span class="label">GLOBAL SUPPLIES</span>
+                <span class="value">A {{ vm.supplies.ammo }} F {{ vm.supplies.fuel }} M {{ vm.supplies.med_spares }}</span>
+            </div>
+            <div class="header__line muted">
+                <span class="label">GLOBAL UNITS</span>
+                <span class="value">INF {{ vm.units.infantry }} | WLK {{ vm.units.walkers }} | SUP {{ vm.units.support }}</span>
+            </div>
+        </div>
+        <div class="header__actions">
+            <div class="header__ap">
+                <span class="label">AP</span>
+                <span class="value accent">{{ vm.ap }}/{{ vm.ap_max }}</span>
+            </div>
+            <button class="header__endturn"
+                    hx-post="/action"
+                    hx-vals='{"action":"btn-next"}'
+                    hx-target="#viewport"
+                    hx-swap="outerHTML">
+                END TURN
+            </button>
+            <button class="header__reset"
+                    hx-post="/action"
+                    hx-vals='{"action":"btn-reset"}'
+                    hx-target="#viewport"
+                    hx-swap="outerHTML"
+                    title="Restart the simulation">
+                RESET TO START
+            </button>
+        </div>
     </div>
 </div>

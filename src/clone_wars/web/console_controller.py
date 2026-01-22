@@ -2,42 +2,41 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from clone_wars.engine.logistics import DepotNode
-from clone_wars.engine.ops import OperationPlan, OperationTarget, OperationTypeId
+from clone_wars.engine.types import LocationId, Supplies, UnitStock
+from clone_wars.engine.ops import (
+    OperationIntent,
+    OperationPhase,
+    OperationTarget,
+    OperationTypeId,
+    Phase1Decisions,
+    Phase2Decisions,
+    Phase3Decisions,
+)
 from clone_wars.engine.production import ProductionJobType
 from clone_wars.engine.state import GameState
-from clone_wars.engine.types import Supplies, UnitStock
+ 
 
 
 def _ui_dirty_for_action(action_id: str) -> set[str]:
     """
     Returns the set of web dashboard panels that should be re-rendered after an action.
 
-    The goal is to avoid re-rendering the full UI for every click; most actions only
-    affect the console, while some also affect specific panels.
+    The new layout renders a single viewport plus the global header and navigator.
     """
-    dirty: set[str] = {"console"}
+    dirty: set[str] = {"viewport"}
 
-    # Selecting a node changes map selection + console briefing.
-    if action_id.startswith("map-"):
-        dirty.add("map")
+    if action_id.startswith("view-"):
+        dirty.add("navigator")
+        return dirty
 
-    # Production/logistics "sub-modes" render controls inside those panels.
-    if action_id.startswith("prod-") or action_id == "btn-production":
-        dirty.add("production")
-    if action_id.startswith("route-") or action_id.startswith("ship-") or action_id == "btn-logistics":
-        dirty.add("logistics")
+    if action_id.startswith("focus-"):
+        return dirty
 
-    # Advancing the day can change almost everything the dashboard displays.
-    if action_id == "btn-next":
-        dirty.update({"header", "map", "enemy", "taskforce", "production", "logistics"})
+    if action_id.startswith("map-select-"):
+        return dirty
 
-    if action_id in {"btn-raid", "btn-raid-tick", "btn-raid-auto"}:
-        dirty.update({"map", "enemy", "taskforce"})
-    if action_id == "btn-raid-resolve":
-        dirty.update({"map", "enemy", "taskforce"})
-
-    # AAR acknowledgement returns to menu; console-only.
+    # Most stateful actions should refresh header + viewport.
+    dirty.add("header")
     return dirty
 
 
@@ -47,17 +46,94 @@ class ConsoleController:
     target: OperationTarget | None = None
     op_type: OperationTypeId = OperationTypeId.CAMPAIGN
     plan_draft: dict[str, str] = field(default_factory=dict)
-    pending_route: tuple[DepotNode, DepotNode] | None = None
+    pending_route: tuple[LocationId, LocationId] | None = None
     prod_category: str | None = None
     prod_job_type: ProductionJobType | None = None
     prod_quantity: int = 0
     message: str | None = None
     message_kind: str = "info"
     raid_auto: bool = False
+    view_mode: str = "core"
+    selected_node: LocationId | None = LocationId.CONTESTED_FRONT
+
+    def _reset_production_state(self) -> None:
+        self.prod_category = None
+        self.prod_job_type = None
+        self.prod_quantity = 0
+
+    def _reset_logistics_state(self) -> None:
+        self.pending_route = None
 
     def _set_message(self, text: str | None, kind: str = "info") -> None:
         self.message = text
         self.message_kind = kind
+
+    def _set_phase_decision_mode(self, phase: OperationPhase) -> None:
+        if phase == OperationPhase.CONTACT_SHAPING:
+            if "approach_axis" in self.plan_draft:
+                self.mode = "plan:prep"
+            else:
+                self.mode = "plan:axis"
+        elif phase == OperationPhase.ENGAGEMENT:
+            if "engagement_posture" in self.plan_draft:
+                self.mode = "plan:risk"
+            else:
+                self.mode = "plan:posture"
+        elif phase == OperationPhase.EXPLOIT_CONSOLIDATE:
+            if "exploit_vs_secure" in self.plan_draft:
+                self.mode = "plan:end"
+            else:
+                self.mode = "plan:exploit"
+
+    def _start_operation(self, state: GameState, op_type: OperationTypeId) -> None:
+        if self.target is None:
+            self._set_message("NO TARGET SELECTED", "error")
+            self.mode = "menu"
+            return
+        if op_type == OperationTypeId.RAID:
+            self._set_message("USE RAID ACTION FOR RAIDS", "error")
+            self.mode = "sector"
+            return
+        if state.operation is not None or state.raid_session is not None:
+            self._set_message("OPERATION ALREADY ACTIVE", "error")
+            self.mode = "menu"
+            return
+        if state.action_points < 1:
+            self._set_message("NOT ENOUGH ACTION POINTS (NEED 1)", "error")
+            self.mode = "menu"
+            return
+        intent = OperationIntent(target=self.target, op_type=op_type)
+        try:
+            state.start_operation_phased(intent)
+        except RuntimeError as exc:
+            self._set_message(str(exc).upper(), "error")
+            self.mode = "menu"
+            return
+        state.action_points -= 1
+        self.op_type = op_type
+        self.plan_draft.clear()
+        self._set_message("OPERATION LAUNCHED", "accent")
+        self.mode = "plan:axis"
+
+    def _ensure_phase(self, state: GameState, phase: OperationPhase) -> bool:
+        op = state.operation
+        if op is None:
+            self._set_message("NO ACTIVE OPERATION", "error")
+            self.mode = "menu"
+            return False
+        if op.pending_phase_record is not None:
+            self._set_message("ACKNOWLEDGE PHASE REPORT", "error")
+            self.mode = "op:report"
+            return False
+        if not op.awaiting_player_decision:
+            self._set_message("PHASE IN PROGRESS", "error")
+            self.mode = "menu"
+            return False
+        if op.current_phase != phase:
+            self._set_message("WRONG PHASE", "error")
+            self._set_phase_decision_mode(op.current_phase)
+            return False
+        return True
 
     def sync_with_state(self, state: GameState) -> None:
         if state.last_aar is not None and self.mode != "aar":
@@ -74,12 +150,51 @@ class ConsoleController:
             self.mode = "logistics"
         if self.mode == "sector" and self.target is None:
             self.mode = "menu"
-        if self.mode.startswith("plan:") and self.target is None and self.mode != "plan:target":
+        if (
+            self.mode.startswith("plan:")
+            and self.target is None
+            and self.mode != "plan:target"
+            and state.operation is None
+        ):
             self.mode = "plan:target"
         if self.mode == "production:item" and self.prod_category is None:
             self.mode = "production"
         if self.mode in {"production:quantity", "production:stop"} and self.prod_job_type is None:
             self.mode = "production"
+        if state.operation is not None:
+            op = state.operation
+            if op.pending_phase_record is not None:
+                self.mode = "op:report"
+            elif op.awaiting_player_decision:
+                self._set_phase_decision_mode(op.current_phase)
+            elif self.mode in {
+                "plan:axis",
+                "plan:prep",
+                "plan:posture",
+                "plan:risk",
+                "plan:exploit",
+                "plan:end",
+                "op:report",
+            }:
+                self.mode = "menu"
+        elif self.mode in {
+            "plan:axis",
+            "plan:prep",
+            "plan:posture",
+            "plan:risk",
+            "plan:exploit",
+            "plan:end",
+            "op:report",
+        }:
+            self.mode = "menu"
+
+        # Sync viewport mode with active interaction flows.
+        if self.mode.startswith("production"):
+            self.view_mode = "core"
+        elif self.mode.startswith("logistics"):
+            self.view_mode = "deep"
+        elif self.mode in {"sector", "raid", "aar", "op:report"} or self.mode.startswith("plan:"):
+            self.view_mode = "tactical"
 
     def open_sector(self, target: OperationTarget, state: GameState) -> None:
         if state.operation is not None or state.raid_session is not None:
@@ -92,45 +207,109 @@ class ConsoleController:
 
     def dispatch(self, action_id: str, payload: dict[str, str], state: GameState) -> set[str]:
         if not action_id:
-            return {"console"}
+            return {"viewport"}
 
         dirty = _ui_dirty_for_action(action_id)
 
+        if action_id == "view-core":
+            self.view_mode = "core"
+            if self.mode.startswith("logistics"):
+                self._reset_logistics_state()
+                self.mode = "menu"
+            dirty.add("navigator")
+            return dirty
+        if action_id == "view-deep":
+            self.view_mode = "deep"
+            if self.mode.startswith("production"):
+                self._reset_production_state()
+                self.mode = "menu"
+            dirty.add("navigator")
+            return dirty
+        if action_id == "view-tactical":
+            self.view_mode = "tactical"
+            if self.mode.startswith("production"):
+                self._reset_production_state()
+                self.mode = "menu"
+            elif self.mode.startswith("logistics"):
+                self._reset_logistics_state()
+                self.mode = "menu"
+            dirty.add("navigator")
+            return dirty
+
+        if action_id == "focus-spaceport":
+            self.selected_node = LocationId.CONTESTED_SPACEPORT
+            self.view_mode = "tactical"
+            return dirty
+        if action_id == "focus-mid":
+            self.selected_node = LocationId.CONTESTED_MID_DEPOT
+            self.view_mode = "tactical"
+            return dirty
+        if action_id == "focus-front":
+            self.selected_node = LocationId.CONTESTED_FRONT
+            self.view_mode = "tactical"
+            return dirty
+
         if action_id == "btn-plan":
-            self._set_message("PHASED OPS DEPRECATED — USE RAID", "error")
-            self.mode = "menu"
+            self.mode = "plan:target"
+            self.view_mode = "tactical"
         elif action_id == "btn-next":
             if state.raid_session is not None:
                 self._set_message("RAID IN PROGRESS", "error")
                 self.mode = "raid"
                 return dirty
+            if state.operation is not None:
+                op = state.operation
+                if op.pending_phase_record is not None:
+                    self._set_message("ACKNOWLEDGE PHASE REPORT", "error")
+                    self.mode = "op:report"
+                    return dirty
+                if op.awaiting_player_decision:
+                    self._set_message("AWAITING PHASE ORDERS", "error")
+                    self._set_phase_decision_mode(op.current_phase)
+                    return dirty
             state.advance_day()
+            state.action_points = 3
             self._set_message("DAY ADVANCED", "info")
         elif action_id == "btn-sector-back":
             self.target = None
             self.op_type = OperationTypeId.CAMPAIGN
             self.mode = "menu"
         elif action_id == "btn-cancel":
-            self.pending_route = None
+            self._reset_logistics_state()
             if self.mode.startswith("plan:"):
                 self.plan_draft.clear()
                 self.target = None
                 self.op_type = OperationTypeId.CAMPAIGN
-            self.prod_category = None
-            self.prod_job_type = None
-            self.prod_quantity = 0
+            self._reset_production_state()
             self.mode = "menu"
         elif action_id == "btn-ack":
             state.last_aar = None
             self.mode = "menu"
             self.raid_auto = False
+        elif action_id == "btn-phase-ack":
+            if state.operation is None or state.operation.pending_phase_record is None:
+                self._set_message("NO PHASE REPORT", "error")
+                self.mode = "menu"
+            else:
+                state.acknowledge_phase_result()
+                self.plan_draft.clear()
+                if state.operation is None and state.last_aar is not None:
+                    self.mode = "aar"
+                elif state.operation is not None:
+                    self._set_phase_decision_mode(state.operation.current_phase)
+                else:
+                    self.mode = "menu"
         elif action_id == "btn-production":
             self.prod_category = None
             self.prod_job_type = None
             self.prod_quantity = 0
             self.mode = "production"
+            self.view_mode = "core"
+            dirty.add("navigator")
         elif action_id == "btn-logistics":
             self.mode = "logistics"
+            self.view_mode = "deep"
+            dirty.add("navigator")
 
         elif action_id.startswith("map-"):
             target_map = {
@@ -141,12 +320,18 @@ class ConsoleController:
             target = target_map.get(action_id)
             if target is not None:
                 self.open_sector(target, state)
+                self.view_mode = "tactical"
 
         elif action_id == "btn-raid":
             if self.target is None:
                 self._set_message("NO TARGET SELECTED", "error")
                 self.mode = "menu"
             else:
+                if state.action_points < 1:
+                    self._set_message("NOT ENOUGH ACTION POINTS (NEED 1)", "error")
+                    self.mode = "menu"
+                    return dirty
+
                 try:
                     self.raid_auto = False
                     state.start_raid(self.target)
@@ -154,8 +339,10 @@ class ConsoleController:
                     self._set_message(str(exc).upper(), "error")
                     self.mode = "menu"
                 else:
+                    state.action_points -= 1
                     self._set_message("RAID STARTED", "accent")
                     self.mode = "raid"
+                    self.view_mode = "tactical"
 
         elif action_id == "btn-raid-tick":
             try:
@@ -168,6 +355,7 @@ class ConsoleController:
                     self.mode = "aar"
                 else:
                     self.mode = "raid"
+                self.view_mode = "tactical"
 
         elif action_id == "btn-raid-resolve":
             try:
@@ -179,6 +367,7 @@ class ConsoleController:
             else:
                 self._set_message("RAID RESOLVED", "accent")
                 self.mode = "aar"
+                self.view_mode = "tactical"
         elif action_id == "btn-raid-auto":
             if state.raid_session is None:
                 self._set_message("NO ACTIVE RAID", "error")
@@ -187,6 +376,7 @@ class ConsoleController:
                 self.raid_auto = not self.raid_auto
                 self._set_message("AUTO ADVANCE ON" if self.raid_auto else "AUTO ADVANCE OFF", "info")
                 self.mode = "raid"
+                self.view_mode = "tactical"
 
         elif action_id.startswith("sector-"):
             op_map = {
@@ -197,10 +387,11 @@ class ConsoleController:
             chosen = op_map.get(action_id)
             if chosen is None or self.target is None:
                 return dirty
-            if chosen != OperationTypeId.RAID:
-                self._set_message("ONLY RAID AVAILABLE", "error")
-                self.mode = "sector"
-            else:
+            if chosen == OperationTypeId.RAID:
+                if state.action_points < 1:
+                    self._set_message("NOT ENOUGH ACTION POINTS (NEED 1)", "error")
+                    self.mode = "sector"
+                    return dirty
                 try:
                     self.raid_auto = False
                     state.start_raid(self.target)
@@ -208,8 +399,13 @@ class ConsoleController:
                     self._set_message(str(exc).upper(), "error")
                     self.mode = "menu"
                 else:
+                    state.action_points -= 1
                     self._set_message("RAID STARTED", "accent")
                     self.mode = "raid"
+                    self.view_mode = "tactical"
+            else:
+                self._start_operation(state, chosen)
+                self.view_mode = "tactical"
 
         elif action_id.startswith("target-"):
             t_map = {
@@ -229,56 +425,98 @@ class ConsoleController:
             chosen = op_map.get(action_id)
             if chosen is None:
                 return dirty
-            self.op_type = chosen
-            self.mode = "plan:axis"
+            self._start_operation(state, chosen)
+            self.view_mode = "tactical"
 
         elif action_id.startswith("axis-"):
+            if not self._ensure_phase(state, OperationPhase.CONTACT_SHAPING):
+                return dirty
             self.plan_draft["approach_axis"] = action_id.split("-")[1]
             self.mode = "plan:prep"
+            self.view_mode = "tactical"
 
         elif action_id.startswith("prep-"):
+            if not self._ensure_phase(state, OperationPhase.CONTACT_SHAPING):
+                return dirty
             self.plan_draft["fire_support_prep"] = action_id.split("-")[1]
-            self.mode = "plan:posture"
+            if "approach_axis" not in self.plan_draft:
+                self._set_message("SELECT APPROACH AXIS FIRST", "error")
+                self.mode = "plan:axis"
+                return dirty
+            decisions = Phase1Decisions(
+                approach_axis=self.plan_draft["approach_axis"],
+                fire_support_prep=self.plan_draft["fire_support_prep"],
+            )
+            try:
+                state.submit_phase_decisions(decisions)
+            except RuntimeError as exc:
+                self._set_message(str(exc).upper(), "error")
+                self.mode = "menu"
+            else:
+                self.plan_draft.clear()
+                self._set_message("PHASE 1 ORDERS SUBMITTED", "accent")
+                self.mode = "menu"
+            self.view_mode = "tactical"
 
         elif action_id.startswith("posture-"):
+            if not self._ensure_phase(state, OperationPhase.ENGAGEMENT):
+                return dirty
             self.plan_draft["engagement_posture"] = action_id.split("-")[1]
             self.mode = "plan:risk"
+            self.view_mode = "tactical"
 
         elif action_id.startswith("risk-"):
+            if not self._ensure_phase(state, OperationPhase.ENGAGEMENT):
+                return dirty
             self.plan_draft["risk_tolerance"] = action_id.split("-")[1]
-            self.mode = "plan:exploit"
+            if "engagement_posture" not in self.plan_draft:
+                self._set_message("SELECT POSTURE FIRST", "error")
+                self.mode = "plan:posture"
+                return dirty
+            decisions = Phase2Decisions(
+                engagement_posture=self.plan_draft["engagement_posture"],
+                risk_tolerance=self.plan_draft["risk_tolerance"],
+            )
+            try:
+                state.submit_phase_decisions(decisions)
+            except RuntimeError as exc:
+                self._set_message(str(exc).upper(), "error")
+                self.mode = "menu"
+            else:
+                self.plan_draft.clear()
+                self._set_message("PHASE 2 ORDERS SUBMITTED", "accent")
+                self.mode = "menu"
+            self.view_mode = "tactical"
 
         elif action_id.startswith("exploit-"):
+            if not self._ensure_phase(state, OperationPhase.EXPLOIT_CONSOLIDATE):
+                return dirty
             self.plan_draft["exploit_vs_secure"] = action_id.split("-")[1]
             self.mode = "plan:end"
+            self.view_mode = "tactical"
 
         elif action_id.startswith("end-"):
+            if not self._ensure_phase(state, OperationPhase.EXPLOIT_CONSOLIDATE):
+                return dirty
             self.plan_draft["end_state"] = action_id.split("-")[1]
-            if self.target:
-                if state.operation is not None or state.raid_session is not None:
-                    self._set_message("OPERATION ALREADY ACTIVE", "error")
-                    self.mode = "menu"
-                    self.plan_draft.clear()
-                    self.target = None
-                    self.op_type = OperationTypeId.CAMPAIGN
-                    self.sync_with_state(state)
-                    return dirty
-                plan = OperationPlan(
-                    target=self.target,
-                    approach_axis=self.plan_draft["approach_axis"],
-                    fire_support_prep=self.plan_draft["fire_support_prep"],
-                    engagement_posture=self.plan_draft["engagement_posture"],
-                    risk_tolerance=self.plan_draft["risk_tolerance"],
-                    exploit_vs_secure=self.plan_draft["exploit_vs_secure"],
-                    end_state=self.plan_draft["end_state"],
-                    op_type=self.op_type,
-                )
-                self._set_message("OPERATION LAUNCHED", "accent")
+            if "exploit_vs_secure" not in self.plan_draft:
+                self._set_message("SELECT EXPLOIT VS SECURE FIRST", "error")
+                self.mode = "plan:exploit"
+                return dirty
+            decisions = Phase3Decisions(
+                exploit_vs_secure=self.plan_draft["exploit_vs_secure"],
+                end_state=self.plan_draft["end_state"],
+            )
+            try:
+                state.submit_phase_decisions(decisions)
+            except RuntimeError as exc:
+                self._set_message(str(exc).upper(), "error")
                 self.mode = "menu"
+            else:
                 self.plan_draft.clear()
-                self.target = None
-                self.op_type = OperationTypeId.CAMPAIGN
-                state.start_operation(plan)
+                self._set_message("PHASE 3 ORDERS SUBMITTED", "accent")
+                self.mode = "menu"
+            self.view_mode = "tactical"
 
         elif action_id == "prod-upgrade-factory":
             try:
@@ -294,6 +532,8 @@ class ConsoleController:
             self.prod_job_type = None
             self.prod_quantity = 0
             self.mode = "production:item"
+            self.view_mode = "core"
+            dirty.add("navigator")
 
         elif action_id.startswith("prod-item-"):
             job_map = {
@@ -310,6 +550,8 @@ class ConsoleController:
             self.prod_job_type = job_type
             self.prod_quantity = 0
             self.mode = "production:quantity"
+            self.view_mode = "core"
+            dirty.add("navigator")
 
         elif action_id.startswith("prod-qty-"):
             delta_map = {
@@ -333,6 +575,8 @@ class ConsoleController:
             if delta is None:
                 return dirty
             self.prod_quantity = max(0, self.prod_quantity + delta)
+            self.view_mode = "core"
+            dirty.add("navigator")
 
         elif action_id.startswith("prod-stop-"):
             if self.prod_job_type is None:
@@ -342,9 +586,9 @@ class ConsoleController:
                 self.mode = "production:quantity"
                 return dirty
             stop_map = {
-                "prod-stop-core": DepotNode.CORE,
-                "prod-stop-mid": DepotNode.MID,
-                "prod-stop-front": DepotNode.FRONT,
+                "prod-stop-core": LocationId.NEW_SYSTEM_CORE,
+                "prod-stop-mid": LocationId.DEEP_SPACE,
+                "prod-stop-front": LocationId.CONTESTED_SPACEPORT,
             }
             stop_at = stop_map.get(action_id)
             if stop_at is None:
@@ -358,30 +602,40 @@ class ConsoleController:
             self.prod_job_type = None
             self.prod_quantity = 0
             self.mode = "menu"
+            self.view_mode = "core"
+            dirty.add("navigator")
 
         elif action_id == "prod-back-category":
             self.prod_category = None
             self.prod_job_type = None
             self.prod_quantity = 0
             self.mode = "production"
+            self.view_mode = "core"
+            dirty.add("navigator")
 
         elif action_id == "prod-back-item":
             self.prod_job_type = None
             self.prod_quantity = 0
             self.mode = "production:item"
+            self.view_mode = "core"
+            dirty.add("navigator")
 
         elif action_id == "prod-back-qty":
             self.mode = "production:quantity"
+            self.view_mode = "core"
+            dirty.add("navigator")
 
         elif action_id.startswith("route-"):
             route_map = {
-                "route-core-mid": (DepotNode.CORE, DepotNode.MID),
-                "route-mid-front": (DepotNode.MID, DepotNode.FRONT),
+                "route-core-mid": (LocationId.NEW_SYSTEM_CORE, LocationId.DEEP_SPACE),
+                "route-mid-front": (LocationId.DEEP_SPACE, LocationId.CONTESTED_SPACEPORT),
             }
             route = route_map.get(action_id)
             if route:
                 self.pending_route = route
                 self.mode = "logistics:package"
+                self.view_mode = "deep"
+                dirty.add("navigator")
 
         elif action_id.startswith("ship-"):
             package_map = {
@@ -396,13 +650,21 @@ class ConsoleController:
             }
             package = package_map.get(action_id)
             if package and self.pending_route:
+                if state.action_points < 1:
+                     self._set_message("NOT ENOUGH ACTION POINTS (NEED 1)", "error")
+                     self.mode = "logistics"
+                     self.view_mode = "deep"
+                     return dirty
+
                 supplies, units = package
                 origin, destination = self.pending_route
                 try:
                     state.logistics_service.create_shipment(state.logistics, origin, destination, supplies, units, state.rng)
+                    state.action_points -= 1
                 except ValueError as exc:
                     self._set_message(str(exc), "error")
                     self.mode = "logistics"
+                    self.view_mode = "deep"
                 else:
                     self._set_message(
                         f"SHIPMENT DISPATCHED: {origin.value} -> {destination.value}",
@@ -410,10 +672,26 @@ class ConsoleController:
                     )
                     self.pending_route = None
                     self.mode = "menu"
+                    self.view_mode = "deep"
 
         elif action_id == "btn-logistics-back":
             self.pending_route = None
             self.mode = "logistics"
+            self.view_mode = "deep"
+            dirty.add("navigator")
+
+        elif action_id.startswith("map-select-"):
+            node_map = {
+                "map-select-core": LocationId.NEW_SYSTEM_CORE,
+                "map-select-deep": LocationId.DEEP_SPACE,
+                "map-select-spaceport": LocationId.CONTESTED_SPACEPORT,
+                "map-select-mid": LocationId.CONTESTED_MID_DEPOT,
+                "map-select-front": LocationId.CONTESTED_FRONT,
+            }
+            node = node_map.get(action_id)
+            if node:
+                self.selected_node = node
+                self.view_mode = "tactical"
 
         else:
             self._set_message(f"UNKNOWN ACTION: {action_id}", "error")

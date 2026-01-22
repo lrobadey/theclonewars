@@ -1,0 +1,81 @@
+<div class="viewport__content">
+    <div class="viewport__grid viewport__grid--split">
+        <div class="panel viewport__panel viewport__panel--wide">
+            <div class="panel__title">TRANSIT MONITOR</div>
+            {% if vm.deep.has_transit %}
+            <table class="terminal-table">
+                <thead>
+                    <tr>
+                        <th>SHIP</th>
+                        <th>LOCATION</th>
+                        <th>DESTINATION</th>
+                        <th>PAYLOAD</th>
+                        <th>ETA</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ship in vm.deep.active_ships %}
+                    <tr>
+                        <td>{{ ship.name }}</td>
+                        <td>{{ ship.location }}</td>
+                        <td>{{ ship.destination }}</td>
+                        <td class="muted">{{ ship.payload }}</td>
+                        <td class="accent">{{ ship.eta }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="empty-state">SECTOR CLEAR. NO SHIPS IN TRANSIT.</div>
+            {% endif %}
+        </div>
+
+        <div class="panel viewport__panel viewport__panel--side">
+            <div class="panel__title">ROUTE CONTROL</div>
+            <div class="logistics__routes">
+                {% for route in vm.deep.routes %}
+                <button class="terminal-btn logistics__route"
+                        hx-post="/action"
+                        hx-vals='{"action":"{{ route.action }}"}'
+                        hx-target="#viewport"
+                        hx-swap="outerHTML">
+                    <span class="logistics__route-label">{{ route.label }}</span>
+                    <span class="logistics__route-meta muted">{{ route.days }}d | {{ route.risk_pct }}% interdiction</span>
+                </button>
+                {% endfor %}
+            </div>
+            <div class="logistics__legend muted">{{ vm.deep.legend }}</div>
+
+            <div class="logistics__constraints muted">
+                <span class="logistics__constraint">
+                    <strong>HULL POOL:</strong> {{ vm.deep.constraints.hull_avail }} / {{ vm.deep.constraints.hull_total }}
+                </span>
+            </div>
+
+            <div class="logistics__shipments">
+                <div class="logistics__shipments-title">GROUND SHIPMENTS</div>
+                {% if vm.deep.shipments %}
+                    {% for shipment in vm.deep.shipments %}
+                    <div class="logistics__shipment">
+                        <div class="logistics__shipment-main">#{{ shipment.id }} {{ shipment.path }} ({{ shipment.leg }})</div>
+                        <div class="logistics__shipment-meta muted">
+                            {{ shipment.supplies }}{% if shipment.units %} | {{ shipment.units }}{% endif %} |
+                            ETA {{ shipment.eta }}d |
+                            <span class="logistics__shipment-status logistics__shipment-status--{{ shipment.status_tone }}">
+                                {{ shipment.status }}
+                            </span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                <div class="muted">NONE</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="viewport__hud">
+    {% set hud = vm.deep.hud %}
+    {% include "panels/hud.html" %}
+</div>

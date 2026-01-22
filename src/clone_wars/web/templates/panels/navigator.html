@@ -1,0 +1,17 @@
+<div id="navigator" class="panel panel--navigator" {% if oob %}hx-swap-oob="true"{% endif %}>
+    <div class="navigator__title">THEATER NAVIGATOR</div>
+    <div class="map-viz map-viz--navigator">
+        <div class="map-viz__track"></div>
+        {% for node in vm.nodes %}
+        <button
+            class="map-viz__node map-viz__node--{{ node.tone }}{% if node.active %} map-viz__node--selected{% endif %}"
+            hx-post="/action"
+            hx-vals='{"action":"{{ node.id }}"}'
+            hx-target="#viewport"
+            hx-swap="outerHTML">
+            <div class="map-viz__icon"></div>
+            <span class="map-viz__label">{{ node.label }}</span>
+        </button>
+        {% endfor %}
+    </div>
+</div>

@@ -1,81 +1,129 @@
-<div id="map" class="panel panel--map" data-collapsible="true" {% if oob %}hx-swap-oob="true"{% endif %}>
+<div id="map" class="panel panel--map" data-collapsible="true" {% if oob %}hx-swap-oob="true" {% endif %}>
     <button type="button" class="panel__title panel__title--toggle" data-panel-toggle aria-expanded="true">
-        SITUATION MAP
+        SYSTEM MAP
     </button>
     <div class="panel__body">
-        <div class="map__layout">
-            <div class="map__plate">
-                <pre class="map__art">{{ vm.art }}</pre>
+        <!-- SYSTEM STRIP -->
+        <!-- MAP VISUALIZATION -->
+        <div class="map-viz">
+            <div class="map-viz__track"></div>
+            {% for node in vm.system_nodes %}
+            <button
+                class="map-viz__node map-viz__node--{{ node.owner }}{% if node.selected %} map-viz__node--selected{% endif %}{% if node.active %} map-viz__node--active{% endif %}"
+                hx-post="/action" hx-vals='{"action":"{{ node.id }}"}' hx-target="#console" hx-swap="outerHTML">
+                <div class="map-viz__icon"></div>
+                <span class="map-viz__label">{{ node.name }}</span>
+            </button>
+            {% endfor %}
+        </div>
+
+        <!-- DETAIL VIEW -->
+        <div class="map-detail">
+            <div class="map-detail__title">{{ vm.detail.title }}</div>
+
+            <!-- TYPE: CORE -->
+            {% if vm.detail.type == 'core' %}
+            <div class="map-detail__grid">
+                <div class="stat-block">
+                    <div class="stat-label">INDUSTRY</div>
+                    <div class="stat-value accent">{{ vm.detail.factories }} FACTORIES</div>
+                    <div class="stat-sub">CAPACITY: {{ vm.detail.capacity }} SLOTS</div>
+                    <div class="stat-sub">{{ vm.detail.jobs_count }} JOBS ACTIVE</div>
+                </div>
+                <div class="stat-block">
+                    <div class="stat-label">STOCKPILES</div>
+                    <div class="stat-row"><span>AMMO</span><span>{{ vm.detail.supplies.ammo }}</span></div>
+                    <div class="stat-row"><span>FUEL</span><span>{{ vm.detail.supplies.fuel }}</span></div>
+                    <div class="stat-row"><span>MED</span><span>{{ vm.detail.supplies.med }}</span></div>
+                </div>
             </div>
-            <div class="map__stack">
-                <div class="map__nodes">
-                    {% for node in vm.nodes %}
-                    <button class="terminal-btn map-node {{ node.status_class }}{% if node.active %} map-node--active{% endif %}{% if node.selected %} map-node--selected{% endif %}"
-                            hx-post="/action"
-                            hx-vals='{"action":"{{ node.action }}"}'
-                            hx-target="#console"
-                            hx-swap="outerHTML">
-                        <div class="map-node__head">
-                            <span class="map-node__code">{{ node.code }}</span>
-                            <span class="map-node__name">{{ node.name }}</span>
-                            <span class="status-chip {{ node.status_class }}">{{ node.status_label }}</span>
-                        </div>
-                        <div class="map-node__meta">
-                            <span class="muted">TYPE {{ node.type }}</span>
-                            <span class="muted">DIFF x{{ node.difficulty }}</span>
-                        </div>
+
+            <!-- TYPE: DEEP SPACE -->
+            {% elif vm.detail.type == 'deep_space' %}
+            <div class="ship-list">
+                {% if vm.detail.ships %}
+                <table class="terminal-table">
+                    <thead>
+                        <tr>
+                            <th>SHIP</th>
+                            <th>LOC</th>
+                            <th>DEST</th>
+                            <th>STATUS</th>
+                            <th>PAYLOAD</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for ship in vm.detail.ships %}
+                        <tr>
+                            <td>{{ ship.name }}</td>
+                            <td>{{ ship.loc }}</td>
+                            <td>{{ ship.dest }}</td>
+                            <td class="accent">{{ ship.state }}</td>
+                            <td class="muted">
+                                A{{ ship.load.ammo }} F{{ ship.load.fuel }} I{{ ship.load.inf }} W{{ ship.load.walk }}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <div class="muted">NO SHIPS DETECTED IN DEEP SPACE.</div>
+                {% endif %}
+            </div>
+
+            <!-- TYPE: CONTESTED PLANET -->
+            {% elif vm.detail.type == 'contested' %}
+            <!-- Logistics Chain -->
+            <div class="planet-logistics">
+                <div class="planet-logistics__chain">
+                    {% for node in vm.detail.logistics_chain %}
+                    <button class="planet-logic-node {% if node.selected %}planet-logic-node--selected{% endif %}"
+                        hx-post="/action" hx-vals='{"action":"{{ node.action }}"}'>
+                        <div class="logic-node__name">{{ node.name }}</div>
+                        <div class="logic-node__stock">A:{{ node.supplies.ammo }} F:{{ node.supplies.fuel }}</div>
                     </button>
+                    {% if not loop.last %}<span class="logic-arrow">↓</span>{% endif %}
                     {% endfor %}
                 </div>
+
+                <!-- Objectives Map -->
+                <div class="planet-ops">
+
+                    <div class="map__nodes">
+                        {% for node in vm.detail.objectives %}
+                        <button
+                            class="terminal-btn map-node {{ node.status_class }}{% if node.selected %} map-node--selected{% endif %}"
+                            hx-post="/action" hx-vals='{"action":"{{ node.action }}"}' hx-target="#console"
+                            hx-swap="outerHTML">
+                            <span class="map-node__code">{{ node.code }}</span>
+                            <span class="map-node__name">{{ node.name }}</span>
+                        </button>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- Enemy Intel Sidebar -->
                 <div class="map__intel">
-                    <div class="map__intel-title">PLANET INTEL</div>
+                    <div class="map__intel-title">INTEL</div>
                     <div class="stat-row">
-                        <span class="stat-label">INFANTRY</span>
-                        <span class="stat-value accent">{{ vm.enemy.infantry_est }}</span>
+                        <span class="stat-label">INF</span>
+                        <span class="stat-value accent">{{ vm.detail.enemy_intel.infantry_est }}</span>
                     </div>
                     <div class="stat-row">
-                        <span class="stat-label">WALKERS</span>
-                        <span class="stat-value accent">{{ vm.enemy.walkers_est }}</span>
+                        <span class="stat-label">WLK</span>
+                        <span class="stat-value accent">{{ vm.detail.enemy_intel.walkers_est }}</span>
                     </div>
                     <div class="stat-row">
-                        <span class="stat-label">SUPPORT</span>
-                        <span class="stat-value accent">{{ vm.enemy.support_est }}</span>
+                        <span class="stat-label">SUP</span>
+                        <span class="stat-value accent">{{ vm.detail.enemy_intel.support_est }}</span>
                     </div>
                     <div class="stat-row">
-                        <span class="stat-label">CONFIDENCE</span>
-                        <span class="stat-value">{{ vm.enemy.confidence_pct }}%</span>
-                    </div>
-                    <div class="confidence-bar">
-                        <div class="confidence-bar__fill" style="width: {{ vm.enemy.confidence_pct }}%"></div>
-                    </div>
-                    <div class="stat-row">
-                        <span class="stat-label">CONTROL</span>
-                        <span class="stat-value">{{ vm.enemy.control_pct }}%</span>
-                    </div>
-                    <div class="stat-row">
-                        <span class="stat-label">FORTIFICATION</span>
-                        <span class="stat-value">{{ vm.enemy.fortification }}</span>
-                    </div>
-                    <div class="stat-row">
-                        <span class="stat-label">COHESION</span>
-                        <span class="stat-value">{{ vm.enemy.cohesion_pct }}%</span>
-                    </div>
-                    <div class="stat-row">
-                        <span class="stat-label">REINFORCEMENT</span>
-                        <span class="stat-value">{{ vm.enemy.reinforcement }}</span>
+                        <span class="stat-label">FORT</span>
+                        <span class="stat-value">{{ vm.detail.enemy_intel.fort_label }}</span>
                     </div>
                 </div>
             </div>
-        </div>
-        <div class="map__hint muted">{{ vm.hint }}</div>
-        <div class="map__sector">
-            <div class="map__sector-title">{{ vm.selected.name }}</div>
-            <div class="map__sector-meta">
-                <span class="status-chip {{ vm.selected.status_class }}">{{ vm.selected.status_label }}</span>
-                <span class="muted">TYPE {{ vm.selected.type }}</span>
-                <span class="muted">DIFF x{{ vm.selected.difficulty }}</span>
-            </div>
-            <div class="map__sector-desc muted">{{ vm.selected.description }}</div>
+            {% endif %}
         </div>
     </div>
 </div>

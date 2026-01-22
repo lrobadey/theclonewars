@@ -642,7 +642,22 @@ class LogisticsPanel(Widget):
                 )
         else:
             shipment_lines = ["[bold]IN TRANSIT:[/]  NONE"]
-        self.query_one("#logistics-shipments", Static).update("\n".join(shipment_lines))
+
+        # Add constraints summary
+        port_cap = self.state.logistics.daily_port_capacity
+        port_used = self.state.logistics.convoys_launched_today
+        hull_total = self.state.logistics.total_hull_pool
+        hull_used = self.state.logistics.used_hull_capacity
+        hull_avail = max(0, hull_total - hull_used)
+        
+        constraints = (
+            f"[bold]PORT CAP:[/] {port_used}/{port_cap} daily launches  |  "
+            f"[bold]HULL POOL:[/] {hull_avail} available / {hull_total} total"
+        )
+        
+        self.query_one("#logistics-shipments", Static).update(
+            constraints + "\n\n" + "\n".join(shipment_lines)
+        )
 
 
 @dataclass()

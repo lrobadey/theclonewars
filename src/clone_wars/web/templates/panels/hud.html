@@ -1,0 +1,44 @@
+<div class="hud panel">
+    <div class="panel__title">ACTION HUD</div>
+
+    {% if hud.message %}
+    <div class="console__message console__message--{{ hud.message_kind }}">{{ hud.message }}</div>
+    {% endif %}
+
+    {% if hud.aar %}
+        {% with vm=hud %}
+            {% include "panels/aar.html" %}
+        {% endwith %}
+    {% endif %}
+
+    {% if hud.lines %}
+    <div class="console__lines">
+        {% for line in hud.lines %}
+        <div class="console__line{% if line.kind %} console__line--{{ line.kind }}{% endif %}">{{ line.text }}</div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if hud.actions %}
+    <div class="console__actions">
+        {% for action in hud.actions %}
+        <button class="terminal-btn{% if action.tone %} terminal-btn--{{ action.tone }}{% endif %}"
+                hx-post="/action"
+                hx-vals='{"action":"{{ action.id }}"}'
+                hx-target="#viewport"
+                hx-swap="outerHTML">
+            {{ action.label }}
+        </button>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if hud.auto_advance %}
+    <div class="console__autotick"
+         hx-post="/action"
+         hx-vals='{"action":"btn-raid-tick"}'
+         hx-trigger="every {{ hud.auto_interval_ms }}ms"
+         hx-target="#viewport"
+         hx-swap="outerHTML"></div>
+    {% endif %}
+</div>

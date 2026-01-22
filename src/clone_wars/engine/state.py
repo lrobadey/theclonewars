@@ -352,14 +352,19 @@ class GameState:
             )
 
         if output.stop_at != core_id:
-            self.logistics_service.create_shipment(
-                self.logistics,
-                core_id,
-                output.stop_at,
-                supplies,
-                units,
-                self.rng,
-            )
+            try:
+                self.logistics_service.create_shipment(
+                    self.logistics,
+                    core_id,
+                    output.stop_at,
+                    supplies,
+                    units,
+                    self.rng,
+                )
+            except ValueError:
+                # Failed to create shipment (e.g. no ship available).
+                # Leave goods at Core.
+                pass
 
     def _build_production_payload(
         self, job_type: ProductionJobType, quantity: int
@@ -460,7 +465,11 @@ class GameState:
             if self.operation.is_phase_complete():
                 self._resolve_current_phase()
 
-                if self.operation is not None and self.operation.decisions.is_complete():
+                if (
+                    self.operation is not None
+                    and self.operation.decisions.is_complete()
+                    and self.operation.auto_advance
+                ):
                     self.acknowledge_phase_result()
                     if self.operation is not None:
                         self.operation.awaiting_player_decision = False
@@ -511,6 +520,7 @@ class GameState:
         self.operation.decisions.phase3 = plan.to_phase3()
         # Allow operation to proceed without phase prompts
         self.operation.awaiting_player_decision = False
+        self.operation.auto_advance = True
 
     def start_operation_phased(self, intent: OperationIntent) -> None:
         """Start a new phased operation. Player must submit decisions per phase."""
@@ -594,6 +604,12 @@ class GameState:
                 OperationPhase.ENGAGEMENT: p2,
                 OperationPhase.EXPLOIT_CONSOLIDATE: p3,
             }
+
+    def _operation_supply_multiplier(self, op: ActiveOperation) -> float:
+        op_config = self.rules.operation_types.get(op.op_type.value)
+        if op_config is None:
+            return 1.0
+        return op_config.supply_cost_multiplier
 
     def submit_phase_decisions(
         self, decisions: Phase1Decisions | Phase2Decisions | Phase3Decisions
@@ -755,8 +771,9 @@ class GameState:
         # Supply costs for this phase
         base_ammo = 15 + (5 if d.fire_support_prep == "preparatory" else 0)
         base_fuel = 10 + (5 if d.approach_axis == "flank" else 0)
-        ammo_cost = base_ammo * phase_days
-        fuel_cost = base_fuel * phase_days
+        supply_mult = self._operation_supply_multiplier(op)
+        ammo_cost = int(round(base_ammo * phase_days * supply_mult))
+        fuel_cost = int(round(base_fuel * phase_days * supply_mult))
 
         # Check for shortages
         if self.task_force.supplies.ammo < ammo_cost:
@@ -810,12 +827,28 @@ class GameState:
         progress += fort_penalty
         log("enemy_fortification", fort_penalty, "progress", f"Fortification {fort:.2f} resists assault")
 
+        # Preparatory fires from Phase 1 soften defenses
+        if op.decisions.phase1 and op.decisions.phase1.fire_support_prep == "preparatory":
+            prep_bonus = 0.05 * max(0.0, fort - 1.0)
+            if prep_bonus > 0:
+                progress += prep_bonus
+                log("preparatory_bombardment", prep_bonus, "progress", "Preparatory fires weaken fortifications")
+
         # Variance from intel confidence
         support_role = self.rules.unit_roles.get("support")
         recon_reduction = 0.0
         if support_role and support_role.recon:
             recon_rating = self.task_force.composition.support * support_role.recon.get("variance_reduction", 0.30) / 10.0
             recon_reduction = min(0.5, recon_rating)
+        phase1_recon = 0.0
+        if op.decisions.phase1:
+            axis = op.decisions.phase1.approach_axis
+            if axis == "stealth":
+                phase1_recon = 0.10
+            elif axis == "dispersed":
+                phase1_recon = 0.05
+        if phase1_recon > 0.0:
+            recon_reduction = min(0.6, recon_reduction + phase1_recon)
         base_variance = 0.20 * (1.0 - self.contested_planet.enemy.intel_confidence) * variance_mult
         variance = base_variance * (1.0 - recon_reduction)
         noise = self.rng.uniform(-variance, variance)
@@ -824,15 +857,36 @@ class GameState:
             "fog_of_war",
             noise,
             "progress",
-            f"Combat variance (intel {int(self.planet.enemy.intel_confidence * 100)}%)",
+            f"Combat variance (intel {int(self.contested_planet.enemy.intel_confidence * 100)}%)",
         )
         if recon_reduction > 0.01:
             log("recon_variance_reduction", -base_variance * recon_reduction, "progress", f"Recon units reduce variance by {int(recon_reduction * 100)}%")
 
+        # Clone morale vs droid stability
+        morale = 0.6 * self.task_force.cohesion + 0.4 * self.task_force.readiness
+        morale_roll = self.rng.uniform(-0.03, 0.03)
+        morale_shift = (morale - 0.5) * 0.10 + morale_roll
+        progress += morale_shift
+        log("clone_morale", morale_shift, "progress", f"Morale {morale:.2f} drives momentum")
+        morale_loss_mod = 0.0
+        if morale < 0.4:
+            morale_loss_mod = 0.03
+        elif morale > 0.7:
+            morale_loss_mod = -0.02
+        if morale_loss_mod != 0.0:
+            loss_mod += morale_loss_mod
+            log("clone_morale_losses", morale_loss_mod, "losses", "Morale swing affects casualty rate")
+
+        enemy_stability = self.contested_planet.enemy.cohesion
+        stability_penalty = -0.06 * (enemy_stability - 0.5)
+        progress += stability_penalty
+        log("enemy_stability", stability_penalty, "progress", f"Enemy stability {enemy_stability:.2f} resists disruption")
+
         # Supply costs
-        ammo_cost = 25 * phase_days
-        fuel_cost = 15 * phase_days
-        med_cost = 5 * phase_days
+        supply_mult = self._operation_supply_multiplier(op)
+        ammo_cost = int(round(25 * phase_days * supply_mult))
+        fuel_cost = int(round(15 * phase_days * supply_mult))
+        med_cost = int(round(5 * phase_days * supply_mult))
 
         if self.task_force.supplies.fuel < fuel_cost:
             fuel_class = self.rules.supply_classes.get("fuel")
@@ -918,8 +972,13 @@ class GameState:
                 log("medic_readiness", readiness_delta, "readiness", f"Medics improve recovery")
 
         # Supply costs
-        med_cost = 8 * phase_days
-        supplies_spent = Supplies(ammo=5 * phase_days, fuel=5 * phase_days, med_spares=med_cost)
+        supply_mult = self._operation_supply_multiplier(op)
+        med_cost = int(round(8 * phase_days * supply_mult))
+        supplies_spent = Supplies(
+            ammo=int(round(5 * phase_days * supply_mult)),
+            fuel=int(round(5 * phase_days * supply_mult)),
+            med_spares=med_cost,
+        )
 
         if self.task_force.supplies.med_spares < med_cost:
             med_class = self.rules.supply_classes.get("med_spares")
@@ -1049,6 +1108,8 @@ class GameState:
         elif end_state != "withdraw":
             self.contested_planet.control = max(0.0, self.contested_planet.control - 0.10)
             self.contested_planet.enemy.fortification = min(2.5, self.contested_planet.enemy.fortification + 0.10)
+
+        self._update_intel_confidence(op, success)
 
         top = self._top_factors(all_events)
         self.last_aar = AfterActionReport(
@@ -1367,3 +1428,20 @@ class GameState:
         for _, ev in scored[:5]:
             top.append(TopFactor(name=ev.name, value=ev.value, delta=ev.delta, why=ev.why))
         return top
+
+    def _update_intel_confidence(self, op: ActiveOperation, success: bool) -> None:
+        enemy = self.contested_planet.enemy
+        gain = 0.02
+        if op.decisions.phase1:
+            axis = op.decisions.phase1.approach_axis
+            if axis == "stealth":
+                gain += 0.03
+            elif axis == "dispersed":
+                gain += 0.02
+        support_role = self.rules.unit_roles.get("support")
+        if support_role and support_role.recon:
+            recon_gain = min(0.05, self.task_force.composition.support * 0.005)
+            gain += recon_gain
+        if success:
+            gain += 0.02
+        enemy.intel_confidence = min(0.95, max(0.05, enemy.intel_confidence + gain))

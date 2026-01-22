@@ -78,6 +78,10 @@ For any coding task:
 
 Remember: The game specification document exists to prevent design drift and ensure consistency. Always consult it first.
 
-## Platform Focus
+## Web UI Priority & Synchronization
 
-The textual TUI is now legacy; prioritize the web interface for new work and significant UI adjustments.
+1. **Web UI is the Primary Interface**: The textual TUI is legacy and deprecated. All new development, visualizations, and interactions must identify the **Web UI** as the main user interface.
+2. **Synchronize Engine & UI**: When making ANY changes to the game engine, logic, or state:
+   - **Crucial Check**: "Does this change need to be reflected in the Web UI?"
+   - If yes, you MUST implement the corresponding Web UI updates (frontend components, API endpoints, WebSocket events).
+   - Never implement a backend feature without verifying its presentation in the Web UI.

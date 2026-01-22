@@ -1,0 +1,9 @@
+<div id="viewport" class="viewport viewport--{{ vm.view_mode }}" {% if oob %}hx-swap-oob="true"{% endif %}>
+    {% if vm.view_mode == "core" %}
+        {% include "panels/viewport_core.html" %}
+    {% elif vm.view_mode == "deep" %}
+        {% include "panels/viewport_space.html" %}
+    {% else %}
+        {% include "panels/viewport_tactical.html" %}
+    {% endif %}
+</div>

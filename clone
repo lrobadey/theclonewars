@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import os
 import argparse
 import signal
 import subprocess
@@ -92,7 +93,11 @@ def main(argv: list[str] | None = None) -> int:
             f"Starting FastAPI dev server on {args.host}:{args.port} "
             f"(reload={'off' if args.no_reload else 'on'})."
         )
-        proc = subprocess.Popen(server_cmd)
+        env = os.environ.copy()
+        src_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "src")
+        env["PYTHONPATH"] = f"{src_dir}{os.pathsep}{env.get('PYTHONPATH', '')}"
+
+        proc = subprocess.Popen(server_cmd, env=env)
         if not args.no_browser:
             url = f"http://{args.host}:{args.port}"
             print(f"Opening {url} in your browser.")

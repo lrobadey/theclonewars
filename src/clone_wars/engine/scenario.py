@@ -4,10 +4,8 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
-from clone_wars.engine.logistics import DepotNode
-from clone_wars.engine.production import ProductionJobType
 from clone_wars.engine.state import GameState
-from clone_wars.engine.types import Supplies
+from clone_wars.engine.types import LocationId, Supplies
 
 
 @dataclass(frozen=True)
@@ -31,17 +29,17 @@ def load_game_state(path: Path) -> GameState:
     scenario = _parse_scenario(data)
     data_dir = path.parent
     state = GameState.new(seed=scenario.seed, data_dir=data_dir)
-    state.planet.enemy.infantry = scenario.enemy_infantry
-    state.planet.enemy.walkers = scenario.enemy_walkers
-    state.planet.enemy.support = scenario.enemy_support
-    state.planet.enemy.cohesion = scenario.enemy_cohesion
-    state.planet.enemy.fortification = scenario.fortification
-    state.planet.enemy.reinforcement_rate = scenario.reinforcement_rate
-    state.planet.enemy.intel_confidence = scenario.intel_confidence
+    state.contested_planet.enemy.infantry = scenario.enemy_infantry
+    state.contested_planet.enemy.walkers = scenario.enemy_walkers
+    state.contested_planet.enemy.support = scenario.enemy_support
+    state.contested_planet.enemy.cohesion = scenario.enemy_cohesion
+    state.contested_planet.enemy.fortification = scenario.fortification
+    state.contested_planet.enemy.reinforcement_rate = scenario.reinforcement_rate
+    state.contested_planet.enemy.intel_confidence = scenario.intel_confidence
 
     # Optional: planet control
     if "control" in data.get("planet", {}):
-        state.planet.control = float(data["planet"]["control"])
+        state.contested_planet.control = float(data["planet"]["control"])
 
     # Optional: logistics initial stocks
     if "logistics" in data:
@@ -50,7 +48,14 @@ def load_game_state(path: Path) -> GameState:
             stocks = logistics_data["depot_stocks"]
             for depot_name, stock_dict in stocks.items():
                 try:
-                    depot = DepotNode[depot_name.upper().replace(" ", "_")]
+                    # Map legacy names if they appear in JSON
+                    legacy_map = {
+                        "CORE": LocationId.NEW_SYSTEM_CORE,
+                        "MID": LocationId.DEEP_SPACE,
+                        "FRONT": LocationId.CONTESTED_WORLD
+                    }
+                    normalized_name = depot_name.upper().replace(" ", "_")
+                    depot = legacy_map.get(normalized_name) or LocationId(normalized_name.lower())
                     state.logistics.depot_stocks[depot] = Supplies(
                         ammo=int(stock_dict.get("ammo", 0)),
                         fuel=int(stock_dict.get("fuel", 0)),

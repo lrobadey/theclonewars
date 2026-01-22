@@ -17,19 +17,20 @@ class LocationId(str, Enum):
     
     # New System Territory
     NEW_SYSTEM_CORE = "new_system_core"
-    DEEP_SPACE_A = "deep_space_a"
     
-    # Contested
-    CONTESTED_WORLD = "contested_world"
+    # Transit
+    DEEP_SPACE = "deep_space"
     
-    # Collective Territory
-    DEEP_SPACE_B = "deep_space_b"
-    COLLECTIVE_CORE = "collective_core"
-
+    # Contested Planet Logistics Chain
+    CONTESTED_SPACEPORT = "contested_spaceport"
+    CONTESTED_MID_DEPOT = "contested_mid_depot"
+    CONTESTED_FRONT = "contested_front"
+    
     # Backward compatibility mappings (temporary)
-    CORE = "new_system_core"  # Default assumption for legacy
-    MID = "deep_space_a"
-    FRONT = "contested_world"
+    CORE = "new_system_core"
+    MID = "deep_space"
+    FRONT = "contested_front"
+    CONTESTED_WORLD = "contested_spaceport"  # Default alias for now
 
 
 class ObjectiveStatus(str, Enum):

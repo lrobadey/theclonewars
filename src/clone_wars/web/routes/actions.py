@@ -33,7 +33,7 @@ async def handle_action(request: Request):
             if spec is None:
                 continue
             vm = spec.builder(session.state, session.controller)
-            oob = name != "console"
+            oob = name != "viewport"
             html = templates.get_template(spec.template).render({"vm": vm, "oob": oob})
             fragments.append(html)
 

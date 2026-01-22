@@ -1,6 +1,7 @@
+{% if vm.aar.kind == "raid" %}
 <div class="console__aar console__aar--{{ vm.aar.outcome_kind }}">
     <div class="console__aar-title">RAID RESULT: {{ vm.aar.outcome }}</div>
-    <div class="console__aar-summary">TARGET: {{ vm.aar.target }} | TICKS: {{ vm.aar.ticks }}</div>
+    <div class="console__aar-summary">TARGET: {{ vm.aar.target }} | {{ vm.aar.duration_label }}: {{ vm.aar.duration }}</div>
     <div class="console__aar-factor muted">{{ vm.aar.reason }}</div>
     <div class="console__aar-factor muted">
         CASUALTIES — YOU: {{ vm.aar.your_casualties }} | ENEMY: {{ vm.aar.enemy_casualties }}
@@ -36,3 +37,47 @@
     </div>
     {% endif %}
 </div>
+{% else %}
+<div class="console__aar console__aar--{{ vm.aar.outcome_kind }}">
+    <div class="console__aar-title">OPERATION RESULT: {{ vm.aar.outcome }}</div>
+    <div class="console__aar-summary">
+        TARGET: {{ vm.aar.target }} | TYPE: {{ vm.aar.operation_type }} | {{ vm.aar.duration_label }}: {{ vm.aar.duration }}
+    </div>
+    <div class="console__aar-factor muted">LOSSES — {{ vm.aar.losses }}</div>
+    <div class="console__aar-factor muted">
+        REMAINING SUPPLIES — A {{ vm.aar.remaining_supplies.ammo }} | F {{ vm.aar.remaining_supplies.fuel }} | M {{ vm.aar.remaining_supplies.med_spares }}
+    </div>
+
+    {% if vm.aar.top_factors %}
+    <div class="console__aar-factor muted">TOP FACTORS</div>
+    <div class="console__lines">
+        {% for f in vm.aar.top_factors %}
+        <div class="console__line console__line--muted">{{ f.why }} ({{ f.value }} {{ f.delta }})</div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if vm.aar.phase_rows %}
+    <div class="console__aar-factor muted">PHASE TIMELINE</div>
+    <div class="console__lines">
+        {% for row in vm.aar.phase_rows %}
+        <div class="console__line console__line--muted">
+            {{ row.phase }} | DAYS {{ row.days }} | {{ row.decisions }}
+        </div>
+        <div class="console__line console__line--muted">
+            PROGRESS {{ row.progress }} | LOSSES {{ row.losses }} | SUPPLIES {{ row.supplies }} | READY {{ row.readiness }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if vm.aar.recommendations %}
+    <div class="console__aar-factor muted">RECOMMENDATIONS</div>
+    <div class="console__lines">
+        {% for rec in vm.aar.recommendations %}
+        <div class="console__line console__line--muted">- {{ rec }}</div>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+{% endif %}

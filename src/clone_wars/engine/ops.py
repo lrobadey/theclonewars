@@ -120,6 +120,7 @@ class ActiveOperation:
     phase_history: list[OperationPhaseRecord] = field(default_factory=list)
     pending_phase_record: OperationPhaseRecord | None = None
     awaiting_player_decision: bool = True
+    auto_advance: bool = False
 
     sampled_enemy_strength: float | None = None
     accumulated_progress: float = 0.0

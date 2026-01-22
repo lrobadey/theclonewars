@@ -1,0 +1,72 @@
+<div class="viewport__content">
+    <div class="viewport__grid viewport__grid--two">
+        <div class="panel viewport__panel">
+            <div class="panel__title">FACTORY STATUS</div>
+            <div class="stat-row">
+                <span class="stat-label">CAPACITY</span>
+                <span class="stat-value">{{ vm.core.factory.capacity }} slots/day</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">FACTORIES</span>
+                <span class="stat-value">{{ vm.core.factory.factories }}/{{ vm.core.factory.max_factories }} ({{ vm.core.factory.slots_per_factory }} slot)</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">ACTIVE QUEUES</span>
+                <span class="stat-value">{{ vm.core.factory.jobs_count }}</span>
+            </div>
+            <div class="production__queues">
+                <div class="production__queues-title muted">QUEUE</div>
+                {% if vm.core.jobs %}
+                <div class="production__queue-list">
+                    {% for job in vm.core.jobs %}
+                    <div class="production__queue-item">
+                        <div class="production__queue-label">{{ job.label }}</div>
+                        <div class="production__queue-meta muted">ETA {{ job.eta }}d -> {{ job.stop_at }}</div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="muted">NO ACTIVE QUEUES</div>
+                {% endif %}
+            </div>
+        </div>
+        <div class="panel viewport__panel">
+            <div class="panel__title">CORE STOCKPILES</div>
+            <div class="stockpile__section">
+                <div class="stockpile__title muted">SUPPLIES</div>
+                <div class="stat-row">
+                    <span class="stat-label">AMMO</span>
+                    <span class="stat-value accent">{{ vm.core.stockpiles.supplies.ammo }}</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">FUEL</span>
+                    <span class="stat-value accent">{{ vm.core.stockpiles.supplies.fuel }}</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">MED/SPARES</span>
+                    <span class="stat-value accent">{{ vm.core.stockpiles.supplies.med_spares }}</span>
+                </div>
+            </div>
+            <div class="stockpile__section">
+                <div class="stockpile__title muted">UNITS</div>
+                <div class="stat-row">
+                    <span class="stat-label">INFANTRY</span>
+                    <span class="stat-value">{{ vm.core.stockpiles.units.infantry }}</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">WALKERS</span>
+                    <span class="stat-value">{{ vm.core.stockpiles.units.walkers }}</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">SUPPORT</span>
+                    <span class="stat-value">{{ vm.core.stockpiles.units.support }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="viewport__hud">
+    {% set hud = vm.core.hud %}
+    {% include "panels/hud.html" %}
+</div>

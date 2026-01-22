@@ -1,0 +1,141 @@
+<div class="viewport__content">
+    <div class="tactical__chain">
+        {% for node in vm.tactical.chain %}
+        <button class="tactical__node{% if node.selected %} tactical__node--selected{% endif %}"
+                hx-post="/action"
+                hx-vals='{"action":"{{ node.id }}"}'
+                hx-target="#viewport"
+                hx-swap="outerHTML">
+            <span class="tactical__node-dot"></span>
+            <span class="tactical__node-label">{{ node.label }}</span>
+        </button>
+        {% endfor %}
+    </div>
+
+    {% if vm.tactical.focus_key == "spaceport" %}
+    <div class="tactical__grid tactical__grid--two">
+        <div class="panel tactical__panel">
+            <div class="panel__title">SPACEPORT STOCKPILE</div>
+            <div class="stat-row">
+                <span class="stat-label">AMMO</span>
+                <span class="stat-value accent">{{ vm.tactical.spaceport.supplies.ammo }}</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">FUEL</span>
+                <span class="stat-value accent">{{ vm.tactical.spaceport.supplies.fuel }}</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">MED/SPARES</span>
+                <span class="stat-value accent">{{ vm.tactical.spaceport.supplies.med_spares }}</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">INTERDICTION</span>
+                <span class="stat-value">{{ vm.tactical.spaceport.risk_pct }}%</span>
+            </div>
+            <div class="muted">USE DEEP SPACE ROUTES TO DISPATCH SUPPLIES.</div>
+        </div>
+        <div class="panel tactical__panel">
+            <div class="panel__title">DOCKED SHIPS</div>
+            {% if vm.tactical.spaceport.docked %}
+            <div class="production__queue-list">
+                {% for ship in vm.tactical.spaceport.docked %}
+                <div class="production__queue-item">
+                    <div class="production__queue-label">{{ ship.name }}</div>
+                    <div class="production__queue-meta muted">PAYLOAD {{ ship.payload }}</div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="empty-state">NO SHIPS DOCKED</div>
+            {% endif %}
+        </div>
+    </div>
+    {% elif vm.tactical.focus_key == "mid" %}
+    <div class="tactical__grid tactical__grid--two">
+        <div class="panel tactical__panel">
+            <div class="panel__title">MID DEPOT STOCKPILE</div>
+            <div class="stat-row">
+                <span class="stat-label">AMMO</span>
+                <span class="stat-value accent">{{ vm.tactical.mid.supplies.ammo }}</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">FUEL</span>
+                <span class="stat-value accent">{{ vm.tactical.mid.supplies.fuel }}</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">MED/SPARES</span>
+                <span class="stat-value accent">{{ vm.tactical.mid.supplies.med_spares }}</span>
+            </div>
+        </div>
+        <div class="panel tactical__panel">
+            <div class="panel__title">THROUGHPUT STATUS</div>
+            {% for leg in vm.tactical.mid.legs %}
+            <div class="stat-row">
+                <span class="stat-label">{{ leg.label }}</span>
+                <span class="stat-value">{{ leg.days }}d | {{ leg.risk_pct }}% risk</span>
+            </div>
+            {% endfor %}
+            <div class="muted">SUPPLY LINES UPDATE EACH TURN.</div>
+        </div>
+    </div>
+    {% else %}
+    <div class="tactical__grid tactical__grid--front">
+        <div class="panel tactical__panel">
+            <div class="panel__title">TASK FORCE STATUS</div>
+            <pre class="panel__pre">{{ vm.tactical.front.task_force.text }}</pre>
+        </div>
+        <div class="panel tactical__panel">
+            <div class="panel__title">ACTIVE OBJECTIVES</div>
+            <div class="tactical__objectives">
+                {% for node in vm.tactical.front.objectives %}
+                <button class="tactical__objective terminal-btn {{ node.status_class }}{% if node.selected %} tactical__objective--selected{% endif %}"
+                        hx-post="/action"
+                        hx-vals='{"action":"{{ node.action }}"}'
+                        hx-target="#viewport"
+                        hx-swap="outerHTML">
+                    <span class="map-node__code">{{ node.code }}</span>
+                    <span class="map-node__name">{{ node.name }}</span>
+                </button>
+                {% endfor %}
+            </div>
+            <div class="muted">ISSUE ORDERS VIA THE ACTION HUD BELOW.</div>
+        </div>
+        <div class="panel tactical__panel">
+            <div class="panel__title">ENEMY INTEL</div>
+            <div class="stat-row">
+                <span class="stat-label">INFANTRY</span>
+                <span class="stat-value accent">{{ vm.tactical.front.enemy.infantry_est }}</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">WALKERS</span>
+                <span class="stat-value accent">{{ vm.tactical.front.enemy.walkers_est }}</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">SUPPORT</span>
+                <span class="stat-value accent">{{ vm.tactical.front.enemy.support_est }}</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">CONFIDENCE</span>
+                <span class="stat-value">{{ vm.tactical.front.enemy.confidence_pct }}%</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">COHESION</span>
+                <span class="stat-value">{{ vm.tactical.front.enemy.cohesion_pct }}%</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">FORT</span>
+                <span class="stat-value">{{ vm.tactical.front.enemy.fort_label }}</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">REINF</span>
+                <span class="stat-value">{{ vm.tactical.front.enemy.reinf_label }}</span>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<div class="viewport__hud">
+    {% set hud = vm.tactical.hud %}
+    {% include "panels/hud.html" %}
+</div>

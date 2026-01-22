@@ -9,19 +9,19 @@
   "walker_screen_infantry_protect": 0.4,
   "storage_risk_per_day": {
     "new_system_core": 0.0,
-    "deep_space_a": 0.01,
-    "contested_world": 0.06
+    "deep_space": 0.01,
+    "contested_spaceport": 0.06
   },
   "storage_loss_pct_range": {
     "new_system_core": [
       0.0,
       0.0
     ],
-    "deep_space_a": [
+    "deep_space": [
       0.05,
       0.1
     ],
-    "contested_world": [
+    "contested_spaceport": [
       0.1,
       0.2
     ]
