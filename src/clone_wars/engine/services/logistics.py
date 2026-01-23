@@ -187,10 +187,18 @@ class LogisticsService:
         stock = state.depot_stocks[origin]
         stock_u = state.depot_units[origin]
         
-        if (stock.ammo < supplies.ammo or 
-            stock.fuel < supplies.fuel or 
-            stock.med_spares < supplies.med_spares):
+        if (
+            stock.ammo < supplies.ammo
+            or stock.fuel < supplies.fuel
+            or stock.med_spares < supplies.med_spares
+        ):
             raise ValueError(f"Insufficient supplies at {origin}")
+        if (
+            stock_u.infantry < units.infantry
+            or stock_u.walkers < units.walkers
+            or stock_u.support < units.support
+        ):
+            raise ValueError(f"Insufficient units at {origin}")
 
         # 3. Determine if this is a space leg or ground leg
         is_space_leg = (
@@ -228,9 +236,9 @@ class LogisticsService:
             med_spares=stock.med_spares - supplies.med_spares
         )
         state.depot_units[origin] = UnitStock(
-            infantry=max(0, stock_u.infantry - units.infantry),
-            walkers=max(0, stock_u.walkers - units.walkers),
-            support=max(0, stock_u.support - units.support)
+            infantry=stock_u.infantry - units.infantry,
+            walkers=stock_u.walkers - units.walkers,
+            support=stock_u.support - units.support,
         )
 
         # 7. Execute Transport
@@ -356,4 +364,3 @@ class LogisticsService:
             path.append(parent[path[-1]])
         path.reverse()
         return tuple(path)
-

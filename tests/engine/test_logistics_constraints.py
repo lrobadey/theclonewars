@@ -60,6 +60,16 @@ class TestLogisticsConstraints(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "No idle cargo ship available"):
             self.service.create_shipment(self.logistics_state, origin, dest, supplies, None, self.rng)
 
+    def test_insufficient_units_blocks_shipment(self):
+        """Shipments should fail if the depot lacks enough units."""
+        origin = LocationId.NEW_SYSTEM_CORE
+        dest = LocationId.DEEP_SPACE
+        supplies = Supplies(0, 0, 0)
+        units = UnitStock(infantry=0, walkers=0, support=11)
+
+        with self.assertRaisesRegex(ValueError, "Insufficient units"):
+            self.service.create_shipment(self.logistics_state, origin, dest, supplies, units, self.rng)
+
     def test_ship_waypoint_to_spaceport(self):
         """Ships should waypoint through Deep Space en route to the spaceport."""
         origin = LocationId.NEW_SYSTEM_CORE
