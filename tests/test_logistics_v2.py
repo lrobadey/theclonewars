@@ -106,6 +106,7 @@ def test_ground_convoy_movement(service, rng):
     assert state.depot_stocks[LocationId.CONTESTED_MID_DEPOT].ammo == 100
 
 def test_insufficient_capacity_raises_error(service, rng):
+    """When no ships are available for a space leg, create_shipment should raise."""
     state = LogisticsState.new()
     # Occupy all ships
     for ship in state.ships.values():
@@ -113,8 +114,10 @@ def test_insufficient_capacity_raises_error(service, rng):
         
     payload = Supplies(ammo=10, fuel=0, med_spares=0)
     
-    # Expect Error
-    with pytest.raises(ValueError, match="No idle Cargo Ships available"):
+    # The new behavior raises immediately if no ship is available
+    # This prevents stock from being deducted without dispatch happening
+    import pytest
+    with pytest.raises(ValueError, match="No idle cargo ship available"):
         service.create_shipment(
             state,
             LocationId.NEW_SYSTEM_CORE,
@@ -123,3 +126,6 @@ def test_insufficient_capacity_raises_error(service, rng):
             UnitStock(0,0,0),
             rng
         )
+    
+    # No order should be created
+    assert len(state.active_orders) == 0

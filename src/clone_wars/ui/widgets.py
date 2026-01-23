@@ -636,7 +636,7 @@ class LogisticsPanel(Widget):
 
     def _stock_for_display(self, depot: LocationId) -> Supplies:
         if depot == LocationId.CONTESTED_FRONT:
-            return self.state.task_force.supplies
+            return self.state.front_supplies
         return self.state.logistics.depot_stocks[depot]
 
     def _update_shipments(self) -> None:

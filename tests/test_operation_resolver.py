@@ -12,11 +12,11 @@ def test_raid_consumes_supplies() -> None:
     state.contested_planet.enemy.support = 0
     state.contested_planet.enemy.fortification = 1.0
 
-    initial = state.task_force.supplies
+    initial = state.front_supplies
     report = state.raid(OperationTarget.FOUNDRY)
 
     assert report.supplies_used == Supplies(ammo=50, fuel=30, med_spares=15)
-    assert state.task_force.supplies == Supplies(
+    assert state.front_supplies == Supplies(
         ammo=initial.ammo - 50,
         fuel=initial.fuel - 30,
         med_spares=initial.med_spares - 15,

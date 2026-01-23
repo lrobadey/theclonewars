@@ -106,23 +106,25 @@
                     </span>
                 </div>
 
-                <div class="logistics__shipments">
-                    <div class="logistics__shipments-title">GROUND SHIPMENTS</div>
-                    {% if vm.deep.shipments %}
-                        {% for shipment in vm.deep.shipments %}
+                <!-- Supply Chain Panel -->
+                {% set sc = vm.supply_chain %}
+                <div class="logistics__supply-chain" style="margin-top: 12px;">
+                    <div class="logistics__shipments-title">SUPPLY CHAIN STATUS</div>
+                    {% if sc.orders %}
+                    <div style="max-height: 120px; overflow-y: auto;">
+                        {% for order in sc.orders %}
                         <div class="logistics__shipment">
-                            <div class="logistics__shipment-main">#{{ shipment.id }} {{ shipment.path }} ({{ shipment.leg }})</div>
+                            <div class="logistics__shipment-main">{{ order.id }} {{ order.origin }}→{{ order.destination }}</div>
                             <div class="logistics__shipment-meta muted">
-                                {{ shipment.supplies }}{% if shipment.units %} | {{ shipment.units }}{% endif %} |
-                                ETA {{ shipment.eta }}d |
-                                <span class="logistics__shipment-status logistics__shipment-status--{{ shipment.status_tone }}">
-                                    {{ shipment.status }}
-                                </span>
+                                {{ order.cargo }} |
+                                <span class="supply-chain__status supply-chain__status--{{ order.status_class }}">{{ order.status }}</span>
+                                @ {{ order.current }}
                             </div>
                         </div>
                         {% endfor %}
+                    </div>
                     {% else %}
-                    <div class="muted">NONE</div>
+                    <div class="muted">NO ACTIVE ORDERS</div>
                     {% endif %}
                 </div>
             </div>

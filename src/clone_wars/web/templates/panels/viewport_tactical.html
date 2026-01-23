@@ -1,11 +1,25 @@
 <div class="viewport__content">
     <div class="tactical__chain">
+        <svg class="tactical__lanes" viewBox="0 0 100 2" preserveAspectRatio="none">
+            <!-- Lane Paths (0=Spaceport, 50=Mid, 100=Front) -->
+            <line class="tactical__lane" x1="0" y1="1" x2="50" y2="1" />
+            <line class="tactical__lane" x1="50" y1="1" x2="100" y2="1" />
+
+            <!-- Active Convoys (Pips) -->
+            {% for convoy in vm.tactical.convoys %}
+            {% if convoy.leg == 'spaceport-mid' %}
+            {% set cx = convoy.progress * 0.5 %}
+            <circle class="tactical__pip tactical__pip--{{ convoy.type }}" cx="{{ cx }}" cy="1" r="1.5" />
+            {% elif convoy.leg == 'mid-front' %}
+            {% set cx = 50 + (convoy.progress * 0.5) %}
+            <circle class="tactical__pip tactical__pip--{{ convoy.type }}" cx="{{ cx }}" cy="1" r="1.5" />
+            {% endif %}
+            {% endfor %}
+        </svg>
+
         {% for node in vm.tactical.chain %}
-        <button class="tactical__node{% if node.selected %} tactical__node--selected{% endif %}"
-                hx-post="/action"
-                hx-vals='{"action":"{{ node.id }}"}'
-                hx-target="#viewport"
-                hx-swap="outerHTML">
+        <button class="tactical__node{% if node.selected %} tactical__node--selected{% endif %}" hx-post="/action"
+            hx-vals='{"action":"{{ node.id }}"}' hx-target="#viewport" hx-swap="outerHTML">
             <span class="tactical__node-dot"></span>
             <span class="tactical__node-label">{{ node.label }}</span>
         </button>
@@ -81,12 +95,8 @@
     {% else %}
     <div class="tactical__grid tactical__grid--front">
         <div class="panel tactical__panel">
-            <div class="panel__title">TASK FORCE STATUS</div>
             {% set task_force = vm.tactical.front.task_force %}
-            <div class="stat-row">
-                <span class="stat-label">TASK FORCE</span>
-                <span class="stat-value">{{ task_force.name }}</span>
-            </div>
+            <div class="panel__title">TASK FORCE | {{ task_force.name }}</div>
             <div class="stat-group">
                 <div class="stat-row">
                     <span class="stat-label">INFANTRY</span>
@@ -137,11 +147,10 @@
             <div class="tactical__section-title">ACTIVE OBJECTIVES</div>
             <div class="tactical__objectives">
                 {% for node in vm.tactical.front.objectives %}
-                <button class="tactical__objective terminal-btn {{ node.status_class }}{% if node.selected %} tactical__objective--selected{% endif %}"
-                        hx-post="/action"
-                        hx-vals='{"action":"{{ node.action }}"}'
-                        hx-target="#viewport"
-                        hx-swap="outerHTML">
+                <button
+                    class="tactical__objective terminal-btn {{ node.status_class }}{% if node.selected %} tactical__objective--selected{% endif %}"
+                    hx-post="/action" hx-vals='{"action":"{{ node.action }}"}' hx-target="#viewport"
+                    hx-swap="outerHTML">
                     <span class="map-node__code">{{ node.code }}</span>
                     <span class="map-node__name">{{ node.name }}</span>
                 </button>

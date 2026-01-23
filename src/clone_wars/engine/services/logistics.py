@@ -24,6 +24,9 @@ class LogisticsService:
             
         # 3. Update Ground Shipments (Planetary Network)
         self._tick_ground_convoys(state, planet, rng, existing_shipments)
+
+        # 4. Dispatch Pending Orders at Hubs
+        self._dispatch_pending_orders(state, rng, current_day)
     
     def _log_event(self, state: LogisticsState, day: int, message: str, event_type: str) -> None:
         """Add a transit log entry (prepends to keep most recent first)."""
@@ -40,33 +43,19 @@ class LogisticsService:
 
         ship.days_remaining -= 1
         if ship.days_remaining <= 0:
-            # Arrival
+            # Arrival at destination
             arrived_at = ship.destination
             ship.location = ship.destination
             ship.state = ShipState.IDLE
             ship.destination = None
             ship.days_remaining = 0
-            
-            # Special Logic: Deep Space Waypoint
-            # If we are at Deep Space and have orders for Spaceport, continue immediately.
-            # This simulates a long journey that is split into legs for interdiction checks.
-            if ship.location == LocationId.DEEP_SPACE:
-                 # Check if we have cargo destined for further
-                 # Ideally check path, but for MVP: Deep -> Spaceport is the only valid forward path
-                 has_cargo = len(ship.orders) > 0
-                 if has_cargo:
-                     ship.destination = LocationId.CONTESTED_SPACEPORT
-                     ship.state = ShipState.TRANSIT
-                     ship.days_remaining = 1 # Lookup route ideally, but 1 day is standard
-                     ship.total_days = 1
-                     self._log_event(state, current_day, f"{ship.name} waypoint at DEEP SPACE", "waypoint")
-                     return
 
             # Log arrival
             loc_name = arrived_at.value.upper().replace("_", " ") if arrived_at else "UNKNOWN"
             self._log_event(state, current_day, f"{ship.name} arrived at {loc_name}", "arrived")
 
-            # Unload ship and process orders
+            # Unload ship and process orders - goods land at this depot
+            # This makes goods VISIBLE at waypoints (Deep Space, Spaceport, etc.)
             self._arrive_at_location(state, ship.location, ship.orders, rng)
             
             # Clear ship payload
@@ -95,18 +84,9 @@ class LogisticsService:
                 # Process this shipment
                 shipment.days_remaining -= 1
                 if shipment.days_remaining <= 0:
-                    current_leg_dest = shipment.destination
-                    
-                    if shipment.leg_index >= len(shipment.path) - 2:
-                        # Final Delivery
-                        self._arrive_at_location(state, current_leg_dest, shipment.orders, rng)
-                        # Do not add to active_list (it is done)
-                        continue 
-                    else:
-                        # Next Leg
-                        shipment.leg_index += 1
-                        shipment.days_remaining = 1 
-                        active_list.append(shipment)
+                    # Arrival at the next leg's destination
+                    self._arrive_at_location(state, shipment.destination, shipment.orders, rng)
+                    # Shipment is done (removed from active list)
                 else:
                     active_list.append(shipment)
             else:
@@ -122,51 +102,60 @@ class LogisticsService:
         orders: list[TransportOrder],
         rng: Random
     ) -> None:
-        """Process arrival of goods at a node."""
+        """Process arrival of goods at a node. Goods are ALWAYS added to depot stock here."""
         stock = state.depot_stocks[location]
         units_stock = state.depot_units[location]
 
         for order in orders:
             order.current_location = location
+            # Clear transit tracking - goods are now at depot
+            order.in_transit_leg = None
+            order.carrier_id = None
+            
+            # Add to Stockpile regardless of whether it's the final destination
+            # This ensures items are VISIBLE at the hub before being picked up again
+            state.depot_stocks[location] = Supplies(
+                ammo=stock.ammo + order.supplies.ammo,
+                fuel=stock.fuel + order.supplies.fuel,
+                med_spares=stock.med_spares + order.supplies.med_spares,
+            )
+            state.depot_units[location] = UnitStock(
+                infantry=units_stock.infantry + order.units.infantry,
+                walkers=units_stock.walkers + order.units.walkers,
+                support=units_stock.support + order.units.support
+            )
             
             if location == order.final_destination:
-                # Order Complete: Add to Stockpile
                 order.status = "complete"
-                state.depot_stocks[location] = Supplies(
-                    ammo=stock.ammo + order.supplies.ammo,
-                    fuel=stock.fuel + order.supplies.fuel,
-                    med_spares=stock.med_spares + order.supplies.med_spares,
-                )
-                state.depot_units[location] = UnitStock(
-                    infantry=units_stock.infantry + order.units.infantry,
-                    walkers=units_stock.walkers + order.units.walkers,
-                    support=units_stock.support + order.units.support
-                )
-                # Refresh local references as we iterate
-                stock = state.depot_stocks[location]
-                units_stock = state.depot_units[location]
             else:
-                # Intermediate Stop: Route to next leg
+                # Wait for next tick's _dispatch_pending_orders to move to next leg
+                order.status = "pending"
+
+            # Refresh local references as we iterate
+            stock = state.depot_stocks[location]
+            units_stock = state.depot_units[location]
+
+    def _dispatch_pending_orders(self, state: LogisticsState, rng: Random, current_day: int) -> None:
+        """Scan all pending orders and attempt to create shipments for their next leg."""
+        # Need to snapshot to avoid mutation issues if create_shipment affects the list
+        # Though currently create_shipment only appends.
+        for order in list(state.active_orders):
+            if order.status == "pending" and order.current_location != order.final_destination:
                 try:
                     self.create_shipment(
-                        state, 
-                        location, 
-                        order.final_destination, 
-                        order.supplies, 
-                        order.units, 
+                        state,
+                        order.current_location,
+                        order.final_destination,
+                        order.supplies,
+                        order.units,
                         rng,
-                        existing_order=order
+                        existing_order=order,
+                        current_day=current_day
                     )
-                except ValueError:
-                    # If we can't ship (e.g. no ship available), dump goods here for now
-                    # In future: Queue for later
-                    print(f"Logistics Warning: Stranded cargo at {location} destined for {order.final_destination}")
-                    state.depot_stocks[location] = Supplies(
-                        ammo=stock.ammo + order.supplies.ammo,
-                        fuel=stock.fuel + order.supplies.fuel,
-                        med_spares=stock.med_spares + order.supplies.med_spares,
-                    )
-                    stock = state.depot_stocks[location]
+                except ValueError as e:
+                    # Likely capacity or no ships; it stays 'pending' at the current hub
+                    # We don't log this to the main log yet to avoid spamming
+                    pass
 
     def create_shipment(
         self,
@@ -179,39 +168,48 @@ class LogisticsService:
         existing_order: TransportOrder | None = None,
         current_day: int = 0
     ) -> None:
-        """Create a movement instruction (Ship Launch or Ground Convoy)."""
+        """Create a movement instruction (Ship Launch or Ground Convoy).
+        
+        CRITICAL FIX: Stock is only deducted AFTER transport is successfully initiated.
+        This prevents supplies from disappearing when no ship is available.
+        """
         if units is None:
             units = UnitStock(0, 0, 0)
             
-        # 1. Determine Full Path
+        # 1. Determine Full Path and Next Hop
         full_path = self._find_path(state, origin, final_destination)
         if not full_path or len(full_path) < 2:
             raise ValueError(f"No route found from {origin} to {final_destination}")
             
         next_hop = full_path[1]
         
-        # 2. Wrap in Order if new
+        # 2. Check stock availability BEFORE attempting dispatch
+        stock = state.depot_stocks[origin]
+        stock_u = state.depot_units[origin]
+        
+        if (stock.ammo < supplies.ammo or 
+            stock.fuel < supplies.fuel or 
+            stock.med_spares < supplies.med_spares):
+            raise ValueError(f"Insufficient supplies at {origin}")
+
+        # 3. Determine if this is a space leg or ground leg
+        is_space_leg = (
+            origin == LocationId.NEW_SYSTEM_CORE or 
+            origin == LocationId.DEEP_SPACE or 
+            next_hop == LocationId.DEEP_SPACE or
+            next_hop == LocationId.NEW_SYSTEM_CORE
+        )
+        
+        # 4. For space legs, verify ship availability BEFORE deducting stock
+        if is_space_leg:
+            ship = self._find_available_ship(state, origin, supplies, units)
+            if not ship:
+                raise ValueError(f"No idle cargo ship available at {origin}")
+        
+        # 5. Now we know dispatch will succeed - create/update order
         if existing_order:
             order = existing_order
         else:
-            # Deduct from Origin Stock if this is a NEW order
-            stock = state.depot_stocks[origin]
-            stock_u = state.depot_units[origin]
-            
-            if (stock.ammo < supplies.ammo or 
-                stock.fuel < supplies.fuel or 
-                stock.med_spares < supplies.med_spares):
-                raise ValueError("Insufficient supplies.")
-                
-            # Check unit stock? (Simulated for MVP, assuming checks done by caller or infinite)
-            
-            state.depot_stocks[origin] = Supplies(
-                ammo=stock.ammo - supplies.ammo,
-                fuel=stock.fuel - supplies.fuel,
-                med_spares=stock.med_spares - supplies.med_spares
-            )
-            # Deduct units logic here if we tracked unit source meticulously
-            
             order = TransportOrder(
                 order_id=f"ORD-{rng.randint(1000,9999)}",
                 origin=origin,
@@ -223,22 +221,41 @@ class LogisticsService:
             )
             state.active_orders.append(order)
 
-        # 3. Execute Transport logic for Next Hop
-        # Space Route?
-        is_space_leg = (
-            origin == LocationId.NEW_SYSTEM_CORE or 
-            origin == LocationId.DEEP_SPACE or 
-            next_hop == LocationId.DEEP_SPACE or
-            next_hop == LocationId.NEW_SYSTEM_CORE
+        # 6. Deduct from Hub Stock (only after dispatch is guaranteed)
+        state.depot_stocks[origin] = Supplies(
+            ammo=stock.ammo - supplies.ammo,
+            fuel=stock.fuel - supplies.fuel,
+            med_spares=stock.med_spares - supplies.med_spares
         )
-        
+        state.depot_units[origin] = UnitStock(
+            infantry=max(0, stock_u.infantry - units.infantry),
+            walkers=max(0, stock_u.walkers - units.walkers),
+            support=max(0, stock_u.support - units.support)
+        )
+
+        # 7. Execute Transport
         if is_space_leg:
-            self._launch_cargo_ship(state, origin, next_hop, order, current_day)
+            # Ship was already validated above
+            self._launch_cargo_ship(state, origin, next_hop, order, ship, current_day)
         else:
-            # Ground Route
-            # For ground convoys, we can just assign the whole remaining path
-            # assuming it's contiguous ground
-            self._create_ground_convoy(state, origin, final_destination, full_path, order)
+            # Ground convoy - create single-leg convoy with proper travel time
+            route = self._find_route(state, origin, next_hop)
+            travel_days = route.travel_days if route else 1
+            self._create_ground_convoy(state, origin, next_hop, order, travel_days, current_day)
+    
+    def _find_available_ship(
+        self,
+        state: LogisticsState,
+        origin: LocationId,
+        supplies: Supplies,
+        units: UnitStock
+    ) -> CargoShip | None:
+        """Find an idle ship at origin with sufficient capacity."""
+        for ship in state.ships.values():
+            if ship.location == origin and ship.state == ShipState.IDLE:
+                if ship.can_load(supplies, units):
+                    return ship
+        return None
 
     def _launch_cargo_ship(
         self,
@@ -246,28 +263,22 @@ class LogisticsService:
         origin: LocationId,
         destination: LocationId,
         order: TransportOrder,
+        ship: CargoShip,
         current_day: int = 0
     ) -> None:
-        """Find an idle ship at origin, load it, and launch it."""
-        # 1. Find Ship
-        ship = next((s for s in state.ships.values() if s.location == origin and s.state == ShipState.IDLE), None)
-        if not ship:
-            raise ValueError("No idle Cargo Ships available at this location.")
-            
-        # 2. Check Capacity
-        if not ship.can_load(order.supplies, order.units):
-            raise ValueError("Cargo exceeds ship capacity.")
-            
-        # 3. Load
-        ship.orders.append(order)
-        order.status = "transit"
-        
-        # 4. Launch
+        """Load a pre-validated ship and launch it."""
+        # Get route for travel time
         route = self._find_route(state, origin, destination)
         if not route:
-             # Should be caught by BFS but safety check
-             raise ValueError("No direct route defined for space leg.")
+            raise ValueError("No direct route defined for space leg.")
              
+        # Load order onto ship
+        ship.orders.append(order)
+        order.status = "transit"
+        order.in_transit_leg = (origin, destination)
+        order.carrier_id = f"SHIP-{ship.ship_id}"
+        
+        # Launch ship
         ship.destination = destination
         ship.state = ShipState.TRANSIT
         ship.days_remaining = route.travel_days
@@ -281,23 +292,32 @@ class LogisticsService:
     def _create_ground_convoy(
         self,
         state: LogisticsState,
-        origin: LocationId, # Added for debug logging
-        destination: LocationId, # Added for debug logging
-        full_path: tuple[LocationId, ...],
-        order: TransportOrder
+        origin: LocationId,
+        destination: LocationId,
+        order: TransportOrder,
+        travel_days: int,
+        current_day: int = 0
     ) -> None:
-        """Create a ground shipment."""
+        """Create a single-leg ground shipment with proper travel time."""
+        shipment_id = state.next_shipment_id
         shipment = Shipment(
-            shipment_id=state.next_shipment_id,
-            path=full_path,
+            shipment_id=shipment_id,
+            path=(origin, destination),  # Single leg only
             leg_index=0,
             orders=[order],
-            days_remaining=1, 
-            total_days=1
+            days_remaining=travel_days,
+            total_days=travel_days
         )
         order.status = "transit"
+        order.in_transit_leg = (origin, destination)
+        order.carrier_id = f"CONVOY-{shipment_id}"
         state.next_shipment_id += 1
         state.shipments.append(shipment)
+        
+        # Log departure
+        origin_name = origin.value.replace("contested_", "").upper()
+        dest_name = destination.value.replace("contested_", "").upper()
+        self._log_event(state, current_day, f"Convoy #{shipment_id} departed {origin_name} → {dest_name}", "departed")
 
     def _find_route(self, state: LogisticsState, origin: LocationId, destination: LocationId) -> Route | None:
         for route in state.routes:

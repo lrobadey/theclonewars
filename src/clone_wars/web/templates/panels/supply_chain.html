@@ -1,0 +1,103 @@
+<div id="supply-chain" class="panel panel--supply-chain" data-collapsible="true" {% if oob %}hx-swap-oob="true"{% endif %}>
+    <button type="button" class="panel__title panel__title--toggle" data-panel-toggle aria-expanded="true">
+        SUPPLY CHAIN
+    </button>
+    <div class="panel__body">
+        <!-- Visual Supply Chain -->
+        <div class="supply-chain__visual">
+            {% for node in vm.nodes %}
+            <div class="supply-chain__node {% if node.has_stock %}supply-chain__node--active{% endif %}">
+                <div class="supply-chain__node-header">
+                    <span class="supply-chain__node-label">{{ node.label }}</span>
+                    <span class="supply-chain__node-desc muted">{{ node.description }}</span>
+                </div>
+                <div class="supply-chain__node-stock">
+                    <span class="supply-chain__stat">A:{{ node.supplies.ammo }}</span>
+                    <span class="supply-chain__stat">F:{{ node.supplies.fuel }}</span>
+                    <span class="supply-chain__stat">M:{{ node.supplies.med }}</span>
+                </div>
+                {% if node.pending_orders > 0 %}
+                <div class="supply-chain__pending">
+                    <span class="supply-chain__pending-badge">{{ node.pending_orders }} PENDING</span>
+                </div>
+                {% endif %}
+            </div>
+            
+            {% if not loop.last %}
+            <!-- Route Leg -->
+            {% set leg_idx = loop.index0 %}
+            {% set leg = vm.legs[leg_idx] %}
+            <div class="supply-chain__leg {% if leg.is_space %}supply-chain__leg--space{% else %}supply-chain__leg--ground{% endif %} {% if leg.has_traffic %}supply-chain__leg--active{% endif %}">
+                <div class="supply-chain__leg-track">
+                    {% if leg.has_traffic %}
+                    {% for item in leg.in_transit %}
+                    <div class="supply-chain__transit-item" style="left: {{ item.progress }}%;" title="{{ item.name }}: {{ item.cargo }}">
+                        <span class="supply-chain__transit-icon {% if item.type == 'ship' %}supply-chain__transit-icon--ship{% else %}supply-chain__transit-icon--convoy{% endif %}">
+                            {% if item.type == 'ship' %}🚀{% else %}📦{% endif %}
+                        </span>
+                    </div>
+                    {% endfor %}
+                    {% endif %}
+                </div>
+                <div class="supply-chain__leg-info muted">
+                    {{ leg.travel_days }}d | {{ leg.risk_pct }}% risk
+                </div>
+            </div>
+            {% endif %}
+            {% endfor %}
+        </div>
+
+        <!-- Active Orders Table -->
+        {% if vm.orders %}
+        <div class="supply-chain__orders">
+            <div class="supply-chain__section-title">ACTIVE TRANSPORT ORDERS</div>
+            <table class="terminal-table terminal-table--compact">
+                <thead>
+                    <tr>
+                        <th>ORDER</th>
+                        <th>ROUTE</th>
+                        <th>LOCATION</th>
+                        <th>STATUS</th>
+                        <th>CARGO</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for order in vm.orders %}
+                    <tr class="supply-chain__order supply-chain__order--{{ order.status_class }}">
+                        <td>{{ order.id }}</td>
+                        <td class="muted">{{ order.origin }}→{{ order.destination }}</td>
+                        <td class="accent">{{ order.current }}</td>
+                        <td>
+                            <span class="supply-chain__status supply-chain__status--{{ order.status_class }}">
+                                {{ order.status }}
+                            </span>
+                        </td>
+                        <td class="muted">{{ order.cargo }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+
+        <!-- Transit Log -->
+        {% if vm.transit_log %}
+        <div class="supply-chain__log">
+            <div class="supply-chain__section-title">TRANSIT LOG</div>
+            <div class="supply-chain__log-entries">
+                {% for entry in vm.transit_log %}
+                <div class="supply-chain__log-entry supply-chain__log-entry--{{ entry.event_type }}">
+                    <span class="supply-chain__log-day">[D{{ entry.day }}]</span>
+                    <span class="supply-chain__log-message">{{ entry.message }}</span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Fleet Status -->
+        <div class="supply-chain__fleet muted">
+            FLEET: {{ vm.fleet.idle }}/{{ vm.fleet.total }} ships idle | {{ vm.fleet.in_transit }} in transit
+        </div>
+    </div>
+</div>

@@ -1,18 +1,11 @@
 <div class="viewport__content">
     <div class="viewport__grid viewport__grid--two">
         <div class="panel viewport__panel">
-            <div class="panel__title">FACTORY STATUS</div>
+            <div class="panel__title">FACTORIES | {{ vm.core.factory.factories }}/{{ vm.core.factory.max_factories }}
+            </div>
             <div class="stat-row">
                 <span class="stat-label">CAPACITY</span>
                 <span class="stat-value">{{ vm.core.factory.capacity }} slots/day</span>
-            </div>
-            <div class="stat-row">
-                <span class="stat-label">FACTORIES</span>
-                <span class="stat-value">{{ vm.core.factory.factories }}/{{ vm.core.factory.max_factories }} ({{ vm.core.factory.slots_per_factory }} slot)</span>
-            </div>
-            <div class="stat-row">
-                <span class="stat-label">ACTIVE QUEUES</span>
-                <span class="stat-value">{{ vm.core.factory.jobs_count }}</span>
             </div>
             <div class="production__queues">
                 <div class="production__queues-title muted">QUEUE</div>
@@ -22,7 +15,8 @@
                     <div class="production__queue-item">
                         <div class="production__queue-label">{{ job.label }}</div>
                         <div class="production__queue-meta muted">
-                            ETA {{ job.eta }}d · {{ job.progress_pct }}% · {{ job.work_remaining }}/{{ job.work_total }} slots
+                            ETA {{ job.eta }}d · {{ job.progress_pct }}% · {{ job.work_remaining }}/{{ job.work_total }}
+                            slots
                             → {{ job.stop_at }}
                         </div>
                     </div>
@@ -35,18 +29,11 @@
 
             <div class="panel__divider"></div>
 
-            <div class="panel__title">BARRACKS STATUS</div>
+            <div class="panel__title">BARRACKS | {{ vm.core.barracks.barracks }}/{{ vm.core.barracks.max_barracks }}
+            </div>
             <div class="stat-row">
                 <span class="stat-label">CAPACITY</span>
                 <span class="stat-value">{{ vm.core.barracks.capacity }} slots/day</span>
-            </div>
-            <div class="stat-row">
-                <span class="stat-label">BARRACKS</span>
-                <span class="stat-value">{{ vm.core.barracks.barracks }}/{{ vm.core.barracks.max_barracks }} ({{ vm.core.barracks.slots_per_barracks }} slot)</span>
-            </div>
-            <div class="stat-row">
-                <span class="stat-label">ACTIVE QUEUES</span>
-                <span class="stat-value">{{ vm.core.barracks.jobs_count }}</span>
             </div>
             <div class="production__queues">
                 <div class="production__queues-title muted">QUEUE</div>
@@ -56,7 +43,8 @@
                     <div class="production__queue-item">
                         <div class="production__queue-label">{{ job.label }}</div>
                         <div class="production__queue-meta muted">
-                            ETA {{ job.eta }}d · {{ job.progress_pct }}% · {{ job.work_remaining }}/{{ job.work_total }} slots
+                            ETA {{ job.eta }}d · {{ job.progress_pct }}% · {{ job.work_remaining }}/{{ job.work_total }}
+                            slots
                             → {{ job.stop_at }}
                         </div>
                     </div>
@@ -71,16 +59,25 @@
             <div class="panel__title">CORE STOCKPILES</div>
             <div class="stockpile__section">
                 <div class="stockpile__title muted">SUPPLIES</div>
-                <div class="stat-row">
-                    <span class="stat-label">AMMO</span>
+                <div class="stat-row stat-row--supply">
+                    <div class="supply-row">
+                        <img src="/static/img/supply_ammo.png" alt="Ammo" class="supply-icon">
+                        <span class="stat-label">AMMO</span>
+                    </div>
                     <span class="stat-value accent">{{ vm.core.stockpiles.supplies.ammo }}</span>
                 </div>
-                <div class="stat-row">
-                    <span class="stat-label">FUEL</span>
+                <div class="stat-row stat-row--supply">
+                    <div class="supply-row">
+                        <img src="/static/img/supply_fuel.png" alt="Fuel" class="supply-icon">
+                        <span class="stat-label">FUEL</span>
+                    </div>
                     <span class="stat-value accent">{{ vm.core.stockpiles.supplies.fuel }}</span>
                 </div>
-                <div class="stat-row">
-                    <span class="stat-label">MED/SPARES</span>
+                <div class="stat-row stat-row--supply">
+                    <div class="supply-row">
+                        <img src="/static/img/supply_meds.png" alt="Meds" class="supply-icon">
+                        <span class="stat-label">MED/SPARES</span>
+                    </div>
                     <span class="stat-value accent">{{ vm.core.stockpiles.supplies.med_spares }}</span>
                 </div>
             </div>

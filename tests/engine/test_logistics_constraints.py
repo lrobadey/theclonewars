@@ -38,12 +38,14 @@ class TestLogisticsConstraints(unittest.TestCase):
         self.rng = Random(1)
 
     def test_ship_capacity_limit(self):
-        """Cargo ships should reject payloads that exceed capacity."""
+        """Cargo ships should reject payloads that exceed capacity (no ship with capacity available)."""
         origin = LocationId.NEW_SYSTEM_CORE
         dest = LocationId.DEEP_SPACE
         supplies = Supplies(500, 0, 0)  # Ammo exceeds ship capacity (200)
 
-        with self.assertRaisesRegex(ValueError, "Cargo exceeds ship capacity"):
+        # With the new logic, we check capacity when finding an available ship.
+        # If no ship can load the cargo, "No idle cargo ship available" is raised.
+        with self.assertRaisesRegex(ValueError, "No idle cargo ship available"):
             self.service.create_shipment(self.logistics_state, origin, dest, supplies, None, self.rng)
 
     def test_no_idle_ship_available(self):
@@ -55,7 +57,7 @@ class TestLogisticsConstraints(unittest.TestCase):
         for ship in self.logistics_state.ships.values():
             ship.state = ShipState.TRANSIT
 
-        with self.assertRaisesRegex(ValueError, "No idle Cargo Ships available"):
+        with self.assertRaisesRegex(ValueError, "No idle cargo ship available"):
             self.service.create_shipment(self.logistics_state, origin, dest, supplies, None, self.rng)
 
     def test_ship_waypoint_to_spaceport(self):

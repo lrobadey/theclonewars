@@ -146,6 +146,9 @@ class GameState:
             control=0.3,  # Initial control level
         )
 
+        logistics = LogisticsState.new()
+        front_supplies = logistics.depot_stocks[LocationId.CONTESTED_FRONT]
+
         return GameState(
             day=1,
             rng_seed=seed,
@@ -165,12 +168,12 @@ class GameState:
                 queue_policy=barracks_cfg.queue_policy,
                 costs=barracks_cfg.costs,
             ),
-            logistics=LogisticsState.new(),
+            logistics=logistics,
             task_force=TaskForceState(
                 composition=UnitComposition(infantry=120, walkers=2, support=1),
                 readiness=1.00,
                 cohesion=1.00,
-                supplies=Supplies(ammo=120, fuel=90, med_spares=40),
+                supplies=front_supplies,
                 location=LocationId.CONTESTED_SPACEPORT,
             ),
             rules=rules,
@@ -186,6 +189,17 @@ class GameState:
     def contested_planet(self) -> PlanetState:
         """Helper to access the main contested planet (MVP assumption)."""
         return self.planets[LocationId.CONTESTED_SPACEPORT]
+
+    @property
+    def front_supplies(self) -> Supplies:
+        return self.logistics.depot_stocks[LocationId.CONTESTED_FRONT]
+
+    def set_front_supplies(self, supplies: Supplies) -> None:
+        self.logistics.depot_stocks[LocationId.CONTESTED_FRONT] = supplies
+        self.task_force.supplies = supplies
+
+    def _sync_task_force_supplies(self) -> None:
+        self.task_force.supplies = self.front_supplies
 
     def advance_day(self) -> None:
         """Advance game state by one day."""
@@ -251,11 +265,13 @@ class GameState:
         self.task_force.composition.walkers = result.your_remaining["walkers"]
         self.task_force.composition.support = result.your_remaining["support"]
 
-        self.task_force.supplies = Supplies(
-            ammo=self.task_force.supplies.ammo - result.supplies_consumed.ammo,
-            fuel=self.task_force.supplies.fuel - result.supplies_consumed.fuel,
-            med_spares=self.task_force.supplies.med_spares - result.supplies_consumed.med_spares,
-        ).clamp_non_negative()
+        self.set_front_supplies(
+            Supplies(
+                ammo=self.front_supplies.ammo - result.supplies_consumed.ammo,
+                fuel=self.front_supplies.fuel - result.supplies_consumed.fuel,
+                med_spares=self.front_supplies.med_spares - result.supplies_consumed.med_spares,
+            ).clamp_non_negative()
+        )
 
         casualty_ratio = result.your_casualties_total / max(1, initial_units)
         readiness_drop = min(0.35, (0.02 * result.ticks) + (0.25 * casualty_ratio))
@@ -447,6 +463,7 @@ class GameState:
         # LogisticsService.tick expects 'planet', likely uses 'planet.control' for interdiction?
         # Let's pass contested_planet for now as legacy behavior
         self.logistics_service.tick(self.logistics, self.contested_planet, self.rng, self.day)
+        self._sync_task_force_supplies()
 
     def _resupply_task_force_daily(self) -> None:
         """Resupply task force from key planet depot."""
@@ -456,13 +473,15 @@ class GameState:
         """Apply daily fuel/med consumption and readiness degradation."""
         upkeep_fuel = 2
         upkeep_med = 1
-        tf_supplies = self.task_force.supplies
+        tf_supplies = self.front_supplies
         new_fuel = max(0, tf_supplies.fuel - upkeep_fuel)
         new_med = max(0, tf_supplies.med_spares - upkeep_med)
-        self.task_force.supplies = Supplies(
-            ammo=tf_supplies.ammo,
-            fuel=new_fuel,
-            med_spares=new_med,
+        self.set_front_supplies(
+            Supplies(
+                ammo=tf_supplies.ammo,
+                fuel=new_fuel,
+                med_spares=new_med,
+            )
         )
         if new_fuel == 0 or new_med == 0:
             self.task_force.readiness = max(0.0, self.task_force.readiness - 0.02)
@@ -539,7 +558,7 @@ class GameState:
         depot_node = LocationId.CONTESTED_SPACEPORT
         depot_stock = self.logistics.depot_stocks[depot_node]
         depot_units = self.logistics.depot_units[depot_node]
-        tf_supplies = self.task_force.supplies
+        tf_supplies = self.front_supplies
 
         ammo_deficit = max(0, caps.ammo - tf_supplies.ammo)
         fuel_deficit = max(0, caps.fuel - tf_supplies.fuel)
@@ -564,10 +583,12 @@ class GameState:
             self.task_force.composition.infantry += depot_units.infantry
             self.task_force.composition.walkers += depot_units.walkers
             self.task_force.composition.support += depot_units.support
-        self.task_force.supplies = Supplies(
-            ammo=tf_supplies.ammo + ammo_transfer,
-            fuel=tf_supplies.fuel + fuel_transfer,
-            med_spares=tf_supplies.med_spares + med_transfer,
+        self.set_front_supplies(
+            Supplies(
+                ammo=tf_supplies.ammo + ammo_transfer,
+                fuel=tf_supplies.fuel + fuel_transfer,
+                med_spares=tf_supplies.med_spares + med_transfer,
+            )
         )
 
     def start_operation(self, plan: OperationPlan) -> None:
@@ -746,10 +767,12 @@ class GameState:
             )
 
         # Consume supplies
-        self.task_force.supplies = Supplies(
-            ammo=max(0, self.task_force.supplies.ammo - supplies_spent.ammo),
-            fuel=max(0, self.task_force.supplies.fuel - supplies_spent.fuel),
-            med_spares=max(0, self.task_force.supplies.med_spares - supplies_spent.med_spares),
+        self.set_front_supplies(
+            Supplies(
+                ammo=max(0, self.front_supplies.ammo - supplies_spent.ammo),
+                fuel=max(0, self.front_supplies.fuel - supplies_spent.fuel),
+                med_spares=max(0, self.front_supplies.med_spares - supplies_spent.med_spares),
+            )
         )
 
         # Apply losses
@@ -836,7 +859,7 @@ class GameState:
         fuel_cost = int(round(base_fuel * phase_days * supply_mult))
 
         # Check for shortages
-        if self.task_force.supplies.ammo < ammo_cost:
+        if self.front_supplies.ammo < ammo_cost:
             ammo_class = self.rules.supply_classes.get("ammo")
             if ammo_class:
                 penalty = ammo_class.shortage_effects.get("progress_penalty", -0.30)
@@ -948,7 +971,7 @@ class GameState:
         fuel_cost = int(round(15 * phase_days * supply_mult))
         med_cost = int(round(5 * phase_days * supply_mult))
 
-        if self.task_force.supplies.fuel < fuel_cost:
+        if self.front_supplies.fuel < fuel_cost:
             fuel_class = self.rules.supply_classes.get("fuel")
             if fuel_class:
                 penalty = fuel_class.shortage_effects.get("progress_penalty", -0.30)
@@ -1040,7 +1063,7 @@ class GameState:
             med_spares=med_cost,
         )
 
-        if self.task_force.supplies.med_spares < med_cost:
+        if self.front_supplies.med_spares < med_cost:
             med_class = self.rules.supply_classes.get("med_spares")
             if med_class:
                 penalty = med_class.shortage_effects.get("loss_multiplier", 1.20)
@@ -1178,7 +1201,7 @@ class GameState:
             operation_type=op.op_type.value,
             days=op.day_in_operation,
             losses=op.accumulated_losses,
-            remaining_supplies=self.task_force.supplies,
+            remaining_supplies=self.front_supplies,
             top_factors=top,
             phases=list(op.phase_history),
             events=all_events,
@@ -1267,21 +1290,21 @@ class GameState:
         # Supply shortages
         shortages = 0
         supply_shortage_penalty = 0.0
-        if self.task_force.supplies.ammo < ammo_cost:
+        if self.front_supplies.ammo < ammo_cost:
             shortages += 1
             ammo_class = self.rules.supply_classes.get("ammo")
             if ammo_class:
                 penalty = ammo_class.shortage_effects.get("progress_penalty", -0.30)
                 supply_shortage_penalty += penalty
                 log("ammo_shortage", "Phase 1", penalty, "progress", "Insufficient ammo reduces shaping effectiveness")
-        if self.task_force.supplies.fuel < fuel_cost:
+        if self.front_supplies.fuel < fuel_cost:
             shortages += 1
             fuel_class = self.rules.supply_classes.get("fuel")
             if fuel_class:
                 penalty = fuel_class.shortage_effects.get("progress_penalty", -0.30)
                 supply_shortage_penalty += penalty
                 log("fuel_shortage", "Phase 2", penalty, "progress", "Insufficient fuel slows maneuver")
-        if self.task_force.supplies.med_spares < med_cost:
+        if self.front_supplies.med_spares < med_cost:
             shortages += 1
             med_class = self.rules.supply_classes.get("med_spares")
             if med_class:
@@ -1416,10 +1439,12 @@ class GameState:
             outcome = outcome_map[d3.end_state] if success else "FAILED"
 
         # Consume supplies
-        self.task_force.supplies = Supplies(
-            ammo=max(0, self.task_force.supplies.ammo - ammo_cost),
-            fuel=max(0, self.task_force.supplies.fuel - fuel_cost),
-            med_spares=max(0, self.task_force.supplies.med_spares - med_cost),
+        self.set_front_supplies(
+            Supplies(
+                ammo=max(0, self.front_supplies.ammo - ammo_cost),
+                fuel=max(0, self.front_supplies.fuel - fuel_cost),
+                med_spares=max(0, self.front_supplies.med_spares - med_cost),
+            )
         )
 
         # Apply consequences
@@ -1454,7 +1479,7 @@ class GameState:
             operation_type=op.op_type.value,
             days=days,
             losses=losses,
-            remaining_supplies=self.task_force.supplies,
+            remaining_supplies=self.front_supplies,
             top_factors=top,
             phases=list(op.phase_history),
             events=events,

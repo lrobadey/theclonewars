@@ -79,10 +79,12 @@ def test_console_create_shipment() -> None:
 
     _press(console, "ship-mixed-1")
 
-    assert len(state.logistics.shipments) == 1
-    shipment = state.logistics.shipments[0]
-    assert shipment.origin == LocationId.NEW_SYSTEM_CORE
-    assert shipment.destination == LocationId.CONTESTED_MID_DEPOT
+    # Core->Mid goes through space first (Core->Deep Space), so it creates an order on a ship
+    assert len(state.logistics.active_orders) == 1
+    order = state.logistics.active_orders[0]
+    assert order.origin == LocationId.NEW_SYSTEM_CORE
+    assert order.final_destination == LocationId.CONTESTED_MID_DEPOT
+    assert order.status == "transit"
     assert console.mode == "menu"
 
 
@@ -95,23 +97,27 @@ def test_console_create_unit_shipment() -> None:
     _press(console, "route-core-mid")
     _press(console, "ship-units-1")
 
-    assert len(state.logistics.shipments) == 1
-    shipment = state.logistics.shipments[0]
-    # Shipment carries 80 troopers, 1 walker, 2 support
-    assert shipment.units.infantry == 80
-    assert shipment.units.walkers == 1
-    assert shipment.units.support == 2
+    # Core->Mid goes through space first, so it creates an order on a ship
+    assert len(state.logistics.active_orders) == 1
+    order = state.logistics.active_orders[0]
+    # Order carries 80 troopers, 1 walker, 2 support
+    assert order.units.infantry == 80
+    assert order.units.walkers == 1
+    assert order.units.support == 2
 
 
 def test_console_create_shipment_mid_front() -> None:
     state = _load_state()
     console = CommandConsole(state)
+    # Add stock at mid depot for the shipment
+    state.logistics.depot_stocks[LocationId.CONTESTED_MID_DEPOT] = Supplies(ammo=100, fuel=100, med_spares=50)
 
     _press(console, "route-mid-front")
     assert console.mode == "logistics:package"
 
     _press(console, "ship-ammo-1")
 
+    # Mid->Front is a ground leg, so it creates a ground shipment
     assert len(state.logistics.shipments) == 1
     shipment = state.logistics.shipments[0]
     assert shipment.origin == LocationId.CONTESTED_MID_DEPOT

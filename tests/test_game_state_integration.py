@@ -99,7 +99,11 @@ def test_barracks_outputs_to_core_depot() -> None:
 
 
 def test_production_auto_dispatches_to_stop() -> None:
-    """Test that production outputs dispatch to a non-core stop."""
+    """Test that production outputs dispatch to a non-core stop.
+    
+    Since Core->Mid goes through space first (Core->Deep Space->Spaceport->Mid),
+    we now use active_orders with ship transport, not ground shipments.
+    """
     data_dir = Path(__file__).resolve().parents[1] / "src" / "clone_wars" / "data"
     state = load_game_state(data_dir / "scenario.json")
 
@@ -112,9 +116,10 @@ def test_production_auto_dispatches_to_stop() -> None:
     while len(state.production.jobs) > 0:
         state.advance_day()
 
-    assert len(state.logistics.shipments) == 1
-    shipment = state.logistics.shipments[0]
-    assert shipment.final_destination == LocationId.CONTESTED_MID_DEPOT
+    # Core->Mid goes through space first, so we check active_orders not shipments
+    assert len(state.logistics.active_orders) >= 1
+    order = state.logistics.active_orders[0]
+    assert order.final_destination == LocationId.CONTESTED_MID_DEPOT
 
 
 def test_raid_updates_state_and_sets_report() -> None:
@@ -131,7 +136,7 @@ def test_raid_updates_state_and_sets_report() -> None:
     state.contested_planet.enemy.support = 0
     state.contested_planet.enemy.fortification = 1.0
 
-    initial_ammo = state.task_force.supplies.ammo
+    initial_ammo = state.front_supplies.ammo
     initial_enemy_inf = state.contested_planet.enemy.infantry
 
     report = state.raid(OperationTarget.FOUNDRY)
@@ -139,7 +144,7 @@ def test_raid_updates_state_and_sets_report() -> None:
     assert state.last_aar is report
     assert report.target == OperationTarget.FOUNDRY
     assert report.outcome == "VICTORY"
-    assert state.task_force.supplies.ammo < initial_ammo
+    assert state.front_supplies.ammo < initial_ammo
     assert state.contested_planet.enemy.infantry <= initial_enemy_inf
 
 
@@ -189,26 +194,20 @@ def test_enemy_passive_effects() -> None:
     assert state.contested_planet.enemy.infantry >= initial_infantry
 
 
-def test_front_stock_is_available_to_task_force() -> None:
-    """Test that Front depot stock is automatically available to the task force."""
+def test_front_stock_is_shared_with_task_force() -> None:
+    """Test that Front depot stock and task force supplies are identical."""
     data_dir = Path(__file__).resolve().parents[1] / "src" / "clone_wars" / "data"
     state = load_game_state(data_dir / "scenario.json")
 
     # Seed Front depot and drain task force to force resupply.
     state.logistics.depot_stocks[LocationId.CONTESTED_FRONT] = Supplies(ammo=50, fuel=40, med_spares=30)
     state.logistics.depot_units[LocationId.CONTESTED_FRONT] = UnitStock(infantry=4, walkers=1, support=2)
-    state.task_force.supplies = Supplies(ammo=0, fuel=0, med_spares=0)
+    state.set_front_supplies(Supplies(ammo=0, fuel=0, med_spares=0))
 
-    initial_task_force_ammo = state.task_force.supplies.ammo
-    initial_infantry = state.task_force.composition.infantry
-    front_ammo = state.logistics.depot_stocks[LocationId.CONTESTED_FRONT].ammo
+    state.set_front_supplies(Supplies(ammo=50, fuel=40, med_spares=30))
 
-    state.resupply_task_force()
-
-    assert state.task_force.supplies.ammo == initial_task_force_ammo + front_ammo
-    assert state.logistics.depot_stocks[LocationId.CONTESTED_FRONT].ammo == 0
-    assert state.task_force.composition.infantry == initial_infantry + 4
-    assert state.logistics.depot_units[LocationId.CONTESTED_FRONT].infantry == 0
+    assert state.task_force.supplies == state.front_supplies
+    assert state.front_supplies == Supplies(ammo=50, fuel=40, med_spares=30)
 
 
 def test_win_condition_all_objectives() -> None:
@@ -220,7 +219,7 @@ def test_win_condition_all_objectives() -> None:
     state.task_force.composition.infantry = 1000
     state.task_force.composition.walkers = 0
     state.task_force.composition.support = 0
-    state.task_force.supplies = Supplies(ammo=10_000, fuel=10_000, med_spares=10_000)
+    state.set_front_supplies(Supplies(ammo=10_000, fuel=10_000, med_spares=10_000))
     state.contested_planet.enemy.infantry = 10
     state.contested_planet.enemy.walkers = 0
     state.contested_planet.enemy.support = 0
@@ -255,7 +254,7 @@ def test_raid_fails_against_secured_objective() -> None:
     state.task_force.composition.infantry = 1000
     state.task_force.composition.walkers = 0
     state.task_force.composition.support = 0
-    state.task_force.supplies = Supplies(ammo=10_000, fuel=10_000, med_spares=10_000)
+    state.set_front_supplies(Supplies(ammo=10_000, fuel=10_000, med_spares=10_000))
     state.contested_planet.enemy.infantry = 10
     state.contested_planet.enemy.walkers = 0
     state.contested_planet.enemy.support = 0

@@ -25,8 +25,16 @@ class TestLogisticsStress(unittest.TestCase):
         """
         Scenario:
         Day 0: Dispatch 100 Ammo from Core -> Front.
-        Day 1-4: Tick loop.
-        Goal: 100 Ammo arrives at Front without loss.
+        Days 1+: Tick loop with physical leg-by-leg delivery.
+        
+        NEW BEHAVIOR: Goods physically travel through each waypoint:
+        - Tick 1: Arrive Deep Space, immediately re-dispatch to Spaceport
+        - Tick 2: Arrive Spaceport, create ground convoy to Mid  
+        - Tick 3: Ground convoy arrives at Mid, create convoy to Front
+        - Tick 4: Ground convoy arrives at Front
+        
+        Note: The dispatch for the next leg happens in the same tick as arrival,
+        so goods don't "sit" at waypoints waiting for next day.
         """
         
         # --- Day 0: Dispatch ---
@@ -40,62 +48,57 @@ class TestLogisticsStress(unittest.TestCase):
             self.rng
         )
         
-        # Verify initial state:
-        # - Core Stock reduced
+        # Verify initial state
         self.assertEqual(self.state.depot_stocks[LocationId.NEW_SYSTEM_CORE].ammo, 900)
-        # - Order Created
         self.assertEqual(len(self.state.active_orders), 1)
         order = self.state.active_orders[0]
         self.assertEqual(order.status, "transit")
-        # - Ship Loaded
+        self.assertEqual(order.final_destination, LocationId.CONTESTED_FRONT)
+        
         ship = self.state.ships["1"]
-        self.assertEqual(ship.orders[0], order)
-        self.assertEqual(ship.destination, LocationId.DEEP_SPACE) # First Hop
+        self.assertEqual(ship.destination, LocationId.DEEP_SPACE)
         
-        # --- Day 1: Space Transit (Core -> Deep) ---
-        print("[Day 1] Ticking (Space Transit)...")
-        self.logistics_service.tick(self.state, self.planet, self.rng)
+        # --- Tick 1: Ship arrives at Deep Space, immediately re-dispatches ---
+        print("[Tick 1] Ship Core -> Deep Space, then re-dispatch to Spaceport...")
+        self.logistics_service.tick(self.state, self.planet, self.rng, current_day=1)
         
-        # Ship should be at DEEP SPACE (1 day travel)
-        # Check auto-forwarding logic for next leg (Deep -> Spaceport)
-        # The service tick handles arrival AND departure if auto-forwarding logic exists
-        # In our implementation, Deep Space arrival triggers auto-forward to Spaceport
+        # Ship has arrived at Deep Space AND been re-dispatched to Spaceport
         self.assertEqual(ship.location, LocationId.DEEP_SPACE)
-        self.assertEqual(ship.state, "transit")
+        self.assertEqual(ship.state.value, "transit")  # Already in transit again
         self.assertEqual(ship.destination, LocationId.CONTESTED_SPACEPORT)
         
-        # --- Day 2: Arrival at Spaceport & Handoff ---
-        print("[Day 2] Ticking (Arrival Spaceport)...")
-        self.logistics_service.tick(self.state, self.planet, self.rng)
+        # Goods passed through Deep Space (depot shows 0 because they were picked up again)
+        # Note: the order is on the ship again, so depot is empty
+        self.assertEqual(self.state.depot_stocks[LocationId.DEEP_SPACE].ammo, 0)
         
-        # Ship arrived at Spaceport
+        # --- Tick 2: Ship arrives at Spaceport ---
+        print("[Tick 2] Ship arrives at Spaceport, ground convoy starts...")
+        self.logistics_service.tick(self.state, self.planet, self.rng, current_day=2)
+        
+        # Ship arrived at Spaceport, unloaded
         self.assertEqual(ship.location, LocationId.CONTESTED_SPACEPORT)
-        # Ship should be empty (unloaded)
-        self.assertEqual(len(ship.orders), 0)
-        self.assertEqual(ship.state, "idle")
+        self.assertEqual(ship.state.value, "idle")
         
-        # Ground Shipment should be created (Spaceport -> Mid)
+        # Ground convoy should be in transit to Mid
+        self.assertEqual(order.status, "transit")
         self.assertEqual(len(self.state.shipments), 1)
         convoy = self.state.shipments[0]
-        print(f"DEBUG: Convoy State: {convoy}")
-        print(f"DEBUG: Convoy Path: {[p.value for p in convoy.path]}")
-        print(f"DEBUG: Convoy Leg Index: {convoy.leg_index}")
-        self.assertEqual(convoy.orders[0], order)
         self.assertEqual(convoy.destination, LocationId.CONTESTED_MID_DEPOT)
         
-        # --- Day 3: Convoy at Mid Depot ---
-        print("[Day 3] Ticking (Arrival Mid/Transit Front)...")
-        self.logistics_service.tick(self.state, self.planet, self.rng)
+        # --- Tick 3: Ground convoy arrives at Mid, new convoy to Front ---
+        print("[Tick 3] Convoy arrives at Mid, new convoy to Front...")
+        self.logistics_service.tick(self.state, self.planet, self.rng, current_day=3)
         
-        # Convoy logic: If creates new leg, shipment object persists but leg_index increments
-        # Leg 0 was Spaceport -> Mid
-        # Leg 1 should be Mid -> Front
-        self.assertEqual(convoy.leg_index, 1)
+        # Order should be in transit to Front
+        self.assertEqual(order.status, "transit")
+        # New convoy created for Mid->Front
+        self.assertEqual(len(self.state.shipments), 1)
+        convoy = self.state.shipments[0]
         self.assertEqual(convoy.destination, LocationId.CONTESTED_FRONT)
         
-        # --- Day 4: Arrival at Front ---
-        print("[Day 4] Ticking (Arrival Front)...")
-        self.logistics_service.tick(self.state, self.planet, self.rng)
+        # --- Tick 4: Ground convoy arrives at Front ---
+        print("[Tick 4] Convoy arrives at Front...")
+        self.logistics_service.tick(self.state, self.planet, self.rng, current_day=4)
         
         # Order should be complete
         self.assertEqual(order.status, "complete")
@@ -105,7 +108,10 @@ class TestLogisticsStress(unittest.TestCase):
         front_stock = self.state.depot_stocks[LocationId.CONTESTED_FRONT]
         self.assertEqual(front_stock.ammo, 100)
         
-        print("[Audit] Success! 100 Ammo delivered to Front.")
+        # No more shipments in transit
+        self.assertEqual(len(self.state.shipments), 0)
+        
+        print("[Audit] Success! 100 Ammo delivered to Front via physical supply chain in 4 ticks.")
 
 if __name__ == '__main__':
     unittest.main()

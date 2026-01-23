@@ -192,8 +192,10 @@ def viewport_vm(state: GameState, controller: ConsoleController) -> dict:
         payload["core"] = core_view_vm(state, controller)
     elif view_mode == "deep":
         payload["deep"] = deep_view_vm(state, controller)
+        payload["supply_chain"] = supply_chain_vm(state, controller)
     else:
         payload["tactical"] = tactical_view_vm(state, controller)
+        payload["supply_chain"] = supply_chain_vm(state, controller)
     return payload
 
 
@@ -498,10 +500,47 @@ def tactical_view_vm(state: GameState, controller: ConsoleController) -> dict:
             }
         )
 
+    # --- Supply Line Tracking ---
+    # Extract ground shipments currently moving between these tactical nodes.
+    convoys = []
+    
+    # Shipment structure: origin, destination, days_remaining, total_days
+    for s in state.logistics.shipments:
+        leg_id = None
+        if s.origin == LocationId.CONTESTED_SPACEPORT and s.destination == LocationId.CONTESTED_MID_DEPOT:
+            leg_id = "spaceport-mid"
+        elif s.origin == LocationId.CONTESTED_MID_DEPOT and s.destination == LocationId.CONTESTED_FRONT:
+            leg_id = "mid-front"
+            
+        if leg_id:
+            # Calculate progress (0-100)
+            elapsed = max(0, s.total_days - s.days_remaining)
+            # Add a small offset so it's not at 0% at the start of travel
+            progress = int((elapsed / max(1, s.total_days)) * 100)
+            if s.days_remaining > 0:
+                # Add a sub-day pulse factor? For now just progress is enough.
+                pass
+
+            # Determine dominant cargo type
+            cargo_type = "mixed"
+            supplies = s.supplies
+            if supplies.ammo > supplies.fuel and supplies.ammo > supplies.med_spares:
+                cargo_type = "ammo"
+            elif supplies.fuel > supplies.ammo and supplies.fuel > supplies.med_spares:
+                cargo_type = "fuel"
+                
+            convoys.append({
+                "leg": leg_id,
+                "progress": progress,
+                "type": cargo_type,
+                "label": f"{cargo_type.upper()} CONVOY"
+            })
+
     return {
         "focus": focus.value,
         "focus_key": focus_key,
         "chain": chain,
+        "convoys": convoys,
         "spaceport": {
             "supplies": {
                 "ammo": fmt_int(spaceport_stock.ammo),
@@ -725,7 +764,7 @@ def task_force_vm(state: GameState, controller: ConsoleController) -> dict:
     else:
         coh_label = "LOW"
 
-    supplies = tf.supplies
+    supplies = state.front_supplies
     ammo_bar = bar(supplies.ammo, 300)
     fuel_bar = bar(supplies.fuel, 200)
     med_bar = bar(supplies.med_spares, 150)
@@ -1030,8 +1069,6 @@ def logistics_vm(state: GameState, controller: ConsoleController) -> dict:
     
     depots = []
     for depot in depot_ids:
-        # stock = state.task_force.supplies if depot == LocationId.CONTESTED_FRONT else stocks[depot]
-        # (Task Force supply logic might need revisited, but for now just show depot stocks)
         stock = stocks.get(depot, None)
         if stock is None: continue
         
@@ -1064,8 +1101,65 @@ def logistics_vm(state: GameState, controller: ConsoleController) -> dict:
             }
         )
 
-    # Active Shipments (Ground Convoys)
+    # Active Shipments (Ground Convoys AND Space Cargo)
     shipments = []
+    
+    # 1. Add Active Cargo Ships (Space Network)
+    # We want to show ships that are moving OR have cargo
+    for ship in state.logistics.ships.values():
+        is_moving = ship.state == "transit"
+        has_cargo = len(ship.orders) > 0
+        
+        if is_moving or has_cargo:
+            # Determine status label
+            if is_moving:
+                status = "IN FLIGHT"
+                status_tone = "enroute"
+            else:
+                status = "LOADING"
+                status_tone = "muted"
+            
+            # Determine path/leg label
+            # If moving, use current -> dest
+            # If idle, use current (Docked)
+            if is_moving and ship.destination:
+                origin_name = ship.location.value.split("_")[-1].upper()
+                dest_name = ship.destination.value.split("_")[-1].upper()
+                path = f"{origin_name}->{dest_name}"
+                leg = f"{origin_name}->{dest_name}"
+            else:
+                loc_name = ship.location.value.split("_")[-1].upper()
+                path = f"DOCKED AT {loc_name}"
+                leg = "DOCKED"
+
+            # Calculate payload string
+            s_payload = ship.supplies
+            u_payload = ship.units
+            
+            unit_seg = ""
+            if u_payload.infantry or u_payload.walkers or u_payload.support:
+                unit_seg = (
+                    f"I{u_payload.infantry} W{u_payload.walkers} "
+                    f"S{u_payload.support}"
+                )
+            
+            shipments.append(
+                {
+                    "id": f"SHIP-{ship.ship_id}",
+                    "path": path,
+                    "leg": leg,
+                    "supplies": (
+                        f"A{fmt_int(s_payload.ammo)} F{fmt_int(s_payload.fuel)} "
+                        f"M{fmt_int(s_payload.med_spares)}"
+                    ),
+                    "units": unit_seg,
+                    "eta": ship.days_remaining if is_moving else "-",
+                    "status": status,
+                    "status_tone": status_tone,
+                }
+            )
+
+    # 2. Add Ground Convoys (Planetary Network)
     if state.logistics.shipments:
         for shipment in state.logistics.shipments:
             status = "INTERDICTED" if shipment.interdicted else "EN ROUTE"
@@ -1080,7 +1174,7 @@ def logistics_vm(state: GameState, controller: ConsoleController) -> dict:
                 )
             shipments.append(
                 {
-                    "id": shipment.shipment_id,
+                    "id": str(shipment.shipment_id),
                     "path": path,
                     "leg": leg,
                     "supplies": (
@@ -1137,6 +1231,166 @@ def logistics_vm(state: GameState, controller: ConsoleController) -> dict:
             "hull_avail": idle_ships,
             "hull_total": total_ships,
         },
+    }
+
+
+def supply_chain_vm(state: GameState, controller: ConsoleController) -> dict:
+    """Build a comprehensive supply chain visualization showing where goods are and their progress."""
+    chain_nodes = []
+    route_legs = []
+    active_orders_list = []
+    
+    # Define the full supply chain path
+    supply_path = [
+        LocationId.NEW_SYSTEM_CORE,
+        LocationId.DEEP_SPACE,
+        LocationId.CONTESTED_SPACEPORT,
+        LocationId.CONTESTED_MID_DEPOT,
+        LocationId.CONTESTED_FRONT,
+    ]
+    
+    node_labels = {
+        LocationId.NEW_SYSTEM_CORE: ("CORE", "Industrial Hub"),
+        LocationId.DEEP_SPACE: ("DEEP", "Transit Waypoint"),
+        LocationId.CONTESTED_SPACEPORT: ("PORT", "Orbital Depot"),
+        LocationId.CONTESTED_MID_DEPOT: ("MID", "Forward Supply"),
+        LocationId.CONTESTED_FRONT: ("FRONT", "Combat Zone"),
+    }
+    
+    # Build node data with stocks and pending items
+    for loc in supply_path:
+        stock = state.logistics.depot_stocks.get(loc, None)
+        units = state.logistics.depot_units.get(loc, None)
+        label, desc = node_labels.get(loc, (loc.value, ""))
+        
+        # Count orders waiting at this location
+        pending_here = sum(
+            1 for o in state.logistics.active_orders 
+            if o.current_location == loc and o.status == "pending"
+        )
+        
+        chain_nodes.append({
+            "id": loc.value,
+            "label": label,
+            "description": desc,
+            "supplies": {
+                "ammo": fmt_int(stock.ammo) if stock else "0",
+                "fuel": fmt_int(stock.fuel) if stock else "0",
+                "med": fmt_int(stock.med_spares) if stock else "0",
+            },
+            "units": {
+                "infantry": fmt_int(units.infantry) if units else "0",
+                "walkers": fmt_int(units.walkers) if units else "0",
+                "support": fmt_int(units.support) if units else "0",
+            },
+            "pending_orders": pending_here,
+            "has_stock": stock and (stock.ammo > 0 or stock.fuel > 0 or stock.med_spares > 0),
+        })
+    
+    # Build route leg data (what's in transit between nodes)
+    for i in range(len(supply_path) - 1):
+        origin = supply_path[i]
+        dest = supply_path[i + 1]
+        
+        # Find route for this leg
+        route = None
+        for r in state.logistics.routes:
+            if r.origin == origin and r.destination == dest:
+                route = r
+                break
+        
+        # Find shipments/ships on this leg
+        in_transit = []
+        
+        # Check ships
+        for ship in state.logistics.ships.values():
+            if ship.state == ShipState.TRANSIT:
+                if ship.location == origin and ship.destination == dest:
+                    progress = 0
+                    if ship.total_days > 0:
+                        progress = int(((ship.total_days - ship.days_remaining) / ship.total_days) * 100)
+                    in_transit.append({
+                        "type": "ship",
+                        "id": f"SHIP-{ship.ship_id}",
+                        "name": ship.name,
+                        "progress": progress,
+                        "eta": ship.days_remaining,
+                        "cargo": f"A{fmt_int(ship.supplies.ammo)} F{fmt_int(ship.supplies.fuel)}",
+                    })
+        
+        # Check ground shipments
+        for shipment in state.logistics.shipments:
+            if shipment.origin == origin and shipment.destination == dest:
+                progress = 0
+                if shipment.total_days > 0:
+                    progress = int(((shipment.total_days - shipment.days_remaining) / shipment.total_days) * 100)
+                in_transit.append({
+                    "type": "convoy",
+                    "id": f"#{shipment.shipment_id}",
+                    "name": f"Convoy #{shipment.shipment_id}",
+                    "progress": progress,
+                    "eta": shipment.days_remaining,
+                    "cargo": f"A{fmt_int(shipment.supplies.ammo)} F{fmt_int(shipment.supplies.fuel)}",
+                })
+        
+        route_legs.append({
+            "origin": node_labels[origin][0],
+            "destination": node_labels[dest][0],
+            "origin_id": origin.value,
+            "dest_id": dest.value,
+            "travel_days": route.travel_days if route else 1,
+            "risk_pct": int(route.interdiction_risk * 100) if route else 0,
+            "is_space": origin in (LocationId.NEW_SYSTEM_CORE, LocationId.DEEP_SPACE),
+            "in_transit": in_transit,
+            "has_traffic": len(in_transit) > 0,
+        })
+    
+    # Build active orders summary
+    for order in state.logistics.active_orders:
+        if order.status == "complete":
+            continue
+        
+        origin_label = node_labels.get(order.origin, (order.origin.value, ""))[0]
+        dest_label = node_labels.get(order.final_destination, (order.final_destination.value, ""))[0]
+        current_label = node_labels.get(order.current_location, (order.current_location.value, ""))[0]
+        
+        if order.in_transit_leg:
+            leg_from = node_labels.get(order.in_transit_leg[0], (order.in_transit_leg[0].value, ""))[0]
+            leg_to = node_labels.get(order.in_transit_leg[1], (order.in_transit_leg[1].value, ""))[0]
+            location = f"{leg_from} → {leg_to}"
+            status_class = "transit"
+        else:
+            location = current_label
+            status_class = "pending"
+        
+        active_orders_list.append({
+            "id": order.order_id,
+            "origin": origin_label,
+            "destination": dest_label,
+            "current": location,
+            "status": order.status.upper(),
+            "status_class": status_class,
+            "carrier": order.carrier_id or "-",
+            "cargo": f"A{fmt_int(order.supplies.ammo)} F{fmt_int(order.supplies.fuel)} M{fmt_int(order.supplies.med_spares)}",
+        })
+    
+    # Fleet summary
+    total_ships = len(state.logistics.ships)
+    idle_ships = sum(1 for s in state.logistics.ships.values() if s.state == ShipState.IDLE)
+    
+    return {
+        "nodes": chain_nodes,
+        "legs": route_legs,
+        "orders": active_orders_list,
+        "fleet": {
+            "total": total_ships,
+            "idle": idle_ships,
+            "in_transit": total_ships - idle_ships,
+        },
+        "transit_log": [
+            {"day": entry.day, "message": entry.message, "event_type": entry.event_type}
+            for entry in state.logistics.transit_log[:10]
+        ],
     }
 
 
@@ -1638,4 +1892,5 @@ PANEL_SPECS: dict[str, PanelSpec] = {
     "header": PanelSpec(template="panels/header.html", builder=header_vm),
     "navigator": PanelSpec(template="panels/navigator.html", builder=navigator_vm),
     "viewport": PanelSpec(template="panels/viewport.html", builder=viewport_vm),
+    "supply_chain": PanelSpec(template="panels/supply_chain.html", builder=supply_chain_vm),
 }

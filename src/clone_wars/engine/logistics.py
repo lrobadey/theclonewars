@@ -28,7 +28,11 @@ class TransportOrder:
     units: UnitStock
     # Tracking
     current_location: LocationId
-    status: str = "pending" # pending, transit, complete
+    status: str = "pending"  # pending, transit, complete
+    # Transit tracking for UI: (origin, destination) of current leg, or None if not in transit
+    in_transit_leg: tuple[LocationId, LocationId] | None = None
+    # Carrier ID (ship_id or shipment_id) for tracking
+    carrier_id: str | None = None
 
 
 class ShipState(str, Enum):
@@ -138,6 +142,17 @@ class Shipment:
                 total.ammo + o.supplies.ammo,
                 total.fuel + o.supplies.fuel,
                 total.med_spares + o.supplies.med_spares
+            )
+        return total
+
+    @property
+    def units(self) -> UnitStock:
+        total = UnitStock(0, 0, 0)
+        for o in self.orders:
+            total = UnitStock(
+                total.infantry + o.units.infantry,
+                total.walkers + o.units.walkers,
+                total.support + o.units.support
             )
         return total
 

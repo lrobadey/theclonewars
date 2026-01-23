@@ -46,22 +46,23 @@ def test_create_shipment() -> None:
     logistics = LogisticsState.new()
     service = LogisticsService()
     rng = Random(42)
-    initial_core = logistics.depot_stocks[LocationId.NEW_SYSTEM_CORE].ammo
-
+    # Pre-stock origin
+    logistics.depot_stocks[LocationId.CONTESTED_MID_DEPOT] = Supplies(ammo=100, fuel=100, med_spares=100)
+    initial_mid = logistics.depot_stocks[LocationId.CONTESTED_MID_DEPOT].ammo
     service.create_shipment(
         logistics,
-        LocationId.NEW_SYSTEM_CORE,
         LocationId.CONTESTED_MID_DEPOT,
+        LocationId.CONTESTED_FRONT,
         Supplies(ammo=50, fuel=30, med_spares=10),
         None,
         rng,
     )
 
-    assert logistics.depot_stocks[LocationId.NEW_SYSTEM_CORE].ammo == initial_core - 50
+    assert logistics.depot_stocks[LocationId.CONTESTED_MID_DEPOT].ammo == initial_mid - 50
     assert len(logistics.shipments) == 1
     shipment = logistics.shipments[0]
-    assert shipment.origin == LocationId.NEW_SYSTEM_CORE
-    assert shipment.destination == LocationId.CONTESTED_MID_DEPOT
+    assert shipment.origin == LocationId.CONTESTED_MID_DEPOT
+    assert shipment.destination == LocationId.CONTESTED_FRONT
     assert shipment.days_remaining > 0
 
 
@@ -73,11 +74,11 @@ def test_create_shipment_insufficient_stock() -> None:
     # Set Core stock to low value
     logistics.depot_stocks[LocationId.NEW_SYSTEM_CORE] = Supplies(ammo=10, fuel=10, med_spares=10)
 
-    with pytest.raises(ValueError, match="Insufficient stock"):
+    with pytest.raises(ValueError, match="Insufficient supplies"):
         service.create_shipment(
             logistics,
-            LocationId.NEW_SYSTEM_CORE,
             LocationId.CONTESTED_MID_DEPOT,
+            LocationId.CONTESTED_FRONT,
             Supplies(ammo=50, fuel=30, med_spares=10),
             None,
             rng,
@@ -92,10 +93,12 @@ def test_logistics_tick() -> None:
     planet = _dummy_planet()
     initial_mid = logistics.depot_stocks[LocationId.CONTESTED_MID_DEPOT].ammo
 
-    # Create shipment
+    # Pre-stock origin
+    logistics.depot_stocks[LocationId.CONTESTED_SPACEPORT] = Supplies(ammo=100, fuel=100, med_spares=100)
+    # Create shipment from Spaceport to Mid (Ground)
     service.create_shipment(
         logistics,
-        LocationId.NEW_SYSTEM_CORE,
+        LocationId.CONTESTED_SPACEPORT,
         LocationId.CONTESTED_MID_DEPOT,
         Supplies(ammo=50, fuel=0, med_spares=0),
         None,

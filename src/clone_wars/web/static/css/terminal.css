@@ -637,9 +637,12 @@ button.panel__title {
 }
 
 @keyframes breathe-node {
-    0%, 100% {
+
+    0%,
+    100% {
         box-shadow: 0 0 10px rgba(200, 16, 46, 0.4);
     }
+
     50% {
         box-shadow: 0 0 25px rgba(200, 16, 46, 0.8);
     }
@@ -678,7 +681,7 @@ button.panel__title {
     border-bottom: 0;
 }
 
-.stat-group + .stat-group {
+.stat-group+.stat-group {
     margin-top: 8px;
     padding-top: 8px;
     border-top: 1px dashed var(--border);
@@ -1135,7 +1138,7 @@ button.panel__title {
     transform: scale(1.3);
     border-color: var(--text);
     background: var(--text);
-    box-shadow: 
+    box-shadow:
         0 0 0 4px var(--bg),
         0 0 0 6px var(--node-glow, rgba(255, 255, 255, 0.6)),
         0 0 12px var(--node-glow, rgba(255, 255, 255, 0.5)),
@@ -1191,16 +1194,19 @@ button.panel__title {
 /* --- Animations --- */
 
 @keyframes shine {
-    0%, 100% {
-        box-shadow: 
+
+    0%,
+    100% {
+        box-shadow:
             0 0 0 4px var(--bg),
             0 0 0 6px var(--node-glow, rgba(255, 255, 255, 0.5)),
             0 0 10px var(--node-glow, rgba(255, 255, 255, 0.4)),
             0 0 20px var(--node-glow, rgba(255, 255, 255, 0.2));
         transform: scale(1.3);
     }
+
     50% {
-        box-shadow: 
+        box-shadow:
             0 0 0 4px var(--bg),
             0 0 0 8px var(--node-glow, rgba(255, 255, 255, 0.7)),
             0 0 18px var(--node-glow, rgba(255, 255, 255, 0.6)),
@@ -1229,26 +1235,70 @@ button.panel__title {
 
 .tactical__chain {
     position: relative;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 12px;
-    padding: 12px 20px;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    align-items: start;
+    padding: 20px 50px;
     border: 1px solid var(--border);
     border-radius: 6px;
     background: rgba(15, 22, 32, 0.55);
-    overflow: hidden;
+    min-height: 80px;
+    width: 100%;
+    box-sizing: border-box;
 }
 
-.tactical__chain::before {
-    content: "";
+.tactical__lanes {
     position: absolute;
-    left: 28px;
-    right: 28px;
-    top: 50%;
+    top: 27px;
+    left: 50px;
+    right: 50px;
     height: 2px;
-    background: var(--border-strong);
-    transform: translateY(-50%);
+    pointer-events: none;
+    z-index: 0;
+}
+
+.tactical__lane {
+    stroke: var(--border-strong);
+    stroke-width: 2;
+    stroke-dasharray: 4 4;
+    opacity: 0.6;
+}
+
+.tactical__pip {
+    filter: drop-shadow(0 0 4px currentColor);
+    animation: pip-pulse 2s ease-in-out infinite;
+    transform-box: fill-box;
+    transform-origin: center;
+}
+
+.tactical__pip--mixed {
+    color: var(--text);
+    fill: var(--text);
+}
+
+.tactical__pip--ammo {
+    color: var(--red);
+    fill: var(--red);
+}
+
+.tactical__pip--fuel {
+    color: var(--amber);
+    fill: var(--amber);
+}
+
+@keyframes pip-pulse {
+
+    0%,
+    100% {
+        transform: scale(1);
+        opacity: 0.8;
+    }
+
+    50% {
+        transform: scale(1.4);
+        opacity: 1;
+        filter: drop-shadow(0 0 8px currentColor);
+    }
 }
 
 .tactical__node {
@@ -1257,7 +1307,8 @@ button.panel__title {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 8px;
+    justify-self: center;
+    gap: 10px;
     background: transparent;
     border: 0;
     color: var(--muted);
@@ -1266,6 +1317,16 @@ button.panel__title {
     letter-spacing: 0.12em;
     text-transform: uppercase;
     font-size: 0.7rem;
+    padding: 0;
+    margin: 0;
+}
+
+.tactical__node:first-of-type {
+    justify-self: start;
+}
+
+.tactical__node:last-of-type {
+    justify-self: end;
 }
 
 .tactical__node-dot {
@@ -1275,7 +1336,8 @@ button.panel__title {
     border: 2px solid var(--border-strong);
     background: var(--bg);
     box-shadow: 0 0 0 6px var(--bg);
-    transition: transform 0.2s ease, border-color 0.2s ease, background-color 0.2s ease;
+    transition: transform 0.2s ease, border-color 0.2s ease;
+    flex-shrink: 0;
 }
 
 .tactical__node--selected {
@@ -1500,7 +1562,7 @@ button.panel__title {
 .starfield__layer {
     position: absolute;
     inset: 0;
-    background-image: 
+    background-image:
         radial-gradient(1px 1px at 20px 30px, rgba(255, 255, 255, 0.8), transparent),
         radial-gradient(1px 1px at 40px 70px, rgba(255, 255, 255, 0.6), transparent),
         radial-gradient(1px 1px at 50px 160px, rgba(255, 255, 255, 0.7), transparent),
@@ -1527,15 +1589,20 @@ button.panel__title {
 }
 
 @keyframes starfield-drift {
-    from { transform: translateY(0); }
-    to { transform: translateY(-200px); }
+    from {
+        transform: translateY(0);
+    }
+
+    to {
+        transform: translateY(-200px);
+    }
 }
 
 /* Twinkling stars overlay */
 .starfield__twinkle {
     position: absolute;
     inset: 0;
-    background-image: 
+    background-image:
         radial-gradient(2px 2px at 60px 50px, rgba(255, 255, 255, 0.9), transparent),
         radial-gradient(2px 2px at 180px 120px, rgba(56, 189, 248, 0.8), transparent),
         radial-gradient(1.5px 1.5px at 300px 80px, rgba(255, 255, 255, 0.7), transparent);
@@ -1544,8 +1611,15 @@ button.panel__title {
 }
 
 @keyframes twinkle {
-    0%, 100% { opacity: 0.3; }
-    50% { opacity: 1; }
+
+    0%,
+    100% {
+        opacity: 0.3;
+    }
+
+    50% {
+        opacity: 1;
+    }
 }
 
 /* Deep Space Content Container */
@@ -1630,8 +1704,15 @@ button.panel__title {
 }
 
 @keyframes ship-pulse {
-    0%, 100% { box-shadow: 0 0 8px var(--cyan), 0 0 16px rgba(56, 189, 248, 0.4); }
-    50% { box-shadow: 0 0 12px var(--cyan), 0 0 24px rgba(56, 189, 248, 0.6); }
+
+    0%,
+    100% {
+        box-shadow: 0 0 8px var(--cyan), 0 0 16px rgba(56, 189, 248, 0.4);
+    }
+
+    50% {
+        box-shadow: 0 0 12px var(--cyan), 0 0 24px rgba(56, 189, 248, 0.6);
+    }
 }
 
 .transit-lane__info {
@@ -1728,8 +1809,15 @@ button.panel__title {
 }
 
 @keyframes scanner-sweep {
-    0%, 100% { opacity: 0.4; }
-    50% { opacity: 1; }
+
+    0%,
+    100% {
+        opacity: 0.4;
+    }
+
+    50% {
+        opacity: 1;
+    }
 }
 
 .deep-space-empty__status {
@@ -1738,4 +1826,244 @@ button.panel__title {
     color: var(--green);
     text-transform: uppercase;
     letter-spacing: 0.1em;
+}
+/* --- Supply Icons --- */
+
+.supply-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.supply-icon {
+    width: 24px;
+    height: 24px;
+    object-fit: contain;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.4));
+}
+
+.stat-row--supply {
+    padding: 6px 0;
+    min-height: 40px;
+}
+
+/* --- Supply Chain Visualization --- */
+
+.panel--supply-chain .panel__body {
+    padding: 12px;
+}
+
+.supply-chain__visual {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    margin-bottom: 16px;
+}
+
+.supply-chain__node {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 12px;
+    position: relative;
+}
+
+.supply-chain__node--active {
+    border-color: var(--cyan);
+    box-shadow: 0 0 8px rgba(56, 189, 248, 0.2);
+}
+
+.supply-chain__node-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+}
+
+.supply-chain__node-label {
+    font-weight: 700;
+    font-size: 0.85rem;
+    color: var(--cyan);
+}
+
+.supply-chain__node-desc {
+    font-size: 0.7rem;
+}
+
+.supply-chain__node-stock {
+    display: flex;
+    gap: 12px;
+    font-size: 0.75rem;
+}
+
+.supply-chain__stat {
+    color: var(--text);
+}
+
+.supply-chain__pending {
+    margin-top: 6px;
+}
+
+.supply-chain__pending-badge {
+    font-size: 0.65rem;
+    background: var(--amber);
+    color: var(--bg);
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-weight: 700;
+}
+
+.supply-chain__leg {
+    position: relative;
+    height: 32px;
+    margin: 0 16px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+.supply-chain__leg::before {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: var(--border);
+    transform: translateX(-50%);
+}
+
+.supply-chain__leg--space::before {
+    background: linear-gradient(180deg, var(--cyan) 0%, var(--border) 100%);
+}
+
+.supply-chain__leg--ground::before {
+    background: linear-gradient(180deg, var(--amber) 0%, var(--border) 100%);
+}
+
+.supply-chain__leg--active::before {
+    animation: pulse-leg 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-leg {
+    0%, 100% { opacity: 0.5; }
+    50% { opacity: 1; }
+}
+
+.supply-chain__leg-track {
+    position: absolute;
+    left: 50%;
+    top: 0;
+    bottom: 0;
+    width: 40px;
+    transform: translateX(-50%);
+}
+
+.supply-chain__transit-item {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    z-index: 10;
+}
+
+.supply-chain__transit-icon {
+    font-size: 14px;
+    display: block;
+    animation: transit-pulse 1s ease-in-out infinite;
+}
+
+@keyframes transit-pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.2); }
+}
+
+.supply-chain__leg-info {
+    font-size: 0.65rem;
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+.supply-chain__section-title {
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--muted);
+    margin-bottom: 8px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid var(--border);
+}
+
+.supply-chain__orders {
+    margin-bottom: 12px;
+}
+
+.terminal-table--compact {
+    font-size: 0.7rem;
+}
+
+.terminal-table--compact th,
+.terminal-table--compact td {
+    padding: 4px 8px;
+}
+
+.supply-chain__status {
+    font-size: 0.6rem;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.supply-chain__status--transit {
+    background: var(--cyan);
+    color: var(--bg);
+}
+
+.supply-chain__status--pending {
+    background: var(--amber);
+    color: var(--bg);
+}
+
+.supply-chain__log {
+    margin-bottom: 12px;
+}
+
+.supply-chain__log-entries {
+    max-height: 100px;
+    overflow-y: auto;
+}
+
+.supply-chain__log-entry {
+    font-size: 0.7rem;
+    padding: 3px 0;
+    border-bottom: 1px solid var(--border);
+}
+
+.supply-chain__log-entry:last-child {
+    border-bottom: none;
+}
+
+.supply-chain__log-day {
+    color: var(--muted);
+    margin-right: 8px;
+}
+
+.supply-chain__log-entry--departed .supply-chain__log-message {
+    color: var(--cyan);
+}
+
+.supply-chain__log-entry--arrived .supply-chain__log-message {
+    color: var(--green);
+}
+
+.supply-chain__log-entry--interdicted .supply-chain__log-message {
+    color: var(--red);
+}
+
+.supply-chain__fleet {
+    font-size: 0.7rem;
+    text-align: center;
+    padding-top: 8px;
+    border-top: 1px solid var(--border);
 }

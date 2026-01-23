@@ -48,7 +48,7 @@ def test_low_ammo_increases_defeat_likelihood_or_casualties() -> None:
     state_full.task_force.composition.infantry = 50
     state_full.task_force.composition.walkers = 0
     state_full.task_force.composition.support = 0
-    state_full.task_force.supplies = Supplies(ammo=100, fuel=90, med_spares=40)
+    state_full.set_front_supplies(Supplies(ammo=100, fuel=90, med_spares=40))
     state_full.contested_planet.enemy.infantry = 50
     state_full.contested_planet.enemy.fortification = 1.0
     report_full = state_full.raid(OperationTarget.FOUNDRY)
@@ -58,7 +58,7 @@ def test_low_ammo_increases_defeat_likelihood_or_casualties() -> None:
     state_low.task_force.composition.infantry = 50
     state_low.task_force.composition.walkers = 0
     state_low.task_force.composition.support = 0
-    state_low.task_force.supplies = Supplies(ammo=20, fuel=90, med_spares=40)
+    state_low.set_front_supplies(Supplies(ammo=20, fuel=90, med_spares=40))
     state_low.contested_planet.enemy.infantry = 50
     state_low.contested_planet.enemy.fortification = 1.0
     report_low = state_low.raid(OperationTarget.FOUNDRY)
@@ -101,7 +101,7 @@ def test_tick_log_includes_event_tags() -> None:
     """Tick log should include specific event tags under relevant conditions."""
     state = GameState.new(seed=42)
     state.task_force.composition.walkers = 5
-    state.task_force.supplies = Supplies(ammo=20, fuel=90, med_spares=40)
+    state.set_front_supplies(Supplies(ammo=20, fuel=90, med_spares=40))
     state.contested_planet.enemy.fortification = 1.3  # High to trigger fortification events
     report = state.raid(OperationTarget.FOUNDRY)
 

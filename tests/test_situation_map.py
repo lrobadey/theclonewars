@@ -21,7 +21,7 @@ def mock_state():
     state.barracks.jobs = []
     
     state.task_force = MagicMock(spec=TaskForceState)
-    state.task_force.supplies = Supplies(0,0,0)
+    state.front_supplies = Supplies(0, 0, 0)
     
     # Needs rules and objectives for vm
     state.rules = MagicMock()
@@ -114,4 +114,3 @@ def test_situation_map_deep_space_selection(mock_state, controller):
     # The filter in vm shows: location==DEEP_SPACE or destination==DEEP_SPACE or location==CORE
     assert len(vm["detail"]["ships"]) > 0
     assert vm["detail"]["ships"][0]["name"] == "Ship 1"
-
