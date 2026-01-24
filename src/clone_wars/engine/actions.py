@@ -4,14 +4,16 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import Any
 
-from clone_wars.engine.ops import OperationPlan
+from clone_wars.engine.ops import OperationIntent, OperationPlan, OperationTarget
 from clone_wars.engine.state import GameState
+from clone_wars.engine.types import LocationId, Supplies, UnitStock
 
 
 class ActionType(Enum):
     """
     Actions that cost AP (Strategic Orders):
     - START_OPERATION: 1 AP
+    - START_RAID: 1 AP
     - DISPATCH_SHIPMENT: 1 AP
     - UPGRADE_FACTORY: 1 AP
     - UPGRADE_BARRACKS: 1 AP
@@ -21,15 +23,24 @@ class ActionType(Enum):
     - View screens, adjust settings
     """
     START_OPERATION = auto()  # Costs 1 AP
+    START_RAID = auto()       # Costs 1 AP
     DISPATCH_SHIPMENT = auto()  # Costs 1 AP
     UPGRADE_FACTORY = auto()  # Costs 1 AP
     UPGRADE_BARRACKS = auto()  # Costs 1 AP
 
 
 @dataclass()
+class ShipmentPayload:
+    origin: LocationId
+    destination: LocationId
+    supplies: Supplies
+    units: UnitStock
+
+
+@dataclass()
 class PlayerAction:
     action_type: ActionType
-    payload: Any = None  # Flexible payload
+    payload: Any = None  # Generic payload based on action type
 
 
 class ActionError(Exception):
@@ -50,25 +61,56 @@ class ActionManager:
 
     def perform_action(self, action: PlayerAction) -> None:
         """Execute an action that costs AP. All actions here cost 1 AP."""
-        if self.state.action_points <= 0:
-            raise ActionError("No action points remaining. End the day.")
+        if self.state.action_points < 1:
+            raise ActionError("No action points remaining (Need 1 AP).")
 
+        # Execute Logic
         if action.action_type == ActionType.START_OPERATION:
-            if not isinstance(action.payload, OperationPlan):
+            if isinstance(action.payload, OperationIntent):
+                # New phased system
+                self.state.start_operation_phased(action.payload)
+            elif isinstance(action.payload, OperationPlan):
+                # Legacy system (keep for compatibility if needed, or remove if safe)
+                self.state.start_operation(action.payload)
+            else:
                 raise ActionError("Invalid payload for START_OPERATION")
-            self.state.start_operation(action.payload)
-            self._deduct_ap(1)
+        
+        elif action.action_type == ActionType.START_RAID:
+            if not isinstance(action.payload, OperationTarget):
+                 raise ActionError("Invalid payload for START_RAID")
+            self.state.start_raid(action.payload)
 
         elif action.action_type == ActionType.DISPATCH_SHIPMENT:
-            self._deduct_ap(1)
+            if not isinstance(action.payload, ShipmentPayload):
+                raise ActionError("Invalid payload for DISPATCH_SHIPMENT")
+            
+            pl = action.payload
+            # Note: create_shipment can raise ValueError if no ship info/etc, which we let bubble up
+            # or wrap in ActionError. Let's let it bubble up for now or catch/wrap.
+            try:
+                self.state.logistics_service.create_shipment(
+                    self.state.logistics,
+                    pl.origin,
+                    pl.destination,
+                    pl.supplies,
+                    pl.units,
+                    self.state.rng,
+                    current_day=self.state.day
+                )
+            except ValueError as e:
+                raise ActionError(str(e))
 
         elif action.action_type == ActionType.UPGRADE_FACTORY:
             self.state.production.add_factory()
-            self._deduct_ap(1)
             
         elif action.action_type == ActionType.UPGRADE_BARRACKS:
             self.state.barracks.add_barracks()
-            self._deduct_ap(1)
+
+        else:
+            raise ActionError(f"Unknown action type: {action.action_type}")
+
+        # Deduct AP only if successful (no exception raised)
+        self._deduct_ap(1)
 
     def _deduct_ap(self, amount: int) -> None:
         self.state.action_points = max(0, self.state.action_points - amount)

@@ -3,6 +3,13 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from clone_wars.engine.types import LocationId, Supplies, UnitStock
+from clone_wars.engine.actions import (
+    ActionError,
+    ActionManager,
+    ActionType,
+    PlayerAction,
+    ShipmentPayload,
+)
 from clone_wars.engine.ops import (
     OperationIntent,
     OperationPhase,
@@ -75,13 +82,7 @@ class ConsoleController:
         self.message = text
         self.message_kind = kind
 
-    def _try_spend_ap(self, state: GameState, cost: int = 1) -> bool:
-        """Attempt to spend AP. Returns True if successful, False if insufficient AP."""
-        if state.action_points < cost:
-            self._set_message(f"NOT ENOUGH ACTION POINTS (NEED {cost})", "error")
-            return False
-        state.action_points -= cost
-        return True
+    # _try_spend_ap removed (handled by ActionManager)
 
     def _set_phase_decision_mode(self, phase: OperationPhase) -> None:
         if phase == OperationPhase.CONTACT_SHAPING:
@@ -113,17 +114,16 @@ class ConsoleController:
             self._set_message("OPERATION ALREADY ACTIVE", "error")
             self.mode = "menu"
             return
-        if not self._try_spend_ap(state, 1):
-            self.mode = "menu"
-            return
+
         intent = OperationIntent(target=self.target, op_type=op_type)
+        mgr = ActionManager(state)
         try:
-            state.start_operation_phased(intent)
-        except RuntimeError as exc:
-            state.action_points += 1  # Refund AP on failure
+            mgr.perform_action(PlayerAction(ActionType.START_OPERATION, payload=intent))
+        except ActionError as exc:
             self._set_message(str(exc).upper(), "error")
             self.mode = "menu"
             return
+
         self.op_type = op_type
         self.plan_draft.clear()
         self._set_message("OPERATION LAUNCHED", "accent")
@@ -355,19 +355,14 @@ class ConsoleController:
                 self._set_message("NO TARGET SELECTED", "error")
                 self.mode = "menu"
             else:
-                if state.action_points < 1:
-                    self._set_message("NOT ENOUGH ACTION POINTS (NEED 1)", "error")
-                    self.mode = "menu"
-                    return dirty
-
+                mgr = ActionManager(state)
                 try:
                     self.raid_auto = False
-                    state.start_raid(self.target)
-                except RuntimeError as exc:
+                    mgr.perform_action(PlayerAction(ActionType.START_RAID, payload=self.target))
+                except ActionError as exc:
                     self._set_message(str(exc).upper(), "error")
                     self.mode = "menu"
                 else:
-                    state.action_points -= 1
                     self._set_message("RAID STARTED", "accent")
                     self.mode = "raid"
                     self.view_mode = "tactical"
@@ -416,18 +411,14 @@ class ConsoleController:
             if chosen is None or self.target is None:
                 return dirty
             if chosen == OperationTypeId.RAID:
-                if state.action_points < 1:
-                    self._set_message("NOT ENOUGH ACTION POINTS (NEED 1)", "error")
-                    self.mode = "sector"
-                    return dirty
+                mgr = ActionManager(state)
                 try:
                     self.raid_auto = False
-                    state.start_raid(self.target)
-                except RuntimeError as exc:
+                    mgr.perform_action(PlayerAction(ActionType.START_RAID, payload=self.target))
+                except ActionError as exc:
                     self._set_message(str(exc).upper(), "error")
                     self.mode = "menu"
                 else:
-                    state.action_points -= 1
                     self._set_message("RAID STARTED", "accent")
                     self.mode = "raid"
                     self.view_mode = "tactical"
@@ -547,15 +538,13 @@ class ConsoleController:
             self.view_mode = "tactical"
 
         elif action_id == "prod-upgrade-factory":
-            if state.action_points < 1:
-                self._set_message("NOT ENOUGH ACTION POINTS (NEED 1)", "error")
-                return dirty
+            mgr = ActionManager(state)
             try:
-                state.production.add_factory()
-            except ValueError as exc:
+                mgr.perform_action(PlayerAction(ActionType.UPGRADE_FACTORY))
+            except (ActionError, ValueError) as exc:
                 self._set_message(str(exc).upper(), "error")
                 return dirty
-            state.action_points -= 1
+            
             self._set_message(
                 f"FACTORY UPGRADE COMPLETE (+{state.production.slots_per_factory} SLOTS/DAY)",
                 "accent",
@@ -660,15 +649,13 @@ class ConsoleController:
             dirty.add("navigator")
 
         elif action_id == "barracks-upgrade":
-            if state.action_points < 1:
-                self._set_message("NOT ENOUGH ACTION POINTS (NEED 1)", "error")
-                return dirty
+            mgr = ActionManager(state)
             try:
-                state.barracks.add_barracks()
-            except ValueError as exc:
+                mgr.perform_action(PlayerAction(ActionType.UPGRADE_BARRACKS))
+            except (ActionError, ValueError) as exc:
                 self._set_message(str(exc).upper(), "error")
                 return dirty
-            state.action_points -= 1
+            
             self._set_message(
                 f"BARRACKS UPGRADE COMPLETE (+{state.barracks.slots_per_barracks} SLOTS/DAY)",
                 "accent",
@@ -778,19 +765,16 @@ class ConsoleController:
             }
             package = package_map.get(action_id)
             if package and self.pending_route:
-                if state.action_points < 1:
-                     self._set_message("NOT ENOUGH ACTION POINTS (NEED 1)", "error")
-                     self.mode = "logistics"
-                     self.view_mode = "deep"
-                     return dirty
-
                 supplies, units = package
                 origin, destination = self.pending_route
+                
+                payload = ShipmentPayload(origin, destination, supplies, units)
+                mgr = ActionManager(state)
+                
                 try:
-                    state.logistics_service.create_shipment(state.logistics, origin, destination, supplies, units, state.rng, current_day=state.day)
-                    state.action_points -= 1
-                except ValueError as exc:
-                    self._set_message(str(exc), "error")
+                    mgr.perform_action(PlayerAction(ActionType.DISPATCH_SHIPMENT, payload=payload))
+                except ActionError as exc:
+                    self._set_message(str(exc).upper(), "error")
                     self.mode = "logistics"
                     self.view_mode = "deep"
                 else:

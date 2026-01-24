@@ -1,266 +1,306 @@
-<div class="viewport__content">
-    <!-- Supply Line Chain with Enhanced Visualization -->
-    <div class="tactical__chain">
-        {# 
-           Lane alignment is handled dynamically by tactical-lanes.js.
-           The SVG viewBox is 0..1000; JS reads the actual dot positions and
-           sets x1/x2 on each <line> so lanes connect node-to-node at any width.
-           Default x values (0/500/1000) are placeholders until JS runs.
-        #}
-        <svg class="tactical__lanes" viewBox="0 0 1000 20" preserveAspectRatio="none">
-            <!-- Lane Backgrounds (thicker, more visible) -->
-            <line class="tactical__lane-bg tactical__lane-bg--left" x1="0" y1="10" x2="500" y2="10" />
-            <line class="tactical__lane-bg tactical__lane-bg--right" x1="500" y1="10" x2="1000" y2="10" />
-            
-            <!-- Animated Flow Lines -->
-            <line class="tactical__lane tactical__lane--flow tactical__lane--flow-left{% if vm.tactical.lane_stats['spaceport-mid'].count > 0 %} tactical__lane--active{% endif %}" 
-                  x1="0" y1="10" x2="500" y2="10" />
-            <line class="tactical__lane tactical__lane--flow tactical__lane--flow-right{% if vm.tactical.lane_stats['mid-front'].count > 0 %} tactical__lane--active{% endif %}" 
-                  x1="500" y1="10" x2="1000" y2="10" />
+<div class="module-grid module-grid--main">
 
-            <!-- Active Convoys (Enhanced Icons) - positioned by JS via data attributes -->
-            {% for convoy in vm.tactical.convoys %}
-            <g class="tactical__convoy tactical__convoy--{{ convoy.type }}{% if convoy.interdicted %} tactical__convoy--interdicted{% endif %}" 
-               data-lane="{{ convoy.leg }}"
-               data-progress="{{ convoy.progress }}"
-               transform="translate({% if convoy.leg == 'spaceport-mid' %}{{ convoy.progress * 5 }}{% else %}{{ 500 + convoy.progress * 5 }}{% endif %}, 10)">
-                <rect class="tactical__convoy-body" x="-20" y="-6" width="40" height="12" rx="3" />
-                <circle class="tactical__convoy-wheel" cx="-10" cy="8" r="4" />
-                <circle class="tactical__convoy-wheel" cx="10" cy="8" r="4" />
-                <title>CONVOY #{{ convoy.id }} → {{ convoy.dest }} | {{ convoy.cargo }}{% if convoy.interdicted %} | INTERDICTED -{{ convoy.loss_pct }}%{% endif %}</title>
-            </g>
-            {% endfor %}
-        </svg>
+    <!-- TOP ROW: THEATER NAV / SUPPLY CHAIN -->
+    <div class="module module--flat"
+        style="border: none; background: transparent; padding: 0 0 10px 0; min-height: auto;">
+        <!-- Supply Line Chain with Enhanced Visualization -->
+        <div class="tactical__chain">
+            <svg class="tactical__lanes" viewBox="0 0 1000 20" preserveAspectRatio="none">
+                <line class="tactical__lane-bg tactical__lane-bg--left" x1="0" y1="10" x2="500" y2="10" />
+                <line class="tactical__lane-bg tactical__lane-bg--right" x1="500" y1="10" x2="1000" y2="10" />
 
-        <!-- Lane Stats Badges -->
-        <div class="tactical__lane-badges">
-            <div class="tactical__lane-badge tactical__lane-badge--left{% if vm.tactical.lane_stats['spaceport-mid'].count > 0 %} tactical__lane-badge--active{% endif %}">
-                <span class="lane-badge__count">{{ vm.tactical.lane_stats['spaceport-mid'].count }}</span>
-                <span class="lane-badge__risk">{{ vm.tactical.lane_stats['spaceport-mid'].risk_pct }}% RISK</span>
-            </div>
-            <div class="tactical__lane-badge tactical__lane-badge--right{% if vm.tactical.lane_stats['mid-front'].count > 0 %} tactical__lane-badge--active{% endif %}">
-                <span class="lane-badge__count">{{ vm.tactical.lane_stats['mid-front'].count }}</span>
-                <span class="lane-badge__risk">{{ vm.tactical.lane_stats['mid-front'].risk_pct }}% RISK</span>
-            </div>
-        </div>
+                <line
+                    class="tactical__lane tactical__lane--flow tactical__lane--flow-left{% if vm.tactical.lane_stats['spaceport-mid'].count > 0 %} tactical__lane--active{% endif %}"
+                    x1="0" y1="10" x2="500" y2="10" />
+                <line
+                    class="tactical__lane tactical__lane--flow tactical__lane--flow-right{% if vm.tactical.lane_stats['mid-front'].count > 0 %} tactical__lane--active{% endif %}"
+                    x1="500" y1="10" x2="1000" y2="10" />
 
-        {% for node in vm.tactical.chain %}
-        <button class="tactical__node{% if node.selected %} tactical__node--selected{% endif %}" hx-post="/action"
-            hx-vals='{"action":"{{ node.id }}"}' hx-target="#viewport" hx-swap="outerHTML">
-            <span class="tactical__node-dot"></span>
-            <span class="tactical__node-label">{{ node.label }}</span>
-        </button>
-        {% endfor %}
-    </div>
-    
-    <!-- Ground Convoy Manifest (visible when convoys exist) -->
-    {% if vm.tactical.convoys %}
-    <div class="tactical__convoy-panel">
-        <div class="tactical__convoy-header">
-            <span class="convoy-header__title">GROUND SUPPLY CONVOYS</span>
-            <span class="convoy-header__count">{{ vm.tactical.convoys|length }} ACTIVE</span>
-        </div>
-        <div class="tactical__convoy-list">
-            {% for convoy in vm.tactical.convoys %}
-            <div class="tactical__convoy-row{% if convoy.interdicted %} tactical__convoy-row--interdicted{% endif %}">
-                <span class="convoy-row__id">#{{ convoy.id }}</span>
-                <span class="convoy-row__route">{{ convoy.origin }} → {{ convoy.dest }}</span>
-                <span class="convoy-row__cargo convoy-row__cargo--{{ convoy.type }}">{{ convoy.cargo }}</span>
-                <span class="convoy-row__progress">
-                    <span class="convoy-progress-bar">
-                        <span class="convoy-progress-bar__fill convoy-progress-bar__fill--{{ convoy.type }}" style="width: {{ convoy.progress }}%"></span>
-                    </span>
-                </span>
-                <span class="convoy-row__eta">{% if convoy.eta > 0 %}{{ convoy.eta }}d{% else %}ARR{% endif %}</span>
-                {% if convoy.interdicted %}
-                <span class="convoy-row__status convoy-row__status--interdicted">-{{ convoy.loss_pct }}%</span>
-                {% endif %}
-            </div>
-            {% endfor %}
-        </div>
-    </div>
-    {% endif %}
-
-    {% if vm.tactical.focus_key == "spaceport" %}
-    <div class="tactical__grid tactical__grid--two">
-        <div class="panel tactical__panel">
-            <div class="panel__title">SPACEPORT STOCKPILE</div>
-            <div class="stat-row">
-                <span class="stat-label">AMMO</span>
-                <span class="stat-value accent">{{ vm.tactical.spaceport.supplies.ammo }}</span>
-            </div>
-            <div class="stat-row">
-                <span class="stat-label">FUEL</span>
-                <span class="stat-value accent">{{ vm.tactical.spaceport.supplies.fuel }}</span>
-            </div>
-            <div class="stat-row">
-                <span class="stat-label">MED/SPARES</span>
-                <span class="stat-value accent">{{ vm.tactical.spaceport.supplies.med_spares }}</span>
-            </div>
-            <div class="stat-row">
-                <span class="stat-label">INTERDICTION</span>
-                <span class="stat-value">{{ vm.tactical.spaceport.risk_pct }}%</span>
-            </div>
-            <div class="muted">USE DEEP SPACE ROUTES TO DISPATCH SUPPLIES.</div>
-        </div>
-        <div class="panel tactical__panel">
-            <div class="panel__title">DOCKED SHIPS</div>
-            {% if vm.tactical.spaceport.docked %}
-            <div class="production__queue-list">
-                {% for ship in vm.tactical.spaceport.docked %}
-                <div class="production__queue-item">
-                    <div class="production__queue-label">{{ ship.name }}</div>
-                    <div class="production__queue-meta muted">PAYLOAD {{ ship.payload }}</div>
-                </div>
+                {% for convoy in vm.tactical.convoys %}
+                <g class="tactical__convoy tactical__convoy--{{ convoy.type }}{% if convoy.interdicted %} tactical__convoy--interdicted{% endif %}"
+                    data-lane="{{ convoy.leg }}" data-progress="{{ convoy.progress }}"
+                    transform="translate({% if convoy.leg == 'spaceport-mid' %}{{ convoy.progress * 5 }}{% else %}{{ 500 + convoy.progress * 5 }}{% endif %}, 10)">
+                    <rect class="tactical__convoy-body" x="-20" y="-6" width="40" height="12" rx="3" />
+                    <circle class="tactical__convoy-wheel" cx="-10" cy="8" r="4" />
+                    <circle class="tactical__convoy-wheel" cx="10" cy="8" r="4" />
+                    <title>CONVOY #{{ convoy.id }} → {{ convoy.dest }} | {{ convoy.cargo }}{% if convoy.interdicted %} |
+                        INTERDICTED -{{ convoy.loss_pct }}%{% endif %}</title>
+                </g>
                 {% endfor %}
+            </svg>
+
+            <div class="tactical__lane-badges">
+                <div
+                    class="tactical__lane-badge tactical__lane-badge--left{% if vm.tactical.lane_stats['spaceport-mid'].count > 0 %} tactical__lane-badge--active{% endif %}">
+                    <span class="lane-badge__count">{{ vm.tactical.lane_stats['spaceport-mid'].count }}</span>
+                    <span class="lane-badge__risk">{{ vm.tactical.lane_stats['spaceport-mid'].risk_pct }}% RISK</span>
+                </div>
+                <div
+                    class="tactical__lane-badge tactical__lane-badge--right{% if vm.tactical.lane_stats['mid-front'].count > 0 %} tactical__lane-badge--active{% endif %}">
+                    <span class="lane-badge__count">{{ vm.tactical.lane_stats['mid-front'].count }}</span>
+                    <span class="lane-badge__risk">{{ vm.tactical.lane_stats['mid-front'].risk_pct }}% RISK</span>
+                </div>
             </div>
+
+            {% for node in vm.tactical.chain %}
+            <button class="tactical__node{% if node.selected %} tactical__node--selected{% endif %}" hx-post="/action"
+                hx-vals='{"action":"{{ node.id }}"}' hx-target="#viewport" hx-swap="outerHTML">
+                <span class="tactical__node-dot"></span>
+                <span class="tactical__node-label">{{ node.label }}</span>
+            </button>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- MAIN GRID AREA -->
+    <div class="module-grid module-grid--split">
+
+        <!-- LEFT COLUMN -->
+        <div class="module-col" style="display: flex; flex-direction: column; gap: 8px; min-height: 0;">
+            {% if vm.tactical.focus_key == "spaceport" %}
+            <!-- SPACEPORT VIEW -->
+            <div class="module">
+                <div class="module__header">
+                    <span class="module__title">STOCKPILE</span>
+                    <div class="module__controls">
+                        <span class="status-chip status-secured">{{ vm.tactical.spaceport.risk_pct }}% RISK</span>
+                    </div>
+                </div>
+                <div class="module__content">
+                    <div class="stat-stack">
+                        <div class="stat-stack__row">
+                            <span class="stat-stack__label">AMMO</span>
+                            <span class="stat-stack__value accent">{{ vm.tactical.spaceport.supplies.ammo }}</span>
+                        </div>
+                        <div class="compact-bar">
+                            <div class="compact-bar__fill compact-bar__fill--ammo" style="width: 60%"></div>
+                        </div>
+
+                        <div class="stat-stack__row" style="margin-top: 6px;">
+                            <span class="stat-stack__label">FUEL</span>
+                            <span class="stat-stack__value accent">{{ vm.tactical.spaceport.supplies.fuel }}</span>
+                        </div>
+                        <div class="compact-bar">
+                            <div class="compact-bar__fill compact-bar__fill--fuel" style="width: 45%"></div>
+                        </div>
+
+                        <div class="stat-stack__row" style="margin-top: 6px;">
+                            <span class="stat-stack__label">MED/SPARES</span>
+                            <span class="stat-stack__value accent">{{ vm.tactical.spaceport.supplies.med_spares
+                                }}</span>
+                        </div>
+                        <div class="compact-bar">
+                            <div class="compact-bar__fill compact-bar__fill--meds" style="width: 30%"></div>
+                        </div>
+                    </div>
+                    <div class="muted" style="margin-top: auto; font-size: 0.75rem;">
+                        USE DEEP SPACE ROUTES TO DISPATCH SUPPLIES.
+                    </div>
+                </div>
+            </div>
+
+            {% elif vm.tactical.focus_key == "mid" %}
+            <!-- MID DEPOT VIEW -->
+            <div class="module">
+                <div class="module__header">
+                    <span class="module__title">MID DEPOT STOCKPILE</span>
+                </div>
+                <div class="module__content">
+                    <div class="stat-stack">
+                        <div class="stat-stack__row"><span class="stat-stack__label">AMMO</span><span
+                                class="stat-stack__value accent">{{ vm.tactical.mid.supplies.ammo }}</span></div>
+                        <div class="stat-stack__row"><span class="stat-stack__label">FUEL</span><span
+                                class="stat-stack__value accent">{{ vm.tactical.mid.supplies.fuel }}</span></div>
+                        <div class="stat-stack__row"><span class="stat-stack__label">MEDS</span><span
+                                class="stat-stack__value accent">{{ vm.tactical.mid.supplies.med_spares }}</span></div>
+                    </div>
+                </div>
+            </div>
+
             {% else %}
-            <div class="empty-state">NO SHIPS DOCKED</div>
+            <!-- FRONT VIEW: COMMAND -->
+            {% set task_force = vm.tactical.front.task_force %}
+            <div class="module">
+                <div class="module__header">
+                    <span class="module__title">REPUBLIC COMMAND</span>
+                    <div class="module__controls">
+                        <span class="status-chip">{{ task_force.name }}</span>
+                    </div>
+                </div>
+                <div class="module__content" style="padding: 6px; gap: 6px;">
+
+                    <!-- NESTED MODULE: UNIT STATUS -->
+                    <div class="module module--nested">
+                        <div class="module__header" style="background: transparent; border: none; padding: 4px 8px;">
+                            <span class="module__title" style="font-size: 0.65rem;">UNIT STATUS</span>
+                            <span class="status-chip status-secured" style="font-size: 0.6rem;">{{
+                                task_force.readiness_pct }}% Rdy</span>
+                        </div>
+                        <div class="module__content" style="padding: 4px 8px;">
+                            <div class="stat-stack">
+                                <div class="stat-stack__row">
+                                    <span class="stat-stack__label">INFANTRY</span>
+                                    <span class="stat-stack__value accent">{{ task_force.infantry }}</span>
+                                </div>
+                                <div class="stat-stack__row">
+                                    <span class="stat-stack__label">WALKERS</span>
+                                    <span class="stat-stack__value accent">{{ task_force.walkers }}</span>
+                                </div>
+                                <div class="stat-stack__row">
+                                    <span class="stat-stack__label">SUPPORT</span>
+                                    <span class="stat-stack__value accent">{{ task_force.support }}</span>
+                                </div>
+                                <div class="stat-stack__row"
+                                    style="margin-top: 4px; border-top: 1px dashed var(--border-strong); padding-top: 4px;">
+                                    <span class="stat-stack__label">COHESION</span>
+                                    <span class="stat-stack__value">{{ task_force.cohesion_pct }}%</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- NESTED MODULE: LOGISTICS -->
+                    <div class="module module--nested">
+                        <div class="module__header" style="background: transparent; border: none; padding: 4px 8px;">
+                            <span class="module__title" style="font-size: 0.65rem;">LOGISTICS</span>
+                        </div>
+                        <div class="module__content" style="padding: 4px 8px;">
+                            <div class="stat-stack">
+                                <div class="stat-stack__row">
+                                    <span class="stat-stack__label">AMMO</span>
+                                    <span class="stat-stack__value">{{ task_force.supplies.ammo }}</span>
+                                </div>
+                                <div class="compact-bar">
+                                    <div class="compact-bar__fill compact-bar__fill--ammo"
+                                        style="width: {{ task_force.supplies_pct.ammo }}%"></div>
+                                </div>
+
+                                <div class="stat-stack__row" style="margin-top: 4px;">
+                                    <span class="stat-stack__label">FUEL</span>
+                                    <span class="stat-stack__value">{{ task_force.supplies.fuel }}</span>
+                                </div>
+                                <div class="compact-bar">
+                                    <div class="compact-bar__fill compact-bar__fill--fuel"
+                                        style="width: {{ task_force.supplies_pct.fuel }}%"></div>
+                                </div>
+
+                                <div class="stat-stack__row" style="margin-top: 4px;">
+                                    <span class="stat-stack__label">MEDS</span>
+                                    <span class="stat-stack__value">{{ task_force.supplies.med_spares }}</span>
+                                </div>
+                                <div class="compact-bar">
+                                    <div class="compact-bar__fill compact-bar__fill--meds"
+                                        style="width: {{ task_force.supplies_pct.med_spares }}%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- RIGHT COLUMN -->
+        <div class="module-col" style="display: flex; flex-direction: column; gap: 8px; min-height: 0;">
+            {% if vm.tactical.focus_key == "spaceport" %}
+            <!-- SPACEPORT RIGHT COL -->
+            <div class="module">
+                <div class="module__header"><span class="module__title">DOCKED SHIPS</span></div>
+                <div class="module__content">
+                    {% if vm.tactical.spaceport.docked %}
+                    {% for ship in vm.tactical.spaceport.docked %}
+                    <div class="obj-item">
+                        <span class="obj-name">{{ ship.name }}</span>
+                        <span class="obj-code">{{ ship.payload }}</span>
+                    </div>
+                    {% endfor %}
+                    {% else %}
+                    <div class="empty-state">NO SHIPS</div>
+                    {% endif %}
+                </div>
+            </div>
+
+            {% elif vm.tactical.focus_key == "mid" %}
+            <!-- MID RIGHT COL -->
+            <div class="module">
+                <div class="module__header"><span class="module__title">THROUGHPUT</span></div>
+                <div class="module__content">
+                    {% for leg in vm.tactical.mid.legs %}
+                    <div class="stat-stack__row">
+                        <span class="stat-stack__label">{{ leg.label }}</span>
+                        <span class="stat-stack__value">{{ leg.days }}d | {{ leg.risk_pct }}% risk</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            {% else %}
+            <!-- FRONT RIGHT COL: INTEL & OPS -->
+            {% set enemy = vm.tactical.front.enemy %}
+            <div class="module">
+                <div class="module__header">
+                    <span class="module__title">THEATER INTEL</span>
+                    <div class="module__controls">
+                        <span class="status-chip status-enemy">HOSTILE</span>
+                    </div>
+                </div>
+                <div class="module__content" style="padding: 6px; gap: 6px;">
+                    <!-- ENEMY FORCES -->
+                    <div class="module module--nested">
+                        <div class="module__header" style="background: transparent; border: none; padding: 4px 8px;">
+                            <span class="module__title" style="font-size: 0.65rem;">OPPOSING FORCE</span>
+                            <span class="status-chip status-contested" style="font-size: 0.6rem;">CONF: {{
+                                enemy.confidence_pct }}%</span>
+                        </div>
+                        <div class="module__content" style="padding: 4px 8px;">
+                            <div class="stat-stack">
+                                <div class="stat-stack__row"><span class="stat-stack__label">INFANTRY</span><span
+                                        class="stat-stack__value accent">{{ enemy.infantry_est }}</span></div>
+                                <div class="stat-stack__row"><span class="stat-stack__label">WALKERS</span><span
+                                        class="stat-stack__value accent">{{ enemy.walkers_est }}</span></div>
+                                <div class="stat-stack__row"><span class="stat-stack__label">SUPPORT</span><span
+                                        class="stat-stack__value accent">{{ enemy.support_est }}</span></div>
+                            </div>
+                            <div class="stat-stack"
+                                style="margin-top: 6px; border-top: 1px dashed var(--border-strong); padding-top: 4px;">
+                                <div class="stat-stack__row"><span class="stat-stack__label">FORTIFICATION</span><span
+                                        class="stat-stack__value">{{ enemy.fort_label }}</span></div>
+                                <div class="stat-stack__row"><span class="stat-stack__label">REINFORCEMENT</span><span
+                                        class="stat-stack__value">{{ enemy.reinf_label }}</span></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- OBJECTIVES -->
+                    <div class="module module--nested" style="flex: 1;">
+                        <div class="module__header" style="background: transparent; border: none; padding: 4px 8px;">
+                            <span class="module__title" style="font-size: 0.65rem;">MISSION OBJECTIVES</span>
+                        </div>
+                        <div class="module__content" style="padding: 4px 8px;">
+                            <div class="obj-list">
+                                {% for node in vm.tactical.front.objectives %}
+                                <button
+                                    class="obj-item {{ node.status_class }}{% if node.selected %} obj-item--active{% endif %}"
+                                    hx-post="/action" hx-vals='{"action":"{{ node.action }}"}' hx-target="#viewport"
+                                    hx-swap="outerHTML">
+                                    <span class="obj-code">{{ node.code }}</span>
+                                    <span class="obj-name">{{ node.name }}</span>
+                                </button>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
             {% endif %}
         </div>
     </div>
-    {% elif vm.tactical.focus_key == "mid" %}
-    <div class="tactical__grid tactical__grid--two">
-        <div class="panel tactical__panel">
-            <div class="panel__title">MID DEPOT STOCKPILE</div>
-            <div class="stat-row">
-                <span class="stat-label">AMMO</span>
-                <span class="stat-value accent">{{ vm.tactical.mid.supplies.ammo }}</span>
-            </div>
-            <div class="stat-row">
-                <span class="stat-label">FUEL</span>
-                <span class="stat-value accent">{{ vm.tactical.mid.supplies.fuel }}</span>
-            </div>
-            <div class="stat-row">
-                <span class="stat-label">MED/SPARES</span>
-                <span class="stat-value accent">{{ vm.tactical.mid.supplies.med_spares }}</span>
-            </div>
-        </div>
-        <div class="panel tactical__panel">
-            <div class="panel__title">THROUGHPUT STATUS</div>
-            {% for leg in vm.tactical.mid.legs %}
-            <div class="stat-row">
-                <span class="stat-label">{{ leg.label }}</span>
-                <span class="stat-value">{{ leg.days }}d | {{ leg.risk_pct }}% risk</span>
-            </div>
-            {% endfor %}
-            <div class="muted">SUPPLY LINES UPDATE EACH TURN.</div>
-        </div>
-    </div>
-    {% else %}
-    <div class="tactical__grid tactical__grid--front">
-        <div class="panel tactical__panel">
-            {% set task_force = vm.tactical.front.task_force %}
-            <div class="panel__title">TASK FORCE | {{ task_force.name }}</div>
-            <div class="stat-group">
-                <div class="stat-row">
-                    <span class="stat-label">INFANTRY</span>
-                    <span class="stat-value accent">{{ task_force.infantry }}</span>
-                </div>
-                <div class="stat-row">
-                    <span class="stat-label">WALKERS</span>
-                    <span class="stat-value accent">{{ task_force.walkers }}</span>
-                </div>
-                <div class="stat-row">
-                    <span class="stat-label">SUPPORT</span>
-                    <span class="stat-value accent">{{ task_force.support }}</span>
-                </div>
-            </div>
-            <div class="stat-group stat-group--muted">
-                <div class="stat-row">
-                    <span class="stat-label">READINESS</span>
-                    <span class="stat-value">{{ task_force.readiness_pct }}%</span>
-                </div>
-                <div class="stat-row">
-                    <span class="stat-label">COHESION</span>
-                    <span class="stat-value">{{ task_force.cohesion_label }} ({{ task_force.cohesion_pct }}%)</span>
-                </div>
-            </div>
-            <div class="stat-group">
-                <div class="stat-row stat-row--bar">
-                    <span class="stat-label">AMMO</span>
-                    <div class="stat-bar">
-                        <div class="stat-bar__fill" style="width: {{ task_force.supplies_pct.ammo }}%"></div>
-                    </div>
-                    <span class="stat-value">{{ task_force.supplies.ammo }}</span>
-                </div>
-                <div class="stat-row stat-row--bar">
-                    <span class="stat-label">FUEL</span>
-                    <div class="stat-bar">
-                        <div class="stat-bar__fill" style="width: {{ task_force.supplies_pct.fuel }}%"></div>
-                    </div>
-                    <span class="stat-value">{{ task_force.supplies.fuel }}</span>
-                </div>
-                <div class="stat-row stat-row--bar">
-                    <span class="stat-label">MED/SPARES</span>
-                    <div class="stat-bar">
-                        <div class="stat-bar__fill" style="width: {{ task_force.supplies_pct.med_spares }}%"></div>
-                    </div>
-                    <span class="stat-value">{{ task_force.supplies.med_spares }}</span>
-                </div>
-            </div>
-            <div class="tactical__section-title">ACTIVE OBJECTIVES</div>
-            <div class="tactical__objectives">
-                {% for node in vm.tactical.front.objectives %}
-                <button
-                    class="tactical__objective terminal-btn {{ node.status_class }}{% if node.selected %} tactical__objective--selected{% endif %}"
-                    hx-post="/action" hx-vals='{"action":"{{ node.action }}"}' hx-target="#viewport"
-                    hx-swap="outerHTML">
-                    <span class="map-node__code">{{ node.code }}</span>
-                    <span class="map-node__name">{{ node.name }}</span>
-                </button>
-                {% endfor %}
-            </div>
-        </div>
-        <div class="panel tactical__panel">
-            <div class="panel__title">ENEMY INTEL</div>
-            {% set enemy = vm.tactical.front.enemy %}
-            <div class="stat-group">
-                <div class="stat-row">
-                    <span class="stat-label">INFANTRY</span>
-                    <span class="stat-value accent">{{ enemy.infantry_est }}</span>
-                </div>
-                <div class="stat-row">
-                    <span class="stat-label">WALKERS</span>
-                    <span class="stat-value accent">{{ enemy.walkers_est }}</span>
-                </div>
-                <div class="stat-row">
-                    <span class="stat-label">SUPPORT</span>
-                    <span class="stat-value accent">{{ enemy.support_est }}</span>
-                </div>
-            </div>
-            <div class="stat-group">
-                <div class="stat-row stat-row--bar">
-                    <span class="stat-label">CONFIDENCE</span>
-                    <div class="stat-bar">
-                        <div class="stat-bar__fill" style="width: {{ enemy.confidence_pct }}%"></div>
-                    </div>
-                    <span class="stat-value">{{ enemy.confidence_pct }}%</span>
-                </div>
-                <div class="stat-row stat-row--bar">
-                    <span class="stat-label">COHESION</span>
-                    <div class="stat-bar">
-                        <div class="stat-bar__fill" style="width: {{ enemy.cohesion_pct }}%"></div>
-                    </div>
-                    <span class="stat-value">{{ enemy.cohesion_pct }}%</span>
-                </div>
-            </div>
-            <div class="stat-group">
-                <div class="stat-row">
-                    <span class="stat-label">FORT</span>
-                    <span class="stat-value">{{ enemy.fort_label }}</span>
-                </div>
-                <div class="stat-row">
-                    <span class="stat-label">REINF</span>
-                    <span class="stat-value">{{ enemy.reinf_label }}</span>
-                </div>
-            </div>
-        </div>
-    </div>
-    {% endif %}
-</div>
 
-<div class="viewport__hud">
-    {% set hud = vm.tactical.hud %}
-    {% include "panels/hud.html" %}
+    <!-- BOTTOM ROW: HUD -->
+    <div class="module" style="height: 180px; min-height: 180px;">
+        {% set hud = vm.tactical.hud %}
+        {% include "panels/hud.html" %}
+    </div>
+
 </div>
