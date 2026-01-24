@@ -9,24 +9,21 @@ from clone_wars.engine.state import GameState
 
 
 class ActionType(Enum):
-    ADVANCE_TURN = auto()  # Costs 1 AP. If AP=0, day likely ends.
-    WAIT = auto()  # Costs 1 AP. Recover small readiness?
-    START_OPERATION = auto()  # Costs 1 AP (Initiate).
+    """
+    Actions that cost AP (Strategic Orders):
+    - START_OPERATION: 1 AP
+    - DISPATCH_SHIPMENT: 1 AP
+    - UPGRADE_FACTORY: 1 AP
+    - UPGRADE_BARRACKS: 1 AP
     
-    # Management actions (Free or AP?)
-    # For MVP, let's make management free, but "Execution" costs AP.
-    # Actually, Design says "3 Command Actions per day".
-    # Buying upgrades or changing production should probably cost AP in a strict strategy game.
-    # BUT, forcing AP for queuing a simplistic production job might be annoying.
-    # Let's stick to:
-    # - Start Operation: 1 AP
-    # - Upgrade Infrastructure: 1 AP
-    # - Logistics Re-route (if we add it): 1 AP
-    # - "Pass/Wait": 1 AP
-    # - Queue Production: Free (planning).
-    
-    UPGRADE_FACTORY = auto()
-    UPGRADE_BARRACKS = auto()
+    Free actions (Planning):
+    - Queue production/barracks jobs
+    - View screens, adjust settings
+    """
+    START_OPERATION = auto()  # Costs 1 AP
+    DISPATCH_SHIPMENT = auto()  # Costs 1 AP
+    UPGRADE_FACTORY = auto()  # Costs 1 AP
+    UPGRADE_BARRACKS = auto()  # Costs 1 AP
 
 
 @dataclass()
@@ -48,38 +45,27 @@ class ActionManager:
         return self.state.action_points
 
     def can_perform(self, action: PlayerAction) -> bool:
-        if self.state.action_points <= 0:
-            # Only allow ending the day if AP is 0?
-            # Actually, if AP is 0, the only valid thing is "End Day" which refuels AP.
-            # But "ADVANCE_TURN" here implies spending AP.
-            # Let's say "End Day" is a special system event, not a 1 AP action.
-            # But the button says "Next Day".
-            return False
-            
-        return True
+        """Check if an action can be performed (has enough AP)."""
+        return self.state.action_points >= 1
 
     def perform_action(self, action: PlayerAction) -> None:
+        """Execute an action that costs AP. All actions here cost 1 AP."""
         if self.state.action_points <= 0:
-             raise ActionError("No action points remaining. End the day.")
+            raise ActionError("No action points remaining. End the day.")
 
-        if action.action_type == ActionType.ADVANCE_TURN:
-            # "Wait" / "Pass"
-            self._deduct_ap(1)
-            
-        elif action.action_type == ActionType.WAIT:
-            self._deduct_ap(1)
-            # Recover slightly?
-            self.state.task_force.readiness = min(1.0, self.state.task_force.readiness + 0.05)
-
-        elif action.action_type == ActionType.START_OPERATION:
+        if action.action_type == ActionType.START_OPERATION:
             if not isinstance(action.payload, OperationPlan):
                 raise ActionError("Invalid payload for START_OPERATION")
             self.state.start_operation(action.payload)
             self._deduct_ap(1)
 
+        elif action.action_type == ActionType.DISPATCH_SHIPMENT:
+            self._deduct_ap(1)
+
         elif action.action_type == ActionType.UPGRADE_FACTORY:
             self.state.production.add_factory()
             self._deduct_ap(1)
+            
         elif action.action_type == ActionType.UPGRADE_BARRACKS:
             self.state.barracks.add_barracks()
             self._deduct_ap(1)

@@ -23,7 +23,7 @@ class LogisticsService:
             self._tick_ship(ship, state, planet, rng, current_day)
             
         # 3. Update Ground Shipments (Planetary Network)
-        self._tick_ground_convoys(state, planet, rng, existing_shipments)
+        self._tick_ground_convoys(state, planet, rng, existing_shipments, current_day)
 
         # 4. Dispatch Pending Orders at Hubs
         self._dispatch_pending_orders(state, rng, current_day)
@@ -61,7 +61,14 @@ class LogisticsService:
             # Clear ship payload
             ship.orders = []
 
-    def _tick_ground_convoys(self, state: LogisticsState, planet: PlanetState, rng: Random, current_shipments: list[Shipment]) -> None:
+    def _tick_ground_convoys(
+        self,
+        state: LogisticsState,
+        planet: PlanetState,
+        rng: Random,
+        current_shipments: list[Shipment],
+        current_day: int,
+    ) -> None:
         """Process ground convoys. NOTE: Iterates current_shipments snapshot (not state.shipments directly)."""
         
         # We REBUILD state.shipments. 
@@ -81,6 +88,7 @@ class LogisticsService:
         # Iterate over the MASTER list (which might have new items)
         for shipment in state.shipments:
             if shipment.shipment_id in ids_to_tick:
+                self._maybe_interdict_ground_convoy(state, shipment, rng, current_day)
                 # Process this shipment
                 shipment.days_remaining -= 1
                 if shipment.days_remaining <= 0:
@@ -94,6 +102,83 @@ class LogisticsService:
                 active_list.append(shipment)
                 
         state.shipments = active_list
+
+    def _maybe_interdict_ground_convoy(
+        self,
+        state: LogisticsState,
+        shipment: Shipment,
+        rng: Random,
+        current_day: int,
+    ) -> None:
+        """Apply a one-time interdiction loss event to a convoy, if it triggers on this leg."""
+        if shipment.interdicted:
+            return
+
+        route = self._find_route(state, shipment.origin, shipment.destination)
+        if not route or route.interdiction_risk <= 0.0:
+            return
+
+        if rng.random() >= route.interdiction_risk:
+            return
+
+        # Ground interdiction is modeled as partial attrition, not annihilation.
+        # Kept in a tight range for MVP so losses are noticeable but not catastrophic.
+        loss_pct = rng.uniform(0.1, 0.4)
+
+        lost_ammo = lost_fuel = lost_med = 0
+        lost_infantry = lost_walkers = lost_support = 0
+
+        for order in shipment.orders:
+            old_supplies = order.supplies
+            old_units = order.units
+
+            new_supplies = Supplies(
+                ammo=int(old_supplies.ammo * (1 - loss_pct)),
+                fuel=int(old_supplies.fuel * (1 - loss_pct)),
+                med_spares=int(old_supplies.med_spares * (1 - loss_pct)),
+            )
+            new_units = UnitStock(
+                infantry=int(old_units.infantry * (1 - loss_pct)),
+                walkers=int(old_units.walkers * (1 - loss_pct)),
+                support=int(old_units.support * (1 - loss_pct)),
+            )
+
+            lost_ammo += old_supplies.ammo - new_supplies.ammo
+            lost_fuel += old_supplies.fuel - new_supplies.fuel
+            lost_med += old_supplies.med_spares - new_supplies.med_spares
+            lost_infantry += old_units.infantry - new_units.infantry
+            lost_walkers += old_units.walkers - new_units.walkers
+            lost_support += old_units.support - new_units.support
+
+            order.supplies = new_supplies
+            order.units = new_units
+
+        shipment.interdicted = True
+        shipment.interdiction_loss_pct = loss_pct
+
+        origin_name = shipment.origin.value.replace("contested_", "").replace("new_system_", "").replace("_", " ").strip().upper()
+        dest_name = shipment.destination.value.replace("contested_", "").replace("new_system_", "").replace("_", " ").strip().upper()
+
+        loss_parts: list[str] = []
+        if lost_ammo:
+            loss_parts.append(f"A-{lost_ammo}")
+        if lost_fuel:
+            loss_parts.append(f"F-{lost_fuel}")
+        if lost_med:
+            loss_parts.append(f"M-{lost_med}")
+        if lost_infantry:
+            loss_parts.append(f"I-{lost_infantry}")
+        if lost_walkers:
+            loss_parts.append(f"W-{lost_walkers}")
+        if lost_support:
+            loss_parts.append(f"S-{lost_support}")
+
+        loss_desc = " ".join(loss_parts) if loss_parts else ""
+        msg = f"Convoy #{shipment.shipment_id} INTERDICTED {origin_name} → {dest_name}: -{int(loss_pct * 100)}% cargo"
+        if loss_desc:
+            msg += f" ({loss_desc})"
+
+        self._log_event(state, current_day, msg, "interdicted")
 
     def _arrive_at_location(
         self,

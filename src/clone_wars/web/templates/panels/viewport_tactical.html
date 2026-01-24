@@ -1,21 +1,48 @@
 <div class="viewport__content">
+    <!-- Supply Line Chain with Enhanced Visualization -->
     <div class="tactical__chain">
-        <svg class="tactical__lanes" viewBox="0 0 100 2" preserveAspectRatio="none">
-            <!-- Lane Paths (0=Spaceport, 50=Mid, 100=Front) -->
-            <line class="tactical__lane" x1="0" y1="1" x2="50" y2="1" />
-            <line class="tactical__lane" x1="50" y1="1" x2="100" y2="1" />
+        {# 
+           Lane alignment is handled dynamically by tactical-lanes.js.
+           The SVG viewBox is 0..1000; JS reads the actual dot positions and
+           sets x1/x2 on each <line> so lanes connect node-to-node at any width.
+           Default x values (0/500/1000) are placeholders until JS runs.
+        #}
+        <svg class="tactical__lanes" viewBox="0 0 1000 20" preserveAspectRatio="none">
+            <!-- Lane Backgrounds (thicker, more visible) -->
+            <line class="tactical__lane-bg tactical__lane-bg--left" x1="0" y1="10" x2="500" y2="10" />
+            <line class="tactical__lane-bg tactical__lane-bg--right" x1="500" y1="10" x2="1000" y2="10" />
+            
+            <!-- Animated Flow Lines -->
+            <line class="tactical__lane tactical__lane--flow tactical__lane--flow-left{% if vm.tactical.lane_stats['spaceport-mid'].count > 0 %} tactical__lane--active{% endif %}" 
+                  x1="0" y1="10" x2="500" y2="10" />
+            <line class="tactical__lane tactical__lane--flow tactical__lane--flow-right{% if vm.tactical.lane_stats['mid-front'].count > 0 %} tactical__lane--active{% endif %}" 
+                  x1="500" y1="10" x2="1000" y2="10" />
 
-            <!-- Active Convoys (Pips) -->
+            <!-- Active Convoys (Enhanced Icons) - positioned by JS via data attributes -->
             {% for convoy in vm.tactical.convoys %}
-            {% if convoy.leg == 'spaceport-mid' %}
-            {% set cx = convoy.progress * 0.5 %}
-            <circle class="tactical__pip tactical__pip--{{ convoy.type }}" cx="{{ cx }}" cy="1" r="1.5" />
-            {% elif convoy.leg == 'mid-front' %}
-            {% set cx = 50 + (convoy.progress * 0.5) %}
-            <circle class="tactical__pip tactical__pip--{{ convoy.type }}" cx="{{ cx }}" cy="1" r="1.5" />
-            {% endif %}
+            <g class="tactical__convoy tactical__convoy--{{ convoy.type }}{% if convoy.interdicted %} tactical__convoy--interdicted{% endif %}" 
+               data-lane="{{ convoy.leg }}"
+               data-progress="{{ convoy.progress }}"
+               transform="translate({% if convoy.leg == 'spaceport-mid' %}{{ convoy.progress * 5 }}{% else %}{{ 500 + convoy.progress * 5 }}{% endif %}, 10)">
+                <rect class="tactical__convoy-body" x="-20" y="-6" width="40" height="12" rx="3" />
+                <circle class="tactical__convoy-wheel" cx="-10" cy="8" r="4" />
+                <circle class="tactical__convoy-wheel" cx="10" cy="8" r="4" />
+                <title>CONVOY #{{ convoy.id }} → {{ convoy.dest }} | {{ convoy.cargo }}{% if convoy.interdicted %} | INTERDICTED -{{ convoy.loss_pct }}%{% endif %}</title>
+            </g>
             {% endfor %}
         </svg>
+
+        <!-- Lane Stats Badges -->
+        <div class="tactical__lane-badges">
+            <div class="tactical__lane-badge tactical__lane-badge--left{% if vm.tactical.lane_stats['spaceport-mid'].count > 0 %} tactical__lane-badge--active{% endif %}">
+                <span class="lane-badge__count">{{ vm.tactical.lane_stats['spaceport-mid'].count }}</span>
+                <span class="lane-badge__risk">{{ vm.tactical.lane_stats['spaceport-mid'].risk_pct }}% RISK</span>
+            </div>
+            <div class="tactical__lane-badge tactical__lane-badge--right{% if vm.tactical.lane_stats['mid-front'].count > 0 %} tactical__lane-badge--active{% endif %}">
+                <span class="lane-badge__count">{{ vm.tactical.lane_stats['mid-front'].count }}</span>
+                <span class="lane-badge__risk">{{ vm.tactical.lane_stats['mid-front'].risk_pct }}% RISK</span>
+            </div>
+        </div>
 
         {% for node in vm.tactical.chain %}
         <button class="tactical__node{% if node.selected %} tactical__node--selected{% endif %}" hx-post="/action"
@@ -25,6 +52,34 @@
         </button>
         {% endfor %}
     </div>
+    
+    <!-- Ground Convoy Manifest (visible when convoys exist) -->
+    {% if vm.tactical.convoys %}
+    <div class="tactical__convoy-panel">
+        <div class="tactical__convoy-header">
+            <span class="convoy-header__title">GROUND SUPPLY CONVOYS</span>
+            <span class="convoy-header__count">{{ vm.tactical.convoys|length }} ACTIVE</span>
+        </div>
+        <div class="tactical__convoy-list">
+            {% for convoy in vm.tactical.convoys %}
+            <div class="tactical__convoy-row{% if convoy.interdicted %} tactical__convoy-row--interdicted{% endif %}">
+                <span class="convoy-row__id">#{{ convoy.id }}</span>
+                <span class="convoy-row__route">{{ convoy.origin }} → {{ convoy.dest }}</span>
+                <span class="convoy-row__cargo convoy-row__cargo--{{ convoy.type }}">{{ convoy.cargo }}</span>
+                <span class="convoy-row__progress">
+                    <span class="convoy-progress-bar">
+                        <span class="convoy-progress-bar__fill convoy-progress-bar__fill--{{ convoy.type }}" style="width: {{ convoy.progress }}%"></span>
+                    </span>
+                </span>
+                <span class="convoy-row__eta">{% if convoy.eta > 0 %}{{ convoy.eta }}d{% else %}ARR{% endif %}</span>
+                {% if convoy.interdicted %}
+                <span class="convoy-row__status convoy-row__status--interdicted">-{{ convoy.loss_pct }}%</span>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
 
     {% if vm.tactical.focus_key == "spaceport" %}
     <div class="tactical__grid tactical__grid--two">

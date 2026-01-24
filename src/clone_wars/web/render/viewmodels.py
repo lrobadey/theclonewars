@@ -507,40 +507,77 @@ def tactical_view_vm(state: GameState, controller: ConsoleController) -> dict:
     # Shipment structure: origin, destination, days_remaining, total_days
     for s in state.logistics.shipments:
         leg_id = None
+        origin_label = ""
+        dest_label = ""
         if s.origin == LocationId.CONTESTED_SPACEPORT and s.destination == LocationId.CONTESTED_MID_DEPOT:
             leg_id = "spaceport-mid"
+            origin_label = "SPACEPORT"
+            dest_label = "MID DEPOT"
         elif s.origin == LocationId.CONTESTED_MID_DEPOT and s.destination == LocationId.CONTESTED_FRONT:
             leg_id = "mid-front"
+            origin_label = "MID DEPOT"
+            dest_label = "FRONT"
             
         if leg_id:
             # Calculate progress (0-100)
             elapsed = max(0, s.total_days - s.days_remaining)
-            # Add a small offset so it's not at 0% at the start of travel
             progress = int((elapsed / max(1, s.total_days)) * 100)
-            if s.days_remaining > 0:
-                # Add a sub-day pulse factor? For now just progress is enough.
-                pass
 
             # Determine dominant cargo type
             cargo_type = "mixed"
             supplies = s.supplies
+            units = s.units
             if supplies.ammo > supplies.fuel and supplies.ammo > supplies.med_spares:
                 cargo_type = "ammo"
             elif supplies.fuel > supplies.ammo and supplies.fuel > supplies.med_spares:
                 cargo_type = "fuel"
+            
+            # Build cargo summary string
+            cargo_parts = []
+            if supplies.ammo > 0:
+                cargo_parts.append(f"A:{fmt_int(supplies.ammo)}")
+            if supplies.fuel > 0:
+                cargo_parts.append(f"F:{fmt_int(supplies.fuel)}")
+            if supplies.med_spares > 0:
+                cargo_parts.append(f"M:{fmt_int(supplies.med_spares)}")
+            if units.infantry > 0:
+                cargo_parts.append(f"INF:{fmt_int(units.infantry)}")
+            if units.walkers > 0:
+                cargo_parts.append(f"WLK:{units.walkers}")
+            cargo_summary = " ".join(cargo_parts) if cargo_parts else "EMPTY"
                 
             convoys.append({
+                "id": s.shipment_id,
                 "leg": leg_id,
+                "origin": origin_label,
+                "dest": dest_label,
                 "progress": progress,
+                "eta": s.days_remaining,
                 "type": cargo_type,
-                "label": f"{cargo_type.upper()} CONVOY"
+                "cargo": cargo_summary,
+                "label": f"{cargo_type.upper()} CONVOY",
+                "interdicted": s.interdicted,
+                "loss_pct": int(s.interdiction_loss_pct * 100) if s.interdicted else 0,
             })
+    
+    # Count convoys per leg for lane badges
+    lane_stats = {
+        "spaceport-mid": {
+            "count": sum(1 for c in convoys if c["leg"] == "spaceport-mid"),
+            "risk_pct": int(mid_route.interdiction_risk * 100) if mid_route else 0,
+        },
+        "mid-front": {
+            "count": sum(1 for c in convoys if c["leg"] == "mid-front"),
+            "risk_pct": int(front_route.interdiction_risk * 100) if front_route else 0,
+        },
+    }
 
     return {
         "focus": focus.value,
         "focus_key": focus_key,
         "chain": chain,
         "convoys": convoys,
+        "lane_stats": lane_stats,
         "spaceport": {
             "supplies": {
                 "ammo": fmt_int(spaceport_stock.ammo),
@@ -1162,8 +1199,15 @@ def logistics_vm(state: GameState, controller: ConsoleController) -> dict:
     # 2. Add Ground Convoys (Planetary Network)
     if state.logistics.shipments:
         for shipment in state.logistics.shipments:
-            status = "INTERDICTED" if shipment.interdicted else "EN ROUTE"
-            status_tone = "interdicted" if shipment.interdicted else "enroute"
+            if shipment.interdicted:
+                loss_tag = ""
+                if shipment.interdiction_loss_pct > 0:
+                    loss_tag = f" (-{int(shipment.interdiction_loss_pct * 100)}%)"
+                status = f"INTERDICTED{loss_tag}"
+                status_tone = "interdicted"
+            else:
+                status = "EN ROUTE"
+                status_tone = "enroute"
             path = "->".join(node.value.split("_")[-1].upper() for node in shipment.path)
             leg = f"{shipment.origin.value.split('_')[-1].upper()}->{shipment.destination.value.split('_')[-1].upper()}"
             unit_seg = ""

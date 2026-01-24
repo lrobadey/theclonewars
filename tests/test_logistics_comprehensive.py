@@ -346,3 +346,38 @@ def test_unit_shipment_delivery() -> None:
     assert final_units.infantry == initial_units.infantry + 4
     assert final_units.walkers == initial_units.walkers + 1
     assert final_units.support == initial_units.support + 2
+
+
+def test_interdiction_sets_loss_pct_on_in_transit_convoy() -> None:
+    """Interdiction should mark the convoy and store a loss percent for UI display."""
+    logistics = LogisticsState.new()
+    service = LogisticsService()
+    planet = _dummy_planet()
+    rng = Random(0)
+
+    # Make the leg take >1 day so the shipment still exists after the interdiction tick.
+    mid_to_front_route = next(
+        r for r in logistics.routes
+        if r.origin == LocationId.CONTESTED_MID_DEPOT and r.destination == LocationId.CONTESTED_FRONT
+    )
+    mid_to_front_route.travel_days = 2
+    mid_to_front_route.interdiction_risk = 1.0  # force trigger
+
+    logistics.depot_stocks[LocationId.CONTESTED_MID_DEPOT] = Supplies(ammo=1000, fuel=1000, med_spares=400)
+    service.create_shipment(
+        logistics,
+        LocationId.CONTESTED_MID_DEPOT,
+        LocationId.CONTESTED_FRONT,
+        Supplies(ammo=100, fuel=0, med_spares=0),
+        None,
+        rng,
+    )
+
+    assert len(logistics.shipments) == 1
+    shipment = logistics.shipments[0]
+    service.tick(logistics, planet, rng)
+
+    assert shipment.interdicted is True
+    assert 0.1 <= shipment.interdiction_loss_pct <= 0.4
+    assert shipment.supplies.ammo < 100
+    assert shipment.supplies.ammo >= 60

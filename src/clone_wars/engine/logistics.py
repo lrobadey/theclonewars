@@ -125,6 +125,8 @@ class Shipment:
     days_remaining: int
     total_days: int
     interdicted: bool = False
+    # If interdicted, percent of cargo lost on this leg (0.0-1.0). Used for UI clarity.
+    interdiction_loss_pct: float = 0.0
 
     @property
     def origin(self) -> LocationId:

@@ -1238,21 +1238,22 @@ button.panel__title {
     display: grid;
     grid-template-columns: 1fr 1fr 1fr;
     align-items: start;
-    padding: 20px 50px;
+    padding: 20px 50px 32px;
     border: 1px solid var(--border);
     border-radius: 6px;
     background: rgba(15, 22, 32, 0.55);
-    min-height: 80px;
+    min-height: 90px;
     width: 100%;
     box-sizing: border-box;
 }
 
 .tactical__lanes {
+    /* JS sets left/width to match dot positions, and sets x1/x2 within viewBox 0-1000 */
     position: absolute;
-    top: 27px;
+    top: 22px;
     left: 50px;
     right: 50px;
-    height: 2px;
+    height: 12px;
     pointer-events: none;
     z-index: 0;
 }
@@ -1286,6 +1287,14 @@ button.panel__title {
     fill: var(--amber);
 }
 
+.tactical__pip--interdicted {
+    color: #ff5f5f;
+    fill: #ff5f5f;
+    stroke: #ffd1d1;
+    stroke-width: 0.8;
+    animation: interdicted-pulse 0.7s ease-in-out infinite;
+}
+
 @keyframes pip-pulse {
 
     0%,
@@ -1298,6 +1307,289 @@ button.panel__title {
         transform: scale(1.4);
         opacity: 1;
         filter: drop-shadow(0 0 8px currentColor);
+    }
+}
+
+@keyframes interdicted-pulse {
+
+    0%,
+    100% {
+        transform: scale(1.1);
+        opacity: 0.9;
+        filter: drop-shadow(0 0 10px currentColor);
+    }
+
+    50% {
+        transform: scale(1.9);
+        opacity: 1;
+        filter: drop-shadow(0 0 18px currentColor);
+    }
+}
+
+/* --- Enhanced Supply Line Visualization --- */
+
+.tactical__lane-bg {
+    stroke: var(--bg-darker, #0a0e14);
+    stroke-width: 14;
+    stroke-linecap: round;
+}
+
+.tactical__lane--flow {
+    stroke: var(--border);
+    stroke-width: 6;
+    stroke-dasharray: 20 12;
+    stroke-linecap: round;
+    opacity: 0.4;
+}
+
+.tactical__lane--active {
+    opacity: 1;
+    stroke: var(--cyan);
+    animation: lane-flow 1.5s linear infinite;
+}
+
+@keyframes lane-flow {
+    from {
+        stroke-dashoffset: 20;
+    }
+    to {
+        stroke-dashoffset: 0;
+    }
+}
+
+/* Convoy Vehicle Icons */
+.tactical__convoy {
+    filter: drop-shadow(0 0 3px currentColor);
+    animation: convoy-move 2s ease-in-out infinite;
+}
+
+.tactical__convoy-body {
+    fill: var(--text);
+    stroke: var(--border-strong);
+    stroke-width: 0.3;
+}
+
+.tactical__convoy-wheel {
+    fill: var(--border-strong);
+}
+
+.tactical__convoy--ammo .tactical__convoy-body {
+    fill: var(--red);
+}
+
+.tactical__convoy--fuel .tactical__convoy-body {
+    fill: var(--amber);
+}
+
+.tactical__convoy--mixed .tactical__convoy-body {
+    fill: var(--cyan);
+}
+
+.tactical__convoy--interdicted .tactical__convoy-body {
+    fill: #ff5f5f;
+    animation: convoy-danger 0.5s ease-in-out infinite;
+}
+
+@keyframes convoy-move {
+    0%, 100% {
+        transform: translateY(0);
+    }
+    50% {
+        transform: translateY(-0.3px);
+    }
+}
+
+@keyframes convoy-danger {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+
+/* Lane Stats Badges */
+.tactical__lane-badges {
+    position: absolute;
+    top: 42px;
+    left: 0;
+    right: 0;
+    padding: 0 50px;
+    display: flex;
+    justify-content: space-around;
+    pointer-events: none;
+    z-index: 5;
+}
+
+.tactical__lane-badge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.6rem;
+    font-family: var(--mono);
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    background: rgba(10, 14, 20, 0.95);
+    padding: 3px 8px;
+    border-radius: 3px;
+    border: 1px solid var(--border);
+}
+
+.tactical__lane-badge--left {
+    transform: translateX(-25%);
+}
+
+.tactical__lane-badge--right {
+    transform: translateX(25%);
+}
+
+.tactical__lane-badge--active {
+    border-color: var(--cyan);
+    color: var(--text);
+}
+
+.tactical__lane-badge--active .lane-badge__count {
+    color: var(--cyan);
+}
+
+.lane-badge__count {
+    font-weight: 700;
+    font-size: 0.75rem;
+}
+
+.lane-badge__risk {
+    color: var(--amber);
+    font-size: 0.55rem;
+}
+
+/* Convoy Detail Panel */
+.tactical__convoy-panel {
+    background: rgba(10, 14, 20, 0.7);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    margin-bottom: 12px;
+    overflow: hidden;
+}
+
+.tactical__convoy-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    background: rgba(15, 22, 32, 0.8);
+    border-bottom: 1px solid var(--border);
+}
+
+.convoy-header__title {
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    color: var(--text);
+}
+
+.convoy-header__count {
+    font-size: 0.65rem;
+    color: var(--cyan);
+    font-weight: 600;
+}
+
+.tactical__convoy-list {
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-height: 120px;
+    overflow-y: auto;
+}
+
+.tactical__convoy-row {
+    display: grid;
+    grid-template-columns: 40px 120px 1fr 80px 30px;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    background: rgba(15, 22, 32, 0.5);
+    border-radius: 3px;
+    font-size: 0.65rem;
+    font-family: var(--mono);
+    border-left: 3px solid var(--cyan);
+}
+
+.tactical__convoy-row--interdicted {
+    border-left-color: var(--red);
+    background: rgba(200, 16, 46, 0.15);
+}
+
+.convoy-row__id {
+    color: var(--muted);
+    font-weight: 600;
+}
+
+.convoy-row__route {
+    color: var(--text);
+    letter-spacing: 0.05em;
+}
+
+.convoy-row__cargo {
+    color: var(--muted);
+    font-size: 0.6rem;
+}
+
+.convoy-row__cargo--ammo {
+    color: var(--red);
+}
+
+.convoy-row__cargo--fuel {
+    color: var(--amber);
+}
+
+.convoy-row__cargo--mixed {
+    color: var(--cyan);
+}
+
+.convoy-row__progress {
+    display: flex;
+    align-items: center;
+}
+
+.convoy-progress-bar {
+    width: 100%;
+    height: 4px;
+    background: var(--bg);
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.convoy-progress-bar__fill {
+    height: 100%;
+    background: var(--cyan);
+    border-radius: 2px;
+    transition: width 0.3s ease;
+}
+
+.convoy-progress-bar__fill--ammo {
+    background: var(--red);
+}
+
+.convoy-progress-bar__fill--fuel {
+    background: var(--amber);
+}
+
+.convoy-row__eta {
+    text-align: right;
+    color: var(--green);
+    font-weight: 600;
+}
+
+.convoy-row__status--interdicted {
+    color: var(--red);
+    font-weight: 700;
+    animation: blink 1s step-end infinite;
+}
+
+@keyframes blink {
+    50% {
+        opacity: 0.3;
     }
 }
 
@@ -1335,7 +1627,8 @@ button.panel__title {
     border-radius: 50%;
     border: 2px solid var(--border-strong);
     background: var(--bg);
-    box-shadow: 0 0 0 6px var(--bg);
+    /* Smaller halo so lane lines visually "connect" to nodes. */
+    box-shadow: 0 0 0 2px var(--bg);
     transition: transform 0.2s ease, border-color 0.2s ease;
     flex-shrink: 0;
 }
@@ -1348,7 +1641,7 @@ button.panel__title {
     transform: scale(1.25);
     border-color: var(--viewport-accent);
     background: var(--viewport-accent);
-    box-shadow: 0 0 0 6px var(--bg), 0 0 12px var(--viewport-glow);
+    box-shadow: 0 0 0 2px var(--bg), 0 0 12px var(--viewport-glow);
 }
 
 .tactical__grid {
@@ -1836,15 +2129,15 @@ button.panel__title {
 }
 
 .supply-icon {
-    width: 24px;
-    height: 24px;
+    width: var(--supply-icon-size, 36px);
+    height: var(--supply-icon-size, 36px);
     object-fit: contain;
     filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.4));
 }
 
 .stat-row--supply {
     padding: 6px 0;
-    min-height: 40px;
+    min-height: calc(var(--supply-icon-size, 36px) + 12px);
 }
 
 /* --- Supply Chain Visualization --- */

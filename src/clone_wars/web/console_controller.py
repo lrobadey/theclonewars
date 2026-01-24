@@ -75,6 +75,14 @@ class ConsoleController:
         self.message = text
         self.message_kind = kind
 
+    def _try_spend_ap(self, state: GameState, cost: int = 1) -> bool:
+        """Attempt to spend AP. Returns True if successful, False if insufficient AP."""
+        if state.action_points < cost:
+            self._set_message(f"NOT ENOUGH ACTION POINTS (NEED {cost})", "error")
+            return False
+        state.action_points -= cost
+        return True
+
     def _set_phase_decision_mode(self, phase: OperationPhase) -> None:
         if phase == OperationPhase.CONTACT_SHAPING:
             if "approach_axis" in self.plan_draft:
@@ -105,18 +113,17 @@ class ConsoleController:
             self._set_message("OPERATION ALREADY ACTIVE", "error")
             self.mode = "menu"
             return
-        if state.action_points < 1:
-            self._set_message("NOT ENOUGH ACTION POINTS (NEED 1)", "error")
+        if not self._try_spend_ap(state, 1):
             self.mode = "menu"
             return
         intent = OperationIntent(target=self.target, op_type=op_type)
         try:
             state.start_operation_phased(intent)
         except RuntimeError as exc:
+            state.action_points += 1  # Refund AP on failure
             self._set_message(str(exc).upper(), "error")
             self.mode = "menu"
             return
-        state.action_points -= 1
         self.op_type = op_type
         self.plan_draft.clear()
         self._set_message("OPERATION LAUNCHED", "accent")
@@ -611,9 +618,6 @@ class ConsoleController:
                 self._set_message("SET A QUANTITY BEFORE QUEUING", "error")
                 self.mode = "production:quantity"
                 return dirty
-            if state.action_points < 1:
-                self._set_message("NOT ENOUGH ACTION POINTS (NEED 1)", "error")
-                return dirty
             stop_map = {
                 "prod-stop-core": LocationId.NEW_SYSTEM_CORE,
                 "prod-stop-spaceport": LocationId.CONTESTED_SPACEPORT,
@@ -624,7 +628,6 @@ class ConsoleController:
             if stop_at is None:
                 return dirty
             state.production.queue_job(self.prod_job_type, self.prod_quantity, stop_at)
-            state.action_points -= 1
             self._set_message(
                 f"QUEUED {self.prod_job_type.value.upper()} x{self.prod_quantity:,} -> {stop_at.value.replace('_', ' ').upper()}",
                 "info",
@@ -718,9 +721,6 @@ class ConsoleController:
                 self._set_message("SET A QUANTITY BEFORE QUEUING", "error")
                 self.mode = "barracks:quantity"
                 return dirty
-            if state.action_points < 1:
-                self._set_message("NOT ENOUGH ACTION POINTS (NEED 1)", "error")
-                return dirty
             stop_map = {
                 "barracks-stop-core": LocationId.NEW_SYSTEM_CORE,
                 "barracks-stop-spaceport": LocationId.CONTESTED_SPACEPORT,
@@ -731,7 +731,6 @@ class ConsoleController:
             if stop_at is None:
                 return dirty
             state.barracks.queue_job(self.barracks_job_type, self.barracks_quantity, stop_at)
-            state.action_points -= 1
             self._set_message(
                 f"QUEUED {self.barracks_job_type.value.upper()} x{self.barracks_quantity:,} -> {stop_at.value.replace('_', ' ').upper()}",
                 "info",

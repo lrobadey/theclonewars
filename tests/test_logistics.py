@@ -146,3 +146,4 @@ def test_logistics_tick_interdiction() -> None:
     # If interdicted, ammo should be reduced
     if shipment.interdicted:
         assert shipment.supplies.ammo < original_ammo
+        assert shipment.interdiction_loss_pct > 0.0
