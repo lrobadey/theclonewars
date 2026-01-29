@@ -13,6 +13,8 @@ env/
 
 .DS_Store
 
-# sim-v2 client deps and build (track source only)
-sim-v2/client/node_modules/
+# Node (ignore everywhere so UI doesn't show 10k+ files)
+node_modules/
+
+# sim-v2 client build (track source only)
 sim-v2/client/dist/

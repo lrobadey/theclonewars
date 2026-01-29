@@ -60,7 +60,7 @@ def _build_server_cmd(host: str, port: int, reload: bool) -> list[str]:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        prog="python3 clone",
+        prog="python3 clone-react",
         description="Launch the React FastAPI dev server for Clone Wars.",
     )
     parser.add_argument(
@@ -71,7 +71,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--port",
         type=int,
-        default=8000,
+        default=8001,
         help="Port for the FastAPI server (default: %(default)s).",
     )
     parser.add_argument(
@@ -104,7 +104,7 @@ def main(argv: list[str] | None = None) -> int:
             webbrowser.open(url)
         return proc.wait() or 0
     except KeyboardInterrupt:
-        print("Shutting down FastAPI dev server.")
+        print("Shutting down React FastAPI dev server.")
         return 0
     finally:
         _terminate(proc)
