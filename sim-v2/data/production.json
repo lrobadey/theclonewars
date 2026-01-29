@@ -1,0 +1,22 @@
+{
+  "factory": {
+    "slots_per_factory": 20,
+    "max_factories": 6,
+    "queue_policy": "parallel",
+    "costs": {
+      "ammo": 20,
+      "fuel": 20,
+      "med_spares": 20,
+      "walkers": 20
+    }
+  },
+  "barracks": {
+    "slots_per_barracks": 20,
+    "max_barracks": 6,
+    "queue_policy": "parallel",
+    "costs": {
+      "infantry": 1,
+      "support": 10
+    }
+  }
+}

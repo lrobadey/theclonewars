@@ -1,0 +1,317 @@
+@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+  
+  /* Node colors (from reference image) */
+  --color-core: #00D4FF;
+  --color-core-glow: rgba(0, 212, 255, 0.5);
+  --color-core-dim: rgba(0, 212, 255, 0.15);
+  --color-deep: #FFB800;
+  --color-deep-glow: rgba(255, 184, 0, 0.5);
+  --color-deep-dim: rgba(255, 184, 0, 0.15);
+  --color-contested: #FF3B3B;
+  --color-contested-glow: rgba(255, 59, 59, 0.5);
+  --color-contested-dim: rgba(255, 59, 59, 0.15);
+  
+  /* Background */
+  --bg-space: #0A0E14;
+  --bg-space-light: #0F1620;
+  --bg-gradient-start: #061218;
+  --bg-gradient-end: #0A0E14;
+  
+  /* Text */
+  --text-primary: #E8F4F8;
+  --text-secondary: #8BA4B4;
+  --text-accent: #FFB800;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Space Grotesk", sans-serif;
+  background: 
+    radial-gradient(ellipse at 10% 30%, rgba(0, 212, 255, 0.08), transparent 40%),
+    radial-gradient(ellipse at 50% 50%, rgba(255, 184, 0, 0.06), transparent 50%),
+    radial-gradient(ellipse at 90% 70%, rgba(255, 59, 59, 0.08), transparent 40%),
+    linear-gradient(135deg, var(--bg-gradient-start), var(--bg-space) 50%, var(--bg-gradient-end));
+  color: var(--text-primary);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+h1, h2, h3, h4 {
+  font-family: "Space Mono", monospace;
+  letter-spacing: 0.05em;
+}
+
+/* ================================
+   CRT Scanline Overlay
+   ================================ */
+.crt-overlay {
+  position: fixed;
+  inset: 0;
+  background: 
+    linear-gradient(transparent 0%, rgba(255, 255, 255, 0.02) 50%, transparent 100%);
+  background-size: 100% 4px;
+  mix-blend-mode: overlay;
+  pointer-events: none;
+  animation: scan 12s linear infinite;
+  opacity: 0.3;
+  z-index: 1000;
+}
+
+.crt-overlay::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 50% 0%, rgba(0, 212, 255, 0.05), transparent 50%);
+  pointer-events: none;
+}
+
+/* ================================
+   Node Glow Effects
+   ================================ */
+.node-glow-core {
+  filter: 
+    drop-shadow(0 0 8px var(--color-core))
+    drop-shadow(0 0 20px var(--color-core-glow))
+    drop-shadow(0 0 40px var(--color-core-glow));
+}
+
+.node-glow-deep {
+  filter: 
+    drop-shadow(0 0 8px var(--color-deep))
+    drop-shadow(0 0 20px var(--color-deep-glow))
+    drop-shadow(0 0 40px var(--color-deep-glow));
+}
+
+.node-glow-contested {
+  filter: 
+    drop-shadow(0 0 8px var(--color-contested))
+    drop-shadow(0 0 20px var(--color-contested-glow))
+    drop-shadow(0 0 40px var(--color-contested-glow));
+}
+
+/* ================================
+   Animations - Keyframes
+   ================================ */
+
+/* Node pulse animation */
+@keyframes nodePulse {
+  0%, 100% { 
+    transform: scale(1); 
+    filter: brightness(1); 
+  }
+  50% { 
+    transform: scale(1.02); 
+    filter: brightness(1.15); 
+  }
+}
+
+/* Glow breathing animation */
+@keyframes glowBreath {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+/* Route flow animation - for dashed strokes */
+@keyframes routeFlow {
+  from { stroke-dashoffset: 100; }
+  to { stroke-dashoffset: 0; }
+}
+
+/* Route flow reverse */
+@keyframes routeFlowReverse {
+  from { stroke-dashoffset: 0; }
+  to { stroke-dashoffset: 100; }
+}
+
+/* CRT scanline scroll */
+@keyframes scan {
+  0% { background-position: 0 0; }
+  100% { background-position: 0 80px; }
+}
+
+/* Orbit rotation for ring segments */
+@keyframes orbitRotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Warning pulse for contested nodes */
+@keyframes warningPulse {
+  0%, 100% { 
+    opacity: 0.8;
+    transform: scale(1);
+  }
+  50% { 
+    opacity: 1;
+    transform: scale(1.1);
+  }
+}
+
+/* Particle glow */
+@keyframes particleGlow {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
+}
+
+/* ================================
+   Animation Utility Classes
+   ================================ */
+.animate-node-pulse {
+  animation: nodePulse 3s ease-in-out infinite;
+}
+
+.animate-glow-breath {
+  animation: glowBreath 2.5s ease-in-out infinite;
+}
+
+.animate-route-flow {
+  animation: routeFlow 3s linear infinite;
+}
+
+.animate-orbit {
+  animation: orbitRotate 20s linear infinite;
+}
+
+.animate-warning-pulse {
+  animation: warningPulse 1.5s ease-in-out infinite;
+}
+
+/* ================================
+   Status Header Styles
+   ================================ */
+.status-header {
+  background: 
+    linear-gradient(180deg, rgba(10, 14, 20, 0.95) 0%, rgba(10, 14, 20, 0.8) 100%);
+  border-bottom: 1px solid rgba(255, 184, 0, 0.3);
+  box-shadow: 
+    0 0 20px rgba(255, 184, 0, 0.1),
+    0 4px 20px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(10px);
+}
+
+.status-divider {
+  color: var(--text-secondary);
+  margin: 0 0.75rem;
+}
+
+.status-stable {
+  color: #4ADE80;
+  text-shadow: 0 0 10px rgba(74, 222, 128, 0.5);
+}
+
+.status-alert {
+  color: var(--color-deep);
+  text-shadow: 0 0 10px var(--color-deep-glow);
+}
+
+.status-critical {
+  color: var(--color-contested);
+  text-shadow: 0 0 10px var(--color-contested-glow);
+  animation: warningPulse 1s ease-in-out infinite;
+}
+
+/* ================================
+   Strategic Map Container
+   ================================ */
+.strategic-map {
+  width: 100%;
+  height: calc(100vh - 100px);
+  min-height: 400px;
+}
+
+.strategic-map-bg {
+  fill: transparent;
+}
+
+/* ================================
+   Supply Route Styles
+   ================================ */
+.supply-route {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.supply-route-active {
+  stroke-dasharray: 8 4;
+  animation: routeFlow 2s linear infinite;
+}
+
+.supply-route-disrupted {
+  stroke-dasharray: 4 8;
+  opacity: 0.5;
+}
+
+.supply-route-blocked {
+  stroke-dasharray: 2 6;
+  opacity: 0.3;
+}
+
+/* ================================
+   Route Label Styles
+   ================================ */
+.route-label {
+  font-family: "Space Mono", monospace;
+  font-size: 10px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  fill: var(--text-secondary);
+}
+
+/* ================================
+   Map Node Label Styles
+   ================================ */
+.map-node-label {
+  font-family: "Space Mono", monospace;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  text-anchor: middle;
+  fill: var(--text-primary);
+  text-shadow: 0 0 10px rgba(0, 0, 0, 0.8);
+}
+
+/* ================================
+   Circuit Tendril Styles
+   ================================ */
+.circuit-tendril {
+  fill: none;
+  stroke-linecap: round;
+  opacity: 0.6;
+}
+
+/* ================================
+   Particle Styles
+   ================================ */
+.flow-particle {
+  animation: particleGlow 1.5s ease-in-out infinite;
+}
+
+/* ================================
+   Responsive Adjustments
+   ================================ */
+@media (max-width: 768px) {
+  .status-header {
+    padding: 0.5rem 1rem;
+  }
+  
+  .map-node-label {
+    font-size: 10px;
+  }
+  
+  .route-label {
+    font-size: 8px;
+  }
+}

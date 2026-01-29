@@ -1,0 +1,59 @@
+{
+  "types": [
+    {
+      "id": "raid",
+      "name": "Raid",
+      "base_duration_days": 1,
+      "duration_range": [1, 2],
+      "required_progress": 0.60,
+      "supply_cost_multiplier": 0.8
+    },
+    {
+      "id": "campaign",
+      "name": "Campaign",
+      "base_duration_days": 3,
+      "duration_range": [2, 5],
+      "required_progress": 0.75,
+      "supply_cost_multiplier": 1.2
+    },
+    {
+      "id": "siege",
+      "name": "Siege",
+      "base_duration_days": 5,
+      "duration_range": [4, 8],
+      "required_progress": 0.80,
+      "supply_cost_multiplier": 1.5
+    }
+  ],
+  "approach_axes": {
+    "direct": {"progress_mod": 0.05, "loss_mod": 0.04},
+    "flank": {"progress_mod": 0.08, "loss_mod": 0.02},
+    "dispersed": {"progress_mod": -0.02, "loss_mod": -0.03},
+    "stealth": {"progress_mod": 0.10, "loss_mod": 0.00}
+  },
+  "fire_support_prep": {
+    "conserve": {"progress_mod": -0.05, "loss_mod": -0.02},
+    "preparatory": {"progress_mod": 0.08, "loss_mod": 0.03}
+  },
+  "engagement_postures": {
+    "shock": {"progress_mod": 0.12, "loss_mod": 0.12},
+    "methodical": {"progress_mod": 0.05, "loss_mod": 0.04},
+    "siege": {"progress_mod": 0.08, "loss_mod": 0.02},
+    "feint": {"progress_mod": 0.03, "loss_mod": -0.03}
+  },
+  "risk_tolerances": {
+    "low": {"progress_mod": -0.03, "loss_mod": -0.06, "variance_multiplier": 0.6},
+    "med": {"progress_mod": 0.00, "loss_mod": 0.00, "variance_multiplier": 1.0},
+    "high": {"progress_mod": 0.05, "loss_mod": 0.08, "variance_multiplier": 1.4}
+  },
+  "exploit_vs_secure": {
+    "push": {"progress_mod": 0.06, "loss_mod": 0.05},
+    "secure": {"progress_mod": -0.02, "loss_mod": -0.03}
+  },
+  "end_states": {
+    "capture": {"required_progress": 0.75, "fortification_reduction": 0.10, "reinforcement_reduction": 0.02},
+    "raid": {"required_progress": 0.60, "fortification_reduction": 0.0, "reinforcement_reduction": 0.01},
+    "destroy": {"required_progress": 0.70, "fortification_reduction": 0.05, "reinforcement_reduction": 0.015},
+    "withdraw": {"required_progress": 0.0, "fortification_reduction": 0.0, "reinforcement_reduction": 0.0}
+  }
+}

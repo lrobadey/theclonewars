@@ -1,0 +1,29 @@
+{
+  "seed": 1,
+  "planet": {
+    "name": "Contested System",
+    "objectives": [
+      {
+        "id": "foundry",
+        "name": "Foundry"
+      },
+      {
+        "id": "comms",
+        "name": "Communications Array"
+      },
+      {
+        "id": "power",
+        "name": "Power Plant"
+      }
+    ],
+    "enemy": {
+      "infantry": 120,
+      "walkers": 2,
+      "support": 1,
+      "cohesion": 1.0,
+      "fortification": 1.2,
+      "reinforcement_rate": 0.0,
+      "intel_confidence": 0.7
+    }
+  }
+}

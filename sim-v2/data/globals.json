@@ -1,0 +1,29 @@
+{
+  "raid_max_ticks": 12,
+  "raid_ammo_cost": 50,
+  "raid_fuel_cost": 30,
+  "raid_med_cost": 15,
+  "raid_base_damage_rate": 0.08,
+  "raid_casualty_rate": 0.02,
+  "ammo_pinch_threshold": 0.5,
+  "walker_screen_infantry_protect": 0.4,
+  "storage_risk_per_day": {
+    "new_system_core": 0.0,
+    "deep_space": 0.01,
+    "contested_spaceport": 0.06
+  },
+  "storage_loss_pct_range": {
+    "new_system_core": [
+      0.0,
+      0.0
+    ],
+    "deep_space": [
+      0.05,
+      0.1
+    ],
+    "contested_spaceport": [
+      0.1,
+      0.2
+    ]
+  }
+}

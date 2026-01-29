@@ -12,3 +12,7 @@ ENV/
 env/
 
 .DS_Store
+
+# sim-v2 client deps and build (track source only)
+sim-v2/client/node_modules/
+sim-v2/client/dist/
