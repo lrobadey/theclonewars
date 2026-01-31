@@ -27,7 +27,7 @@ Turn-based strategic sim for the Schism setting (New System vs Human Collective)
 
    ```bash
    cd sim-v2
-   PYTHONPATH=../src:. uv run uvicorn server.main:app --reload
+PYTHONPATH=. uv run uvicorn server.main:app --reload
    ```
 
 3. **Open** [http://127.0.0.1:8000](http://127.0.0.1:8000).
@@ -45,7 +45,7 @@ The UI currently shows **mock map data**. Live game state will be wired in a fol
 From repo root with the project venv activated:
 
 ```bash
-PYTHONPATH=src:sim-v2 uv run uvicorn server.main:app --reload --host 0.0.0.0 --port 8000
+PYTHONPATH=sim-v2 uv run uvicorn server.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 The app is run with the root project’s virtualenv; `sim-v2` is not a separate installable package.

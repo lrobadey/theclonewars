@@ -6,16 +6,15 @@ Run the Schism Sim v2 server from repo root:
 
 Or from sim-v2 with the repo venv:
 
-    cd sim-v2 && PYTHONPATH=../src:. uv run uvicorn server.main:app --reload
+    cd sim-v2 && PYTHONPATH=. uv run uvicorn server.main:app --reload
 """
 from __future__ import annotations
 
 import sys
 from pathlib import Path
 
-# Add repo src and sim-v2 so clone_wars and server are importable
+# Add sim-v2 so server + schism_sim are importable.
 _repo_root = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(_repo_root / "src"))
 sys.path.insert(0, str(_repo_root / "sim-v2"))
 
 if __name__ == "__main__":

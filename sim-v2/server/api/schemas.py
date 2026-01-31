@@ -1,0 +1,332 @@
+from __future__ import annotations
+
+from typing import Dict, List, Optional, Tuple, Union
+
+from pydantic import BaseModel, Field
+
+
+class CamelModel(BaseModel):
+    class Config:
+        allow_population_by_field_name = True
+        populate_by_name = True
+
+
+class Position(CamelModel):
+    x: float
+    y: float
+
+
+class Supplies(CamelModel):
+    ammo: int
+    fuel: int
+    med_spares: int = Field(..., alias="medSpares")
+
+
+class UnitStock(CamelModel):
+    infantry: int
+    walkers: int
+    support: int
+
+
+class IntelRange(CamelModel):
+    min: int
+    max: int
+    actual: int
+
+
+class EnemyIntel(CamelModel):
+    infantry: IntelRange
+    walkers: IntelRange
+    support: IntelRange
+    fortification: float
+    reinforcement_rate: float = Field(..., alias="reinforcementRate")
+    cohesion: float
+    intel_confidence: float = Field(..., alias="intelConfidence")
+
+
+class PlanetObjective(CamelModel):
+    id: str
+    label: str
+    status: str
+
+
+class ContestedPlanet(CamelModel):
+    control: float
+    objectives: List[PlanetObjective]
+    enemy: EnemyIntel
+
+
+class SystemNode(CamelModel):
+    id: str
+    label: str
+    kind: str
+    description: str
+    position: Position
+
+
+class Route(CamelModel):
+    origin: str
+    destination: str
+    travel_days: int = Field(..., alias="travelDays")
+    interdiction_risk: float = Field(..., alias="interdictionRisk")
+
+
+class Depot(CamelModel):
+    id: str
+    label: str
+    supplies: Supplies
+    units: UnitStock
+
+
+class Shipment(CamelModel):
+    id: int
+    origin: str
+    destination: str
+    days_remaining: int = Field(..., alias="daysRemaining")
+    total_days: int = Field(..., alias="totalDays")
+    interdicted: bool
+    interdiction_loss_pct: float = Field(..., alias="interdictionLossPct")
+    supplies: Supplies
+    units: UnitStock
+
+
+class CargoShip(CamelModel):
+    id: str
+    name: str
+    location: str
+    state: str
+    destination: Optional[str]
+    days_remaining: int = Field(..., alias="daysRemaining")
+    total_days: int = Field(..., alias="totalDays")
+    supplies: Supplies
+    units: UnitStock
+
+
+class TransitLogEntry(CamelModel):
+    day: int
+    message: str
+    event_type: str = Field(..., alias="eventType")
+
+
+class TransportOrder(CamelModel):
+    order_id: str = Field(..., alias="orderId")
+    origin: str
+    final_destination: str = Field(..., alias="finalDestination")
+    current_location: str = Field(..., alias="currentLocation")
+    status: str
+    supplies: Supplies
+    units: UnitStock
+    in_transit_leg: Optional[Tuple[str, str]] = Field(None, alias="inTransitLeg")
+    carrier_id: Optional[str] = Field(None, alias="carrierId")
+
+
+class LogisticsState(CamelModel):
+    depots: List[Depot]
+    routes: List[Route]
+    shipments: List[Shipment]
+    ships: List[CargoShip]
+    active_orders: List[TransportOrder] = Field(..., alias="activeOrders")
+    transit_log: List[TransitLogEntry] = Field(..., alias="transitLog")
+
+
+class ProductionJob(CamelModel):
+    type: str
+    quantity: int
+    remaining: int
+    stop_at: str = Field(..., alias="stopAt")
+    eta_days: int = Field(..., alias="etaDays")
+
+
+class ProductionState(CamelModel):
+    factories: int
+    max_factories: int = Field(..., alias="maxFactories")
+    slots_per_factory: int = Field(..., alias="slotsPerFactory")
+    capacity: int
+    costs: Dict[str, int]
+    jobs: List[ProductionJob]
+
+
+class BarracksState(CamelModel):
+    barracks: int
+    max_barracks: int = Field(..., alias="maxBarracks")
+    slots_per_barracks: int = Field(..., alias="slotsPerBarracks")
+    capacity: int
+    costs: Dict[str, int]
+    jobs: List[ProductionJob]
+
+
+class DecisionPhase1(CamelModel):
+    approach_axis: str = Field(..., alias="approachAxis")
+    fire_support_prep: str = Field(..., alias="fireSupportPrep")
+
+
+class DecisionPhase2(CamelModel):
+    engagement_posture: str = Field(..., alias="engagementPosture")
+    risk_tolerance: str = Field(..., alias="riskTolerance")
+
+
+class DecisionPhase3(CamelModel):
+    exploit_vs_secure: str = Field(..., alias="exploitVsSecure")
+    end_state: str = Field(..., alias="endState")
+
+
+class OperationDecisionSummary(CamelModel):
+    phase1: Optional[DecisionPhase1] = None
+    phase2: Optional[DecisionPhase2] = None
+    phase3: Optional[DecisionPhase3] = None
+
+
+class PhaseSummary(CamelModel):
+    progress_delta: float = Field(..., alias="progressDelta")
+    losses: int
+    supplies_spent: Supplies = Field(..., alias="suppliesSpent")
+    readiness_delta: float = Field(..., alias="readinessDelta")
+    cohesion_delta: float = Field(..., alias="cohesionDelta")
+
+
+class Event(CamelModel):
+    name: str
+    value: float
+    delta: str
+    why: str
+    phase: str
+
+
+class PhaseRecord(CamelModel):
+    phase: str
+    start_day: int = Field(..., alias="startDay")
+    end_day: int = Field(..., alias="endDay")
+    decisions: Optional[Dict[str, str]]
+    summary: PhaseSummary
+    events: List[Event]
+
+
+class OperationState(CamelModel):
+    target: str
+    op_type: str = Field(..., alias="opType")
+    current_phase: str = Field(..., alias="currentPhase")
+    estimated_total_days: int = Field(..., alias="estimatedTotalDays")
+    phase_durations: Dict[str, int] = Field(..., alias="phaseDurations")
+    day_in_operation: int = Field(..., alias="dayInOperation")
+    day_in_phase: int = Field(..., alias="dayInPhase")
+    awaiting_decision: bool = Field(..., alias="awaitingDecision")
+    pending_phase_record: Optional[PhaseRecord] = Field(None, alias="pendingPhaseRecord")
+    decisions: OperationDecisionSummary
+    phase_history: List[PhaseRecord] = Field(..., alias="phaseHistory")
+    sampled_enemy_strength: Optional[float] = Field(None, alias="sampledEnemyStrength")
+
+
+class RaidTick(CamelModel):
+    tick: int
+    event: str
+    beat: str
+
+
+class RaidState(CamelModel):
+    tick: int
+    max_ticks: int = Field(..., alias="maxTicks")
+    your_cohesion: float = Field(..., alias="yourCohesion")
+    enemy_cohesion: float = Field(..., alias="enemyCohesion")
+    your_casualties: int = Field(..., alias="yourCasualties")
+    enemy_casualties: int = Field(..., alias="enemyCasualties")
+    outcome: Optional[str]
+    reason: Optional[str]
+    tick_log: List[RaidTick] = Field(..., alias="tickLog")
+
+
+class TopFactor(CamelModel):
+    name: str
+    value: float
+    delta: str
+    why: str
+
+
+class AfterActionReport(CamelModel):
+    kind: str
+    outcome: str
+    target: str
+    operation_type: str = Field(..., alias="operationType")
+    days: int
+    losses: int
+    remaining_supplies: Supplies = Field(..., alias="remainingSupplies")
+    top_factors: List[TopFactor] = Field(..., alias="topFactors")
+    phases: List[PhaseRecord]
+    events: List[Event]
+
+
+class RaidFactor(CamelModel):
+    name: str
+    value: float
+    why: str
+
+
+class RaidReport(CamelModel):
+    kind: str
+    outcome: str
+    reason: str
+    target: str
+    ticks: int
+    your_casualties: int = Field(..., alias="yourCasualties")
+    enemy_casualties: int = Field(..., alias="enemyCasualties")
+    your_remaining: Dict[str, int] = Field(..., alias="yourRemaining")
+    enemy_remaining: Dict[str, int] = Field(..., alias="enemyRemaining")
+    supplies_used: Supplies = Field(..., alias="suppliesUsed")
+    key_moments: List[str] = Field(..., alias="keyMoments")
+    top_factors: List[RaidFactor] = Field(..., alias="topFactors")
+
+
+class TaskForce(CamelModel):
+    composition: UnitStock
+    readiness: float
+    cohesion: float
+    location: str
+    supplies: Supplies
+
+
+class GameStateResponse(CamelModel):
+    day: int
+    action_points: int = Field(..., alias="actionPoints")
+    faction_turn: str = Field(..., alias="factionTurn")
+    system_nodes: List[SystemNode] = Field(..., alias="systemNodes")
+    contested_planet: ContestedPlanet = Field(..., alias="contestedPlanet")
+    task_force: TaskForce = Field(..., alias="taskForce")
+    production: ProductionState
+    barracks: BarracksState
+    logistics: LogisticsState
+    operation: Optional[OperationState]
+    raid: Optional[RaidState]
+    last_aar: Optional[Union[AfterActionReport, RaidReport]] = Field(None, alias="lastAar")
+
+
+class ApiResponse(CamelModel):
+    ok: bool
+    message: Optional[str] = None
+    message_kind: Optional[str] = Field(None, alias="messageKind")
+    state: Optional[GameStateResponse] = None
+
+
+class DispatchRequest(CamelModel):
+    origin: str
+    destination: str
+    supplies: Supplies
+    units: UnitStock
+
+
+class ProductionRequest(CamelModel):
+    job_type: str = Field(..., alias="jobType")
+    quantity: int
+
+
+class OperationStartRequest(CamelModel):
+    target: str
+    op_type: str = Field(..., alias="opType")
+
+
+class PhaseDecisionRequest(CamelModel):
+    axis: Optional[str] = None
+    fire: Optional[str] = None
+    posture: Optional[str] = None
+    risk: Optional[str] = None
+    focus: Optional[str] = None
+    end_state: Optional[str] = Field(None, alias="endState")
+

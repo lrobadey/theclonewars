@@ -20,7 +20,7 @@ module.exports = {
       },
       fontFamily: {
         mono: ["Space Mono", "monospace"],
-        sans: ["Space Grotesk", "sans-serif"]
+        sans: ["Libre Baskerville", "Georgia", "serif"]
       },
       animation: {
         "pulse-slow": "pulseSlow 3s ease-in-out infinite",

@@ -5,13 +5,13 @@ import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from clone_wars.engine.scenario import load_game_state
-from clone_wars.engine.state import GameState
+from schism_sim.engine.scenario import load_game_state
+from schism_sim.engine.state import GameState
 
 # Resolve sim-v2/data relative to this package (server/ is inside sim-v2/)
 _SIM_V2_ROOT = Path(__file__).resolve().parents[1]
 _DATA_DIR = _SIM_V2_ROOT / "data"
-_SCENARIO_PATH = _DATA_DIR / "scenario.json"
+_SCENARIO_PATH = _DATA_DIR / "scenarios" / "default.json"
 
 
 @dataclass

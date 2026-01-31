@@ -37,7 +37,7 @@ export interface MapState {
 
 export const mockMapState: MapState = {
   header: {
-    simulationName: "THE SCHISM SIMULATION",
+    simulationName: "The Schism",
     factions: ["NEW SYSTEM", "HUMAN COLLECTIVE"],
     day: 42,
     actionPoints: 12,
@@ -48,24 +48,8 @@ export const mockMapState: MapState = {
       id: "core",
       type: "core",
       label: "CORE WORLDS",
-      position: { x: 150, y: 200 },
+      position: { x: 200, y: 200 },
       size: "large",
-      status: "stable"
-    },
-    {
-      id: "waypoint1",
-      type: "core",
-      label: "",
-      position: { x: 300, y: 150 },
-      size: "small",
-      status: "stable"
-    },
-    {
-      id: "waypoint2",
-      type: "core",
-      label: "",
-      position: { x: 350, y: 250 },
-      size: "small",
       status: "stable"
     },
     {
@@ -77,18 +61,10 @@ export const mockMapState: MapState = {
       status: "stable"
     },
     {
-      id: "waypoint3",
-      type: "deep",
-      label: "",
-      position: { x: 750, y: 280 },
-      size: "small",
-      status: "stable"
-    },
-    {
       id: "contested",
       type: "contested",
       label: "CONTESTED SYSTEM",
-      position: { x: 1050, y: 250 },
+      position: { x: 1000, y: 200 },
       size: "medium",
       status: "warning"
     }
@@ -97,43 +73,22 @@ export const mockMapState: MapState = {
     { 
       id: "c1", 
       from: "core", 
-      to: "waypoint1", 
+      to: "deep", 
       status: "active",
       flowDirection: "forward"
     },
     { 
       id: "c2", 
-      from: "waypoint1", 
-      to: "deep", 
+      from: "deep", 
+      to: "contested", 
       status: "active",
       flowDirection: "forward"
     },
     { 
       id: "c3", 
       from: "core", 
-      to: "waypoint2", 
-      status: "active",
-      flowDirection: "forward"
-    },
-    { 
-      id: "c4", 
-      from: "waypoint2", 
-      to: "deep", 
-      status: "active",
-      flowDirection: "forward"
-    },
-    { 
-      id: "c5", 
-      from: "deep", 
-      to: "waypoint3", 
-      status: "active",
-      flowDirection: "forward"
-    },
-    { 
-      id: "c6", 
-      from: "waypoint3", 
       to: "contested", 
-      status: "active",
+      status: "disrupted",
       flowDirection: "forward"
     }
   ]

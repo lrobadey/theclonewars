@@ -31,7 +31,12 @@ src/clone_wars/web/__init__.py
 src/clone_wars/web/console_controller.py
 src/clone_wars/web/main.py
 src/clone_wars/web/models.py
+src/clone_wars/web/run_react.py
 src/clone_wars/web/session.py
+src/clone_wars/web/api/__init__.py
+src/clone_wars/web/api/mappers.py
+src/clone_wars/web/api/router.py
+src/clone_wars/web/api/schemas.py
 src/clone_wars/web/render/__init__.py
 src/clone_wars/web/render/format.py
 src/clone_wars/web/render/viewmodels.py

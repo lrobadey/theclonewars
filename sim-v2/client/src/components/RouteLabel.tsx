@@ -1,5 +1,7 @@
 import { motion } from 'framer-motion';
-import type { ConnectionStatus } from '../data/mockMapData';
+import type { ConnectionData } from '../data/mapFromGameState';
+
+type ConnectionStatus = ConnectionData['status'];
 
 interface RouteLabelProps {
   pathId: string;

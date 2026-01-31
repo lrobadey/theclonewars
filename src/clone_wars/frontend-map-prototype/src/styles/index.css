@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Space+Mono:wght@400;700&display=swap");
 
 @tailwind base;
 @tailwind components;
@@ -36,7 +36,7 @@
 
 body {
   margin: 0;
-  font-family: "Space Grotesk", sans-serif;
+  font-family: "Libre Baskerville", Georgia, serif;
   background: 
     radial-gradient(ellipse at 10% 30%, rgba(0, 212, 255, 0.08), transparent 40%),
     radial-gradient(ellipse at 50% 50%, rgba(255, 184, 0, 0.06), transparent 50%),
@@ -48,7 +48,7 @@ body {
 }
 
 h1, h2, h3, h4 {
-  font-family: "Space Mono", monospace;
+  font-family: "Libre Baskerville", Georgia, serif;
   letter-spacing: 0.05em;
 }
 

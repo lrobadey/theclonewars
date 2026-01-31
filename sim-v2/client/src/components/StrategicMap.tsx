@@ -1,13 +1,16 @@
 import { useMemo } from 'react';
-import type { MapNodeData, ConnectionData } from '../data/mockMapData';
+import type { MapNodeData, ConnectionData } from '../data/mapFromGameState';
 import { MapNode } from './MapNode';
 import { SupplyRoute } from './SupplyRoute';
 import { FlowingParticles } from './FlowingParticles';
 import { RouteLabel } from './RouteLabel';
+import { Starfield } from './Starfield';
 
 interface StrategicMapProps {
   nodes: MapNodeData[];
   connections: ConnectionData[];
+  selectedNodeId?: string;
+  onNodeClick?: (nodeId: string) => void;
 }
 
 // Generate a unique path ID for a connection
@@ -34,7 +37,7 @@ function calculateBezierPath(
   return `M ${from.x} ${from.y} C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${to.x} ${to.y}`;
 }
 
-export function StrategicMap({ nodes, connections }: StrategicMapProps) {
+export function StrategicMap({ nodes, connections, selectedNodeId, onNodeClick }: StrategicMapProps) {
   // Create a lookup map for nodes by ID
   const nodeMap = useMemo(() => {
     const map = new Map<string, MapNodeData>();
@@ -50,7 +53,10 @@ export function StrategicMap({ nodes, connections }: StrategicMapProps) {
       
       if (!fromNode || !toNode) return null;
       
-      const path = calculateBezierPath(fromNode.position, toNode.position);
+      const path = calculateBezierPath(
+        { x: fromNode.x, y: fromNode.y },
+        { x: toNode.x, y: toNode.y }
+      );
       const pathId = getPathId(conn.id);
       
       return {
@@ -146,6 +152,11 @@ export function StrategicMap({ nodes, connections }: StrategicMapProps) {
           <stop offset="0%" stopColor="#FFB800" />
           <stop offset="100%" stopColor="#FF3B3B" />
         </linearGradient>
+        
+        <linearGradient id="route-gradient-core-contested" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="#00D4FF" />
+          <stop offset="100%" stopColor="#FF3B3B" />
+        </linearGradient>
 
         {/* Define paths for animateMotion */}
         {connectionPaths.map(conn => conn && (
@@ -166,6 +177,9 @@ export function StrategicMap({ nodes, connections }: StrategicMapProps) {
         fill="transparent"
       />
 
+      {/* Layer 0: Starfield Background */}
+      <Starfield width={1200} height={400} starCount={150} />
+
       {/* Layer 1: Supply Route Connections */}
       <g className="connections-layer">
         {connectionPaths.map(conn => conn && (
@@ -182,7 +196,7 @@ export function StrategicMap({ nodes, connections }: StrategicMapProps) {
       <g className="labels-layer">
         {connectionPaths.map(conn => {
           // Only show label if from node has a label (main node connection)
-          if (!conn || !conn.fromNode.label) return null;
+          if (!conn || !conn.fromNode.isLabeled) return null;
           return (
             <RouteLabel
               key={`label-${conn.id}`}
@@ -208,7 +222,12 @@ export function StrategicMap({ nodes, connections }: StrategicMapProps) {
       {/* Layer 4: Map Nodes (on top) */}
       <g className="nodes-layer">
         {nodes.map(node => (
-          <MapNode key={node.id} data={node} />
+          <MapNode 
+            key={node.id} 
+            data={node} 
+            isSelected={selectedNodeId === node.id}
+            onNodeClick={onNodeClick}
+          />
         ))}
       </g>
     </svg>

@@ -1,9 +1,15 @@
-import { motion } from 'framer-motion';
-import type { MapNodeData, NodeType, NodeSize } from '../data/mockMapData';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useState } from 'react';
+import type { MapNodeData } from '../data/mapFromGameState';
 
 interface MapNodeProps {
   data: MapNodeData;
+  isSelected?: boolean;
+  onNodeClick?: (nodeId: string) => void;
 }
+
+type NodeType = MapNodeData['type'];
+type NodeSize = MapNodeData['size'];
 
 // Get colors based on node type
 function getNodeColors(type: NodeType) {
@@ -95,59 +101,157 @@ function generateTendrils(x: number, y: number, type: NodeType): React.ReactNode
   ));
 }
 
-// Warning icon for contested nodes
-function WarningIcon({ x, y, color }: { x: number; y: number; color: string }) {
-  return (
-    <motion.g
-      initial={{ scale: 0, opacity: 0 }}
-      animate={{ scale: 1, opacity: 1 }}
-      transition={{ duration: 0.5, delay: 0.3 }}
-    >
-      {/* Triangle background */}
-      <motion.path
-        d={`M ${x} ${y - 15} L ${x + 13} ${y + 10} L ${x - 13} ${y + 10} Z`}
-        fill="none"
-        stroke={color}
-        strokeWidth="2"
-        animate={{ opacity: [0.7, 1, 0.7] }}
-        transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
-      />
-      {/* Exclamation mark */}
-      <motion.line
-        x1={x} y1={y - 8}
-        x2={x} y2={y + 2}
-        stroke={color}
-        strokeWidth="2.5"
-        strokeLinecap="round"
-        animate={{ opacity: [0.8, 1, 0.8] }}
-        transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
-      />
-      <motion.circle
-        cx={x} cy={y + 7}
-        r="2"
-        fill={color}
-        animate={{ opacity: [0.8, 1, 0.8] }}
-        transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
-      />
-    </motion.g>
-  );
-}
-
-export function MapNode({ data }: MapNodeProps) {
-  const { position, type, label, size = 'medium', status } = data;
-  const { x, y } = position;
+export function MapNode({ data, isSelected, onNodeClick }: MapNodeProps) {
+  const { id, type, label, size = 'medium', x, y, isLabeled } = data;
   const colors = getNodeColors(type);
   const dimensions = getNodeSize(size);
+  const [isHovered, setIsHovered] = useState(false);
   
-  const isContested = type === 'contested';
   const isLarge = size === 'large';
+  const isClickable = isLabeled; // requirement: only major nodes with labels are clickable
+
+  const handleClick = () => {
+    if (isClickable && onNodeClick) {
+      onNodeClick(id);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      handleClick();
+    }
+  };
+
+  const handleMouseEnter = () => {
+    if (isClickable) setIsHovered(true);
+  };
+
+  const handleMouseLeave = () => {
+    setIsHovered(false);
+  };
+
+  // Status text for tooltip (example data)
+  const statusText = type === 'core' ? 'Garrisoned' : 
+                     type === 'contested' ? 'Under Attack' : 
+                     'Stable';
 
   return (
     <motion.g
       initial={{ scale: 0, opacity: 0 }}
-      animate={{ scale: 1, opacity: 1 }}
+      animate={{ 
+        scale: isSelected ? 1.05 : isHovered ? 1.08 : 1, 
+        opacity: 1 
+      }}
       transition={{ duration: 0.8, ease: "easeOut" }}
+      onClick={isClickable ? handleClick : undefined}
+      onKeyDown={isClickable ? handleKeyDown : undefined}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+      className={isClickable ? 'cursor-pointer outline-none' : ''}
+      role={isClickable ? 'button' : undefined}
+      tabIndex={isClickable ? 0 : undefined}
     >
+      {/* Selected highlight glow */}
+      {isSelected && (
+        <motion.circle
+          cx={x}
+          cy={y}
+          r={dimensions.glowRadius + 15}
+          fill="none"
+          stroke={colors.primary}
+          strokeWidth="2"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: [0.2, 0.4, 0.2] }}
+          transition={{ duration: 2, repeat: Infinity }}
+          filter="blur(8px)"
+        />
+      )}
+
+      {/* Enhanced pulse rings for contested nodes or when hovered */}
+      {(type === 'contested' || isHovered) && (
+        <>
+          <motion.circle
+            cx={x}
+            cy={y}
+            r={dimensions.glowRadius}
+            fill="none"
+            stroke={colors.primary}
+            strokeWidth="2"
+            opacity={0}
+            animate={{ 
+              r: [dimensions.glowRadius, dimensions.glowRadius + 40],
+              opacity: [0.6, 0]
+            }}
+            transition={{ 
+              duration: 2, 
+              repeat: Infinity,
+              ease: "easeOut"
+            }}
+          />
+          <motion.circle
+            cx={x}
+            cy={y}
+            r={dimensions.glowRadius}
+            fill="none"
+            stroke={colors.primary}
+            strokeWidth="2"
+            opacity={0}
+            animate={{ 
+              r: [dimensions.glowRadius, dimensions.glowRadius + 40],
+              opacity: [0.6, 0]
+            }}
+            transition={{ 
+              duration: 2, 
+              repeat: Infinity,
+              ease: "easeOut",
+              delay: 1
+            }}
+          />
+        </>
+      )}
+
+      {/* Shield effect for core node */}
+      {type === 'core' && (
+        <motion.circle
+          cx={x}
+          cy={y}
+          r={dimensions.outerRadius + 15}
+          fill="none"
+          stroke={colors.primary}
+          strokeWidth="1"
+          strokeDasharray="4 8"
+          opacity={isHovered ? 0.6 : 0.3}
+          animate={{ 
+            rotate: 360,
+            opacity: isHovered ? 0.6 : [0.3, 0.5, 0.3]
+          }}
+          transition={{ 
+            rotate: { duration: 40, repeat: Infinity, ease: "linear" },
+            opacity: { duration: 3, repeat: Infinity, ease: "easeInOut" }
+          }}
+          style={{ transformOrigin: `${x}px ${y}px` }}
+        />
+      )}
+
+      {/* Warning beacon for contested node */}
+      {type === 'contested' && (
+        <motion.circle
+          cx={x}
+          cy={y}
+          r={dimensions.innerRadius - 10}
+          fill={colors.primary}
+          opacity={0}
+          animate={{ 
+            opacity: [0, 0.8, 0]
+          }}
+          transition={{ 
+            duration: 1.5, 
+            repeat: Infinity,
+            ease: "easeInOut"
+          }}
+        />
+      )}
+
       {/* Layer 1: Outer glow ring (largest, most diffuse) */}
       <motion.circle
         cx={x}
@@ -158,12 +262,12 @@ export function MapNode({ data }: MapNodeProps) {
         strokeWidth="1"
         filter={colors.filter}
         animate={{ 
-          opacity: [0.3, 0.5, 0.3],
-          scale: [1, 1.02, 1]
+          opacity: isSelected || isHovered ? 0.7 : [0.3, 0.5, 0.3],
+          scale: isSelected || isHovered ? 1.05 : [1, 1.02, 1]
         }}
         transition={{ 
           duration: 3, 
-          repeat: Infinity, 
+          repeat: isSelected || isHovered ? 0 : Infinity, 
           ease: "easeInOut" 
         }}
       />
@@ -271,11 +375,6 @@ export function MapNode({ data }: MapNodeProps) {
       {/* Circuit tendrils for large nodes */}
       {isLarge && generateTendrils(x, y, type)}
 
-      {/* Warning icon for contested nodes */}
-      {isContested && status === 'warning' && (
-        <WarningIcon x={x} y={y} color={colors.primary} />
-      )}
-
       {/* Node Label (only show if there's a label) */}
       {label && (
         <motion.text
@@ -289,6 +388,69 @@ export function MapNode({ data }: MapNodeProps) {
           {label}
         </motion.text>
       )}
+
+      {/* Hover Tooltip */}
+      <AnimatePresence>
+        {isHovered && isClickable && (
+          <motion.g
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.2 }}
+          >
+            {/* Tooltip background */}
+            <rect
+              x={x - 60}
+              y={y - dimensions.outerRadius - 60}
+              width="120"
+              height="50"
+              rx="8"
+              fill="rgba(10, 14, 20, 0.95)"
+              stroke={colors.primary}
+              strokeWidth="1"
+              filter="url(#route-glow)"
+            />
+            
+            {/* Tooltip title */}
+            <text
+              x={x}
+              y={y - dimensions.outerRadius - 42}
+              textAnchor="middle"
+              fill={colors.primary}
+              fontSize="12"
+              fontWeight="bold"
+              style={{ fontFamily: 'Space Mono, monospace' }}
+            >
+              {label}
+            </text>
+            
+            {/* Tooltip status */}
+            <text
+              x={x}
+              y={y - dimensions.outerRadius - 26}
+              textAnchor="middle"
+              fill="#8BA4B4"
+              fontSize="10"
+              style={{ fontFamily: 'Space Mono, monospace' }}
+            >
+              Status: {statusText}
+            </text>
+            
+            {/* Tooltip action hint */}
+            <text
+              x={x}
+              y={y - dimensions.outerRadius - 14}
+              textAnchor="middle"
+              fill="#8BA4B4"
+              fontSize="9"
+              opacity="0.7"
+              style={{ fontFamily: 'Space Mono, monospace' }}
+            >
+              Click for details
+            </text>
+          </motion.g>
+        )}
+      </AnimatePresence>
     </motion.g>
   );
 }
