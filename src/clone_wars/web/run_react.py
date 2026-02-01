@@ -22,7 +22,7 @@ async def lifespan(app: FastAPI):
 
 
 def create_app() -> FastAPI:
-    app = FastAPI(title="Clone Wars War Sim (React)", lifespan=lifespan)
+    app = FastAPI(title="The Schism (React)", lifespan=lifespan)
 
     app.include_router(api_router)
 

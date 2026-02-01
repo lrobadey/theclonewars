@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import type { MapNodeData, ConnectionData } from '../data/mapFromGameState';
 
 type NodeType = MapNodeData['type'];
@@ -19,132 +20,164 @@ function getParticleColor(type: NodeType): string {
 }
 
 // Generate staggered particles along a path
+type ParticleSpec = {
+  delay: number;
+  size: number;
+  glowOpacity: number;
+  speed: number;
+  trailLength: number;
+  isCargoShip: boolean;
+};
+
+function createSeededRng(seed: string) {
+  let hash = 2166136261;
+  for (let i = 0; i < seed.length; i += 1) {
+    hash ^= seed.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  let state = hash >>> 0;
+  return () => {
+    state ^= state << 13;
+    state ^= state >>> 17;
+    state ^= state << 5;
+    return (state >>> 0) / 4294967296;
+  };
+}
+
+function buildParticleSpecs(pathId: string, count: number, baseDuration: number): ParticleSpec[] {
+  const rng = createSeededRng(pathId);
+  return Array.from({ length: count }).map((_, i) => {
+    const delay = (i / count) * baseDuration;
+    const size = 3 + rng() * 2;
+    const glowOpacity = 0.5 + rng() * 0.4;
+    const speed = baseDuration + (rng() - 0.5) * 0.8;
+    const trailLength = 12 + rng() * 8;
+    const isCargoShip = i % 3 === 0;
+
+    return {
+      delay,
+      size,
+      glowOpacity,
+      speed,
+      trailLength,
+      isCargoShip,
+    };
+  });
+}
+
 function generateParticles(
-  pathId: string, 
-  color: string, 
-  count: number,
+  pathId: string,
+  color: string,
+  specs: ParticleSpec[],
   isActive: boolean
 ): React.ReactNode[] {
   if (!isActive) return [];
-  
-  const particles: React.ReactNode[] = [];
-  const baseDuration = 4; // seconds for full path traversal
-  
-  for (let i = 0; i < count; i++) {
-    const delay = (i / count) * baseDuration;
-    // Vary particle sizes more for organic feel
-    const size = 3 + Math.random() * 2; // 3 to 5 radius
-    const glowOpacity = 0.5 + Math.random() * 0.4; // 0.5 to 0.9
-    // Vary speed slightly for more organic movement
-    const speedVariation = baseDuration + (Math.random() - 0.5) * 0.8; // +/- 0.4s
-    const trailLength = 12 + Math.random() * 8; // 12 to 20px trail
-    
-    // Create cargo ship styled particles (elongated) for some particles
-    const isCargoShip = i % 3 === 0;
-    
-    particles.push(
-      <g key={`particle-${pathId}-${i}`}>
-        {/* Comet trail effect */}
+
+  return specs.map((spec, i) => (
+    <g key={`particle-${pathId}-${i}`}>
+      {/* Comet trail effect */}
+      <ellipse 
+        rx={spec.trailLength} 
+        ry={spec.size * 0.6} 
+        fill={`url(#particle-trail-gradient-${pathId}-${i})`}
+        opacity={0.4}
+      >
+        <animateMotion
+          dur={`${spec.speed}s`}
+          repeatCount="indefinite"
+          begin={`${spec.delay}s`}
+          rotate="auto"
+        >
+          <mpath href={`#${pathId}`} />
+        </animateMotion>
+      </ellipse>
+      
+      {/* Outer glow */}
+      <circle r={spec.size + 4} fill={color} opacity={0.2}>
+        <animateMotion
+          dur={`${spec.speed}s`}
+          repeatCount="indefinite"
+          begin={`${spec.delay}s`}
+        >
+          <mpath href={`#${pathId}`} />
+        </animateMotion>
+      </circle>
+      
+      {/* Main particle - elongated for cargo ships */}
+      {spec.isCargoShip ? (
         <ellipse 
-          rx={trailLength} 
-          ry={size * 0.6} 
-          fill={`url(#particle-trail-gradient-${i})`}
-          opacity={0.4}
+          rx={spec.size * 1.5} 
+          ry={spec.size * 0.8} 
+          fill={color} 
+          opacity={spec.glowOpacity}
+          className="flow-particle"
         >
           <animateMotion
-            dur={`${speedVariation}s`}
+            dur={`${spec.speed}s`}
             repeatCount="indefinite"
-            begin={`${delay}s`}
+            begin={`${spec.delay}s`}
             rotate="auto"
           >
             <mpath href={`#${pathId}`} />
           </animateMotion>
         </ellipse>
-        
-        {/* Outer glow */}
-        <circle r={size + 4} fill={color} opacity={0.2}>
+      ) : (
+        <circle 
+          r={spec.size} 
+          fill={color} 
+          opacity={spec.glowOpacity}
+          className="flow-particle"
+        >
           <animateMotion
-            dur={`${speedVariation}s`}
+            dur={`${spec.speed}s`}
             repeatCount="indefinite"
-            begin={`${delay}s`}
+            begin={`${spec.delay}s`}
           >
             <mpath href={`#${pathId}`} />
           </animateMotion>
         </circle>
-        
-        {/* Main particle - elongated for cargo ships */}
-        {isCargoShip ? (
-          <ellipse 
-            rx={size * 1.5} 
-            ry={size * 0.8} 
-            fill={color} 
-            opacity={glowOpacity}
-            className="flow-particle"
-          >
-            <animateMotion
-              dur={`${speedVariation}s`}
-              repeatCount="indefinite"
-              begin={`${delay}s`}
-              rotate="auto"
-            >
-              <mpath href={`#${pathId}`} />
-            </animateMotion>
-          </ellipse>
-        ) : (
-          <circle 
-            r={size} 
-            fill={color} 
-            opacity={glowOpacity}
-            className="flow-particle"
-          >
-            <animateMotion
-              dur={`${speedVariation}s`}
-              repeatCount="indefinite"
-              begin={`${delay}s`}
-            >
-              <mpath href={`#${pathId}`} />
-            </animateMotion>
-          </circle>
-        )}
-        
-        {/* Inner bright core */}
-        <circle r={size * 0.4} fill="white" opacity={0.8}>
-          <animateMotion
-            dur={`${speedVariation}s`}
-            repeatCount="indefinite"
-            begin={`${delay}s`}
-          >
-            <mpath href={`#${pathId}`} />
-          </animateMotion>
-        </circle>
-        
-        {/* Sparkle effect at front of particle */}
-        <circle r={size * 0.2} fill="white" opacity={0}>
-          <animateMotion
-            dur={`${speedVariation}s`}
-            repeatCount="indefinite"
-            begin={`${delay}s`}
-          >
-            <mpath href={`#${pathId}`} />
-          </animateMotion>
-          <animate
-            attributeName="opacity"
-            values="0;1;0"
-            dur="0.5s"
-            repeatCount="indefinite"
-          />
-        </circle>
-      </g>
-    );
-  }
-  
-  return particles;
+      )}
+      
+      {/* Inner bright core */}
+      <circle r={spec.size * 0.4} fill="white" opacity={0.8}>
+        <animateMotion
+          dur={`${spec.speed}s`}
+          repeatCount="indefinite"
+          begin={`${spec.delay}s`}
+        >
+          <mpath href={`#${pathId}`} />
+        </animateMotion>
+      </circle>
+      
+      {/* Sparkle effect at front of particle */}
+      <circle r={spec.size * 0.2} fill="white" opacity={0}>
+        <animateMotion
+          dur={`${spec.speed}s`}
+          repeatCount="indefinite"
+          begin={`${spec.delay}s`}
+        >
+          <mpath href={`#${pathId}`} />
+        </animateMotion>
+        <animate
+          attributeName="opacity"
+          values="0;1;0"
+          dur="0.5s"
+          repeatCount="indefinite"
+        />
+      </circle>
+    </g>
+  ));
 }
 
 export function FlowingParticles({ pathId, sourceType, status }: FlowingParticlesProps) {
   const color = getParticleColor(sourceType);
   const isActive = status === 'active';
   const particleCount = isActive ? 5 : status === 'disrupted' ? 2 : 0;
+  const baseDuration = 4;
+  const particleSpecs = useMemo(
+    () => buildParticleSpecs(pathId, particleCount, baseDuration),
+    [pathId, particleCount]
+  );
   
   return (
     <g className="flowing-particles">
@@ -153,7 +186,7 @@ export function FlowingParticles({ pathId, sourceType, status }: FlowingParticle
         {Array.from({ length: particleCount }).map((_, i) => (
           <linearGradient 
             key={`trail-grad-${i}`} 
-            id={`particle-trail-gradient-${i}`} 
+            id={`particle-trail-gradient-${pathId}-${i}`} 
             x1="0%" 
             y1="0%" 
             x2="100%" 
@@ -166,7 +199,7 @@ export function FlowingParticles({ pathId, sourceType, status }: FlowingParticle
         ))}
       </defs>
       
-      {generateParticles(pathId, color, particleCount, isActive || status === 'disrupted')}
+      {generateParticles(pathId, color, particleSpecs, isActive || status === 'disrupted')}
     </g>
   );
 }

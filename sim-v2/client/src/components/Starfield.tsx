@@ -39,31 +39,6 @@ export const Starfield: React.FC<StarfieldProps> = ({
     return generatedStars;
   }, [width, height, starCount]);
 
-  // Generate shooting stars (fewer, bigger effect)
-  const shootingStars = useMemo(() => {
-    const shooting: Array<{
-      id: number;
-      x: number;
-      y: number;
-      angle: number;
-      delay: number;
-      duration: number;
-    }> = [];
-    
-    for (let i = 0; i < 3; i++) {
-      shooting.push({
-        id: i,
-        x: Math.random() * width * 0.5, // Start from left side
-        y: Math.random() * height,
-        angle: Math.random() * 30 - 15, // -15 to +15 degrees
-        delay: Math.random() * 20 + 5, // 5 to 25s delay
-        duration: Math.random() * 2 + 1, // 1 to 3s duration
-      });
-    }
-    
-    return shooting;
-  }, [width, height]);
-
   return (
     <g className="starfield">
       {/* Background stars with twinkling */}
@@ -80,34 +55,6 @@ export const Starfield: React.FC<StarfieldProps> = ({
           }}
         />
       ))}
-      
-      {/* Shooting stars */}
-      {shootingStars.map((shooting) => (
-        <g key={`shooting-${shooting.id}`}>
-          <line
-            x1={shooting.x}
-            y1={shooting.y}
-            x2={shooting.x + 80 * Math.cos((shooting.angle * Math.PI) / 180)}
-            y2={shooting.y + 80 * Math.sin((shooting.angle * Math.PI) / 180)}
-            stroke="url(#shootingStarGradient)"
-            strokeWidth="2"
-            strokeLinecap="round"
-            opacity="0"
-            style={{
-              animation: `shootingStar ${shooting.duration}s linear ${shooting.delay}s infinite`,
-            }}
-          />
-        </g>
-      ))}
-      
-      {/* Gradient for shooting stars */}
-      <defs>
-        <linearGradient id="shootingStarGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" stopColor="white" stopOpacity="0" />
-          <stop offset="50%" stopColor="white" stopOpacity="0.8" />
-          <stop offset="100%" stopColor="cyan" stopOpacity="1" />
-        </linearGradient>
-      </defs>
     </g>
   );
 };

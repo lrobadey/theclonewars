@@ -188,24 +188,6 @@ h1, h2, h3, h4 {
   50% { opacity: 1; }
 }
 
-/* Shooting star animation */
-@keyframes shootingStar {
-  0% { 
-    opacity: 0;
-    transform: translateX(0) translateY(0);
-  }
-  10% { 
-    opacity: 1;
-  }
-  90% { 
-    opacity: 1;
-  }
-  100% { 
-    opacity: 0;
-    transform: translateX(300px) translateY(150px);
-  }
-}
-
 /* Nebula drift animation */
 @keyframes nebulaDrift {
   0% { 
@@ -278,10 +260,6 @@ h1, h2, h3, h4 {
   animation: twinkle 3s ease-in-out infinite;
 }
 
-.animate-shooting-star {
-  animation: shootingStar 2s linear infinite;
-}
-
 .animate-nebula-drift {
   animation: nebulaDrift 60s ease-in-out infinite;
 }
@@ -348,6 +326,14 @@ h1, h2, h3, h4 {
   fill: none;
   stroke-linecap: round;
   stroke-linejoin: round;
+}
+
+.supply-route-group {
+  transition: filter 0.25s ease, opacity 0.25s ease;
+}
+
+.supply-route-group:hover {
+  filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.25));
 }
 
 .supply-route-active {

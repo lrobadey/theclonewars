@@ -1,6 +1,6 @@
-# Clone Wars War Sim — MVP Scope & Intent (Agent-Ready)
+# The Schism — MVP Scope & Intent (Agent-Ready)
 
-This repository is intended to become a **turn-based strategic war-machine simulation** (Republic-like). The focus is **operations**, **logistics**, and a rigorous **After-Action Report (AAR)** explaining outcomes with traceable numeric attribution.
+This repository is intended to become a **turn-based strategic war-machine simulation** (The New System-like). The focus is **operations**, **logistics**, and a rigorous **After-Action Report (AAR)** explaining outcomes with traceable numeric attribution.
 
 This document is the **source of truth** for MVP scope/goal so future agents can implement without revisiting design decisions.
 
@@ -8,7 +8,7 @@ This document is the **source of truth** for MVP scope/goal so future agents can
 
 ## Product One-Liner
 
-Turn-based strategic war-sim where you run a Republic-like war machine. You manage **industrial throughput**, **route-based logistics**, and **3-class supplies** to execute **abstract multi-phase operations** with tactical decisions at each phase. Battles are not rendered; the payoff is a rigorous **After-Action Report** explaining outcomes.
+Turn-based strategic war-sim where you run a New System-like war machine. You manage **industrial throughput**, **route-based logistics**, and **3-class supplies** to execute **abstract multi-phase operations** with tactical decisions at each phase. Battles are not rendered; the payoff is a rigorous **After-Action Report** explaining outcomes.
 
 ---
 

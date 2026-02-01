@@ -61,7 +61,7 @@ def _build_server_cmd(host: str, port: int, reload: bool) -> list[str]:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="python3 clone-react",
-        description="Launch the React FastAPI dev server for Clone Wars.",
+        description="Launch the React FastAPI dev server for The Schism.",
     )
     parser.add_argument(
         "--host",

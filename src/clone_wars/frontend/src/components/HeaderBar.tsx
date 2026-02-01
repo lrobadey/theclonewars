@@ -14,8 +14,8 @@ export default function HeaderBar({ state }: { state: GameStateResponse }) {
     <div className="panel panel-live p-5 flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <p className="text-xs uppercase text-soft tracking-[0.3em]">War Simulation</p>
-          <h1 className="text-2xl font-semibold">Clone Wars Command Terminal</h1>
+          <p className="text-xs uppercase text-soft tracking-[0.3em]">The Schism</p>
+          <h1 className="text-2xl font-semibold">The Schism Command Terminal</h1>
         </div>
         <div className="flex items-center gap-3">
           <span className="glass-chip">Day {state.day}</span>

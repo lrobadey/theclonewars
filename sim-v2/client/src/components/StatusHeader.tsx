@@ -18,17 +18,17 @@ export function StatusHeader({ state }: StatusHeaderProps) {
     <header className="status-header fixed top-0 left-0 right-0 z-50 px-6 py-3">
       <div className="flex items-center justify-center gap-2 font-sans text-sm tracking-widest">
         <span className="text-text-primary font-bold">
-          WAR SIMULATION v2
+          THE SCHISM
         </span>
         
         <span className="status-divider">//</span>
         
         <span className="text-core">
-          REPUBLIC
+          THE NEW SYSTEM
         </span>
         <span className="text-text-secondary">vs</span>
         <span className="text-contested">
-          SEPARATISTS
+          THE HUMAN COLLECTIVE
         </span>
         
         <span className="status-divider">//</span>

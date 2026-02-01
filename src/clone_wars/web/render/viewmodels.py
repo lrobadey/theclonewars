@@ -812,7 +812,7 @@ def task_force_vm(state: GameState, controller: ConsoleController) -> dict:
         return int(max(0.0, min(1.0, value / capacity)) * 100)
 
     lines = [
-        "TASK FORCE: REPUBLIC HAMMER",
+        "TASK FORCE: NEW SYSTEM HAMMER",
         f"UNITS: INFANTRY ({fmt_troops(tf.composition.infantry)}),",
         f"       WALKERS ({fmt_int(tf.composition.walkers)}), SUPPORT ({fmt_int(tf.composition.support)})",
         "",
@@ -827,7 +827,7 @@ def task_force_vm(state: GameState, controller: ConsoleController) -> dict:
 
     return {
         "text": "\n".join(lines),
-        "name": "REPUBLIC HAMMER",
+        "name": "NEW SYSTEM HAMMER",
         "infantry": fmt_troops(tf.composition.infantry),
         "walkers": fmt_int(tf.composition.walkers),
         "support": fmt_int(tf.composition.support),

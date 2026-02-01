@@ -1,4 +1,4 @@
-# The Clone Wars
+# The Schism (Legacy: The Clone Wars)
 
 See `CLONE_WARS_WAR_SIM_MVP.md` for the finalized, agent-ready MVP scope and intended design.
 

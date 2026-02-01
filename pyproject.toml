@@ -3,9 +3,9 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "clone-wars-war-sim"
+name = "the-schism"
 version = "0.0.1"
-description = "Clone Wars War Sim MVP (terminal TUI)"
+description = "The Schism — Strategic War Sim (terminal TUI)"
 requires-python = ">=3.11"
 dependencies = [
   "textual>=0.50.0",
