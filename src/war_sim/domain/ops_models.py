@@ -1,11 +1,10 @@
+"""Operation models and decisions."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Union
-
-from schism_sim.engine.logging import Event
-from schism_sim.engine.types import Supplies
 
 
 class OperationTarget(str, Enum):
@@ -80,7 +79,7 @@ class PhaseSummary:
 
     progress_delta: float
     losses: int
-    supplies_spent: Supplies
+    supplies_spent: "Supplies"
     readiness_delta: float = 0.0
     cohesion_delta: float = 0.0
 
@@ -94,7 +93,7 @@ class OperationPhaseRecord:
     end_day: int
     decisions: PhaseDecisions
     summary: PhaseSummary
-    events: list[Event]
+    events: list["FactorEvent"]
 
 
 @dataclass()
@@ -121,6 +120,7 @@ class ActiveOperation:
     sampled_enemy_strength: float | None = None
     accumulated_progress: float = 0.0
     accumulated_losses: int = 0
+    op_id: str = ""
 
     @property
     def target(self) -> OperationTarget:
@@ -203,3 +203,6 @@ class OperationPlan:
             end_state=self.end_state,
         )
 
+
+from war_sim.domain.events import FactorEvent  # noqa: E402
+from war_sim.domain.types import Supplies  # noqa: E402

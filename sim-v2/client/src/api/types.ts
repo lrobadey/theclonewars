@@ -49,6 +49,41 @@ export type Route = {
   interdictionRisk: number;
 };
 
+export type MapLeg = {
+  origin: string;
+  destination: string;
+  travelDays: number;
+  interdictionRisk: number;
+};
+
+export type MapNode = {
+  id: string;
+  label: string;
+  x: number;
+  y: number;
+  type: "core" | "deep" | "contested";
+  size: "large" | "medium" | "small";
+  isLabeled: boolean;
+  subtitle1: string;
+  subtitle2?: string;
+  severity: "good" | "warn" | "danger";
+};
+
+export type MapConnection = {
+  id: string;
+  from: string;
+  to: string;
+  status: "active" | "disrupted" | "blocked";
+  risk: number;
+  aggregatedTravelDays: number;
+  underlyingLegs?: MapLeg[];
+};
+
+export type MapView = {
+  nodes: MapNode[];
+  connections: MapConnection[];
+};
+
 export type Depot = {
   id: string;
   label: string;
@@ -237,6 +272,7 @@ export type GameStateResponse = {
   operation: OperationState | null;
   raid: RaidState | null;
   lastAar: AfterActionReport | RaidReport | null;
+  mapView?: MapView;
 };
 
 export type ApiResponse = {
@@ -253,4 +289,30 @@ export type PhaseDecisionRequest = {
   risk?: string;
   focus?: string;
   endState?: string;
+};
+
+export type CatalogOption = {
+  id: string;
+  label: string;
+  description?: string;
+};
+
+export type CatalogResponse = {
+  operationTargets: CatalogOption[];
+  operationTypes: CatalogOption[];
+  decisions: {
+    phase1: {
+      approachAxis: CatalogOption[];
+      fireSupportPrep: CatalogOption[];
+    };
+    phase2: {
+      engagementPosture: CatalogOption[];
+      riskTolerance: CatalogOption[];
+    };
+    phase3: {
+      exploitVsSecure: CatalogOption[];
+      endState: CatalogOption[];
+    };
+  };
+  objectives: CatalogOption[];
 };

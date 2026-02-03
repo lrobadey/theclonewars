@@ -1,8 +1,8 @@
 import { useMemo } from 'react';
-import type { MapNodeData, ConnectionData } from '../data/mapFromGameState';
+import type { MapConnection, MapNode } from '../api/types';
 
-type NodeType = MapNodeData['type'];
-type ConnectionStatus = ConnectionData['status'];
+type NodeType = MapNode['type'];
+type ConnectionStatus = MapConnection['status'];
 
 interface FlowingParticlesProps {
   pathId: string;

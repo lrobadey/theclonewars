@@ -6,7 +6,7 @@ import logging
 from dataclasses import dataclass
 from enum import Enum
 
-from schism_sim.engine.types import LocationId
+from war_sim.domain.types import LocationId
 
 logger = logging.getLogger(__name__)
 
@@ -52,13 +52,7 @@ def _allocate_parallel_share(
     capacity: int,
     active_indices: list[int],
 ) -> list[int]:
-    """Apply deterministic fair-share allocation to active jobs.
-
-    The policy is "parallel" fair-share: each active job receives an equal base
-    share, and the first N jobs in queue order receive one extra slot if needed.
-    If a job finishes early, its unused capacity is redistributed within the day.
-    Returns the list of still-active indices after allocation.
-    """
+    """Apply deterministic fair-share allocation to active jobs."""
 
     capacity_remaining = capacity
     active = list(active_indices)
@@ -188,7 +182,6 @@ class ProductionState:
         if not active_indices:
             return self._collect_completed()
 
-        # Deterministic fair-share allocation (parallel policy).
         _allocate_parallel_share(work_remaining, self.capacity, active_indices)
 
         for i, job in enumerate(self.jobs):
@@ -247,4 +240,3 @@ class ProductionState:
             summary.append((job.job_type.value, job.quantity, c_day, job.stop_at.value))
 
         return summary
-

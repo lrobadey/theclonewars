@@ -13,8 +13,9 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-# Add sim-v2 so server + schism_sim are importable.
+# Add src + sim-v2 so server + shared engine are importable.
 _repo_root = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(_repo_root / "src"))
 sys.path.insert(0, str(_repo_root / "sim-v2"))
 
 if __name__ == "__main__":

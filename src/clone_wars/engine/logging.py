@@ -1,20 +1,2 @@
-from __future__ import annotations
-
-from dataclasses import dataclass
-
-
-@dataclass(frozen=True)
-class Event:
-    name: str
-    phase: str
-    value: float
-    delta: str
-    why: str
-
-
-@dataclass(frozen=True)
-class TopFactor:
-    name: str
-    value: float
-    delta: str
-    why: str
+from war_sim.domain.events import *  # noqa: F401,F403
+from war_sim.domain.reports import TopFactor  # noqa: F401

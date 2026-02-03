@@ -1,2 +1,1 @@
-"""The Schism simulation engine + backend domain code (sim-v2)."""
-
+"""Schism sim package wrapper; core engine lives in src/war_sim."""

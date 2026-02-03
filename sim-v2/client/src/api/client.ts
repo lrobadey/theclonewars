@@ -4,13 +4,19 @@
  * response to MapState when /api/state is extended or /api/map exists.
  */
 
-import type { ApiResponse, GameStateResponse, PhaseDecisionRequest } from './types';
+import type { ApiResponse, CatalogResponse, GameStateResponse, PhaseDecisionRequest } from './types';
 
 const API_BASE = '/api';
 
 export async function getState(): Promise<GameStateResponse> {
   const res = await fetch(`${API_BASE}/state`, { credentials: 'include' });
   if (!res.ok) throw new Error(`getState failed: ${res.status}`);
+  return res.json();
+}
+
+export async function getCatalog(): Promise<CatalogResponse> {
+  const res = await fetch(`${API_BASE}/catalog`, { credentials: 'include' });
+  if (!res.ok) throw new Error(`getCatalog failed: ${res.status}`);
   return res.json();
 }
 
@@ -61,8 +67,8 @@ export async function postDispatchShipment(payload: {
 }
 
 export async function postStartOperation(payload: {
-  target: 'Droid Foundry' | 'Communications Array' | 'Power Plant';
-  opType: 'campaign' | 'siege' | 'raid';
+  target: string;
+  opType: string;
 }): Promise<ApiResponse> {
   return postJson<ApiResponse>('/actions/operation/start', payload);
 }

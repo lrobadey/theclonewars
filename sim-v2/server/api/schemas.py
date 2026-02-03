@@ -69,6 +69,41 @@ class Route(CamelModel):
     interdiction_risk: float = Field(..., alias="interdictionRisk")
 
 
+class MapLeg(CamelModel):
+    origin: str
+    destination: str
+    travel_days: int = Field(..., alias="travelDays")
+    interdiction_risk: float = Field(..., alias="interdictionRisk")
+
+
+class MapNode(CamelModel):
+    id: str
+    label: str
+    x: float
+    y: float
+    type: str
+    size: str
+    is_labeled: bool = Field(..., alias="isLabeled")
+    subtitle1: str
+    subtitle2: Optional[str] = None
+    severity: str
+
+
+class MapConnection(CamelModel):
+    id: str
+    from_node: str = Field(..., alias="from")
+    to_node: str = Field(..., alias="to")
+    status: str
+    risk: float
+    aggregated_travel_days: int = Field(..., alias="aggregatedTravelDays")
+    underlying_legs: Optional[List[MapLeg]] = Field(None, alias="underlyingLegs")
+
+
+class MapView(CamelModel):
+    nodes: List[MapNode]
+    connections: List[MapConnection]
+
+
 class Depot(CamelModel):
     id: str
     label: str
@@ -294,6 +329,7 @@ class GameStateResponse(CamelModel):
     operation: Optional[OperationState]
     raid: Optional[RaidState]
     last_aar: Optional[Union[AfterActionReport, RaidReport]] = Field(None, alias="lastAar")
+    map_view: Optional[MapView] = Field(None, alias="mapView")
 
 
 class ApiResponse(CamelModel):
@@ -327,3 +363,37 @@ class PhaseDecisionRequest(CamelModel):
     risk: Optional[str] = None
     focus: Optional[str] = None
     end_state: Optional[str] = Field(None, alias="endState")
+
+
+class CatalogOption(CamelModel):
+    id: str
+    label: str
+    description: Optional[str] = None
+
+
+class CatalogPhase1(CamelModel):
+    approach_axis: List[CatalogOption] = Field(..., alias="approachAxis")
+    fire_support_prep: List[CatalogOption] = Field(..., alias="fireSupportPrep")
+
+
+class CatalogPhase2(CamelModel):
+    engagement_posture: List[CatalogOption] = Field(..., alias="engagementPosture")
+    risk_tolerance: List[CatalogOption] = Field(..., alias="riskTolerance")
+
+
+class CatalogPhase3(CamelModel):
+    exploit_vs_secure: List[CatalogOption] = Field(..., alias="exploitVsSecure")
+    end_state: List[CatalogOption] = Field(..., alias="endState")
+
+
+class CatalogDecisions(CamelModel):
+    phase1: CatalogPhase1
+    phase2: CatalogPhase2
+    phase3: CatalogPhase3
+
+
+class CatalogResponse(CamelModel):
+    operation_targets: List[CatalogOption] = Field(..., alias="operationTargets")
+    operation_types: List[CatalogOption] = Field(..., alias="operationTypes")
+    decisions: CatalogDecisions
+    objectives: List[CatalogOption]

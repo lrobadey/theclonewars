@@ -1,6 +1,6 @@
 # Schism Sim (v2)
 
-Turn-based strategic sim for the Schism setting (New System vs Human Collective). Uses the same engine as the main project, with v2 data and the map prototype as the core UI.
+Turn-based strategic sim for the Schism setting (New System vs Human Collective). Uses the shared engine in `src/war_sim`, with v2 data and the map UI as the core interface.
 
 ## Prerequisites
 
@@ -34,11 +34,11 @@ PYTHONPATH=. uv run uvicorn server.main:app --reload
 
 ## Layout
 
-- **server/** — FastAPI app, session, API router (`GET /api/state`, `GET /api/health`)
-- **client/** — Map prototype SPA (React + Vite); served from `client/dist` after `npm run build`
+- **server/** — FastAPI app + API (`GET /api/state`, `GET /api/catalog`, `GET /api/health`)
+- **client/** — Map SPA (React + Vite); served from `client/dist` after `npm run build`
 - **data/** — v2 scenario and objectives (Schism-themed); rules data copied from main project
 
-The UI currently shows **mock map data**. Live game state will be wired in a follow-up (swap mock for `getState()` and map response to `MapState` when `/api/state` is extended or `/api/map` exists).
+`/api/state` now returns `mapView`, and `/api/catalog` supplies operation/decision options for a fully data-driven UI.
 
 ## Tests
 
@@ -54,7 +54,7 @@ pytest sim-v2/server/tests
 From repo root with the project venv activated:
 
 ```bash
-PYTHONPATH=sim-v2 uv run uvicorn server.main:app --reload --host 0.0.0.0 --port 8000
+PYTHONPATH=sim-v2:src uv run uvicorn server.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 The app is run with the root project’s virtualenv; `sim-v2` is not a separate installable package.

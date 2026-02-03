@@ -1,12 +1,12 @@
 import { motion } from 'framer-motion';
 import { useState } from 'react';
-import type { ConnectionData, MapNodeData } from '../data/mapFromGameState';
+import type { MapConnection, MapNode } from '../api/types';
 
-type NodeType = MapNodeData['type'];
+type NodeType = MapNode['type'];
 
-interface ExtendedConnectionData extends ConnectionData {
-  fromNode: MapNodeData;
-  toNode: MapNodeData;
+interface ExtendedConnectionData extends MapConnection {
+  fromNode: MapNode;
+  toNode: MapNode;
 }
 
 interface SupplyRouteProps {
@@ -30,8 +30,8 @@ function getNodeColor(type: NodeType): string {
 }
 
 function formatTooltip(connection: ExtendedConnectionData): string {
-  const travelDays = connection.aggregatedTravelDays ?? 0;
-  const riskPct = Math.round((connection.risk ?? 0) * 100);
+  const travelDays = connection.aggregatedTravelDays;
+  const riskPct = Math.round(connection.risk * 100);
   const legs = connection.underlyingLegs ?? [];
   const legsText = legs.length
     ? legs.map(leg => `${leg.origin} → ${leg.destination}`).join(' | ')

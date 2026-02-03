@@ -2,12 +2,14 @@ from __future__ import annotations
 
 from typing import Iterable
 
-from schism_sim.engine.barracks import BarracksJob
-from schism_sim.engine.logistics import CargoShip, Shipment, TransportOrder
-from schism_sim.engine.ops import Phase1Decisions, Phase2Decisions, Phase3Decisions
-from schism_sim.engine.production import ProductionJob
-from schism_sim.engine.state import AfterActionReport, GameState, RaidReport
-from schism_sim.engine.types import LocationId, Supplies, UnitStock
+from war_sim.domain.ops_models import Phase1Decisions, Phase2Decisions, Phase3Decisions
+from war_sim.domain.reports import AfterActionReport, RaidReport
+from war_sim.domain.types import LocationId, Supplies, UnitStock
+from war_sim.sim.state import GameState
+from war_sim.systems.barracks import BarracksJob
+from war_sim.systems.logistics import CargoShip, Shipment, TransportOrder
+from war_sim.systems.production import ProductionJob
+from war_sim.view.map_view import build_map_view
 from server.api import schemas
 
 
@@ -20,11 +22,11 @@ NODE_ORDER = [
 ]
 
 NODE_META = {
-    LocationId.NEW_SYSTEM_CORE: ("Core Hub", "core", (8, 50)),
-    LocationId.DEEP_SPACE: ("Deep Space", "deep", (30, 35)),
-    LocationId.CONTESTED_SPACEPORT: ("Spaceport", "tactical", (52, 46)),
-    LocationId.CONTESTED_MID_DEPOT: ("Mid Depot", "tactical", (70, 60)),
-    LocationId.CONTESTED_FRONT: ("Contested Front", "tactical", (90, 48)),
+    LocationId.NEW_SYSTEM_CORE: ("Core Hub", "core", (8, 50), "Core Hub staging point"),
+    LocationId.DEEP_SPACE: ("Deep Space", "deep", (30, 35), "Deep Space staging point"),
+    LocationId.CONTESTED_SPACEPORT: ("Spaceport", "tactical", (52, 46), "Spaceport staging point"),
+    LocationId.CONTESTED_MID_DEPOT: ("Mid Depot", "tactical", (70, 60), "Mid Depot staging point"),
+    LocationId.CONTESTED_FRONT: ("Contested Front", "tactical", (90, 48), "Contested Front staging point"),
 }
 
 
@@ -33,7 +35,7 @@ def build_state_response(state: GameState) -> schemas.GameStateResponse:
         day=state.day,
         action_points=state.action_points,
         faction_turn=state.faction_turn.value,
-        system_nodes=_system_nodes(),
+        system_nodes=_system_nodes(state),
         contested_planet=_contested_planet(state),
         task_force=_task_force(state),
         production=_production_state(state),
@@ -42,19 +44,34 @@ def build_state_response(state: GameState) -> schemas.GameStateResponse:
         operation=_operation_state(state),
         raid=_raid_state(state),
         last_aar=_last_aar(state),
+        map_view=_map_view(state),
     )
 
 
-def _system_nodes() -> list[schemas.SystemNode]:
+def _system_nodes(state: GameState) -> list[schemas.SystemNode]:
     nodes: list[schemas.SystemNode] = []
+    scenario_nodes = {}
+    if state.scenario.map:
+        for node in state.scenario.map.nodes:
+            scenario_nodes[node.id] = node
     for node in NODE_ORDER:
-        label, kind, pos = NODE_META[node]
+        meta = NODE_META.get(node)
+        label = meta[0] if meta else node.value.replace("_", " ").title()
+        kind = meta[1] if meta else "tactical"
+        pos = meta[2] if meta else (0, 0)
+        description = meta[3] if meta else f"{label} staging point"
+        if node.value in scenario_nodes:
+            sn = scenario_nodes[node.value]
+            label = sn.label or label
+            kind = sn.kind or kind
+            pos = (sn.x, sn.y)
+            description = sn.description or description
         nodes.append(
             schemas.SystemNode(
                 id=node.value,
                 label=label,
                 kind=kind,
-                description=f"{label} staging point",
+                description=description,
                 position=schemas.Position(x=float(pos[0]), y=float(pos[1])),
             )
         )
@@ -72,12 +89,25 @@ def _estimate_range(actual: int, confidence: float) -> schemas.IntelRange:
 def _contested_planet(state: GameState) -> schemas.ContestedPlanet:
     planet = state.contested_planet
     enemy = planet.enemy
+    objectives = state.rules.objectives
     return schemas.ContestedPlanet(
         control=planet.control,
         objectives=[
-            schemas.PlanetObjective(id="foundry", label="Droid Foundry", status=planet.objectives.foundry.value),
-            schemas.PlanetObjective(id="comms", label="Communications Array", status=planet.objectives.comms.value),
-            schemas.PlanetObjective(id="power", label="Power Plant", status=planet.objectives.power.value),
+            schemas.PlanetObjective(
+                id="foundry",
+                label=objectives.get("foundry").name if objectives.get("foundry") else "Foundry",
+                status=planet.objectives.foundry.value,
+            ),
+            schemas.PlanetObjective(
+                id="comms",
+                label=objectives.get("comms").name if objectives.get("comms") else "Comms",
+                status=planet.objectives.comms.value,
+            ),
+            schemas.PlanetObjective(
+                id="power",
+                label=objectives.get("power").name if objectives.get("power") else "Power",
+                status=planet.objectives.power.value,
+            ),
         ],
         enemy=schemas.EnemyIntel(
             infantry=_estimate_range(enemy.infantry, enemy.intel_confidence),
@@ -156,6 +186,51 @@ def _logistics_state(state: GameState) -> schemas.LogisticsState:
         ships=ships,
         active_orders=orders,
         transit_log=log,
+    )
+
+
+def _map_view(state: GameState) -> schemas.MapView | None:
+    view = build_map_view(state)
+    if not view:
+        return None
+    return schemas.MapView(
+        nodes=[
+            schemas.MapNode(
+                id=node["id"],
+                label=node["label"],
+                x=node["x"],
+                y=node["y"],
+                type=node["type"],
+                size=node["size"],
+                is_labeled=node["isLabeled"],
+                subtitle1=node["subtitle1"],
+                subtitle2=node.get("subtitle2"),
+                severity=node["severity"],
+            )
+            for node in view.get("nodes", [])
+        ],
+        connections=[
+            schemas.MapConnection(
+                id=conn["id"],
+                from_node=conn["from"],
+                to_node=conn["to"],
+                status=conn["status"],
+                risk=conn["risk"],
+                aggregated_travel_days=conn["aggregatedTravelDays"],
+                underlying_legs=[
+                    schemas.MapLeg(
+                        origin=leg["origin"],
+                        destination=leg["destination"],
+                        travel_days=leg["travelDays"],
+                        interdiction_risk=leg["interdictionRisk"],
+                    )
+                    for leg in conn.get("underlyingLegs", [])
+                ]
+                if conn.get("underlyingLegs")
+                else None,
+            )
+            for conn in view.get("connections", [])
+        ],
     )
 
 
@@ -397,4 +472,3 @@ def _supplies(supplies: Supplies) -> schemas.Supplies:
 
 def _units(units: UnitStock) -> schemas.UnitStock:
     return schemas.UnitStock(infantry=units.infantry, walkers=units.walkers, support=units.support)
-

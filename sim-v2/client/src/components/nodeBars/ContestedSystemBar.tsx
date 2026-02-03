@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import type { ApiResponse, GameStateResponse } from '../../api/types';
+import { useEffect, useMemo, useState } from 'react';
+import type { ApiResponse, CatalogResponse, GameStateResponse } from '../../api/types';
 import {
   postAckAar,
   postAckPhase,
@@ -15,21 +15,61 @@ import { SectionHeader } from './ui/SectionHeader';
 
 interface ContestedSystemBarProps {
   state: GameStateResponse;
+  catalog: CatalogResponse | null;
   onActionResult: (resp: ApiResponse) => void;
 }
 
-type OperationTarget = 'Droid Foundry' | 'Communications Array' | 'Power Plant';
-type OperationType = 'campaign' | 'siege' | 'raid';
+type OperationTarget = string;
+type OperationType = string;
 
-const OBJECTIVE_LABELS: Record<string, string> = {
-  foundry: 'Foundry',
-  comms: 'Comms',
-  power: 'Power',
-};
+const FALLBACK_TARGETS: { id: OperationTarget; label: string }[] = [
+  { id: 'foundry', label: 'Droid Foundry' },
+  { id: 'comms', label: 'Communications Array' },
+  { id: 'power', label: 'Power Plant' },
+];
+const FALLBACK_TYPES: { id: OperationType; label: string }[] = [
+  { id: 'campaign', label: 'Campaign' },
+  { id: 'siege', label: 'Siege' },
+  { id: 'raid', label: 'Raid' },
+];
 
-export function ContestedSystemBar({ state, onActionResult }: ContestedSystemBarProps) {
-  const [target, setTarget] = useState<OperationTarget>('Droid Foundry');
-  const [opType, setOpType] = useState<OperationType>('campaign');
+export function ContestedSystemBar({ state, catalog, onActionResult }: ContestedSystemBarProps) {
+  const targets = catalog?.operationTargets ?? FALLBACK_TARGETS;
+  const types = catalog?.operationTypes ?? FALLBACK_TYPES;
+  const phase1Approach = catalog?.decisions.phase1.approachAxis ?? [
+    { id: 'direct', label: 'Direct' },
+    { id: 'flank', label: 'Flank' },
+    { id: 'dispersed', label: 'Dispersed' },
+    { id: 'stealth', label: 'Stealth' },
+  ];
+  const phase1Fire = catalog?.decisions.phase1.fireSupportPrep ?? [
+    { id: 'conserve', label: 'Conserve' },
+    { id: 'preparatory', label: 'Preparatory' },
+  ];
+  const phase2Posture = catalog?.decisions.phase2.engagementPosture ?? [
+    { id: 'shock', label: 'Shock' },
+    { id: 'methodical', label: 'Methodical' },
+    { id: 'siege', label: 'Siege' },
+    { id: 'feint', label: 'Feint' },
+  ];
+  const phase2Risk = catalog?.decisions.phase2.riskTolerance ?? [
+    { id: 'low', label: 'Low' },
+    { id: 'med', label: 'Med' },
+    { id: 'high', label: 'High' },
+  ];
+  const phase3Focus = catalog?.decisions.phase3.exploitVsSecure ?? [
+    { id: 'push', label: 'Push' },
+    { id: 'secure', label: 'Secure' },
+  ];
+  const phase3End = catalog?.decisions.phase3.endState ?? [
+    { id: 'capture', label: 'Capture' },
+    { id: 'raid', label: 'Raid' },
+    { id: 'destroy', label: 'Destroy' },
+    { id: 'withdraw', label: 'Withdraw' },
+  ];
+
+  const [target, setTarget] = useState<OperationTarget>(targets[0]?.id ?? 'foundry');
+  const [opType, setOpType] = useState<OperationType>(types[0]?.id ?? 'campaign');
 
   const [phase1, setPhase1] = useState({ axis: '', fire: '' });
   const [phase2, setPhase2] = useState({ posture: '', risk: '' });
@@ -79,17 +119,24 @@ export function ContestedSystemBar({ state, onActionResult }: ContestedSystemBar
     onActionResult(resp);
   };
 
-  const objectives = useMemo(() => {
-    return state.contestedPlanet.objectives.map(obj => ({
-      ...obj,
-      label: OBJECTIVE_LABELS[obj.id] ?? obj.label,
-    }));
-  }, [state.contestedPlanet.objectives]);
+  const objectives = useMemo(() => state.contestedPlanet.objectives, [state.contestedPlanet.objectives]);
 
   const awaitingDecision = state.operation?.awaitingDecision ?? false;
   const pendingPhase = state.operation?.pendingPhaseRecord;
   const phaseOrder = ['contact_shaping', 'engagement', 'exploit_consolidate', 'complete'];
   const currentPhaseIndex = state.operation ? phaseOrder.indexOf(state.operation.currentPhase) : -1;
+
+  useEffect(() => {
+    if (!targets.find(item => item.id === target)) {
+      setTarget(targets[0]?.id ?? 'foundry');
+    }
+  }, [targets, target]);
+
+  useEffect(() => {
+    if (!types.find(item => item.id === opType)) {
+      setOpType(types[0]?.id ?? 'campaign');
+    }
+  }, [types, opType]);
 
   return (
     <div className="p-6 space-y-6">
@@ -235,14 +282,14 @@ export function ContestedSystemBar({ state, onActionResult }: ContestedSystemBar
                   <div className="text-[10px] uppercase tracking-[0.2em] text-text-secondary font-mono">
                     Target
                   </div>
-                  {(['Droid Foundry', 'Communications Array', 'Power Plant'] as OperationTarget[]).map(item => (
-                    <label key={item} className="flex items-center gap-2 text-xs font-mono">
+                  {targets.map(item => (
+                    <label key={item.id} className="flex items-center gap-2 text-xs font-mono">
                       <input
                         type="radio"
-                        checked={target === item}
-                        onChange={() => setTarget(item)}
+                        checked={target === item.id}
+                        onChange={() => setTarget(item.id)}
                       />
-                      {item}
+                      {item.label}
                     </label>
                   ))}
                 </div>
@@ -250,10 +297,14 @@ export function ContestedSystemBar({ state, onActionResult }: ContestedSystemBar
                   <div className="text-[10px] uppercase tracking-[0.2em] text-text-secondary font-mono">
                     Operation Type
                   </div>
-                  {(['campaign', 'siege', 'raid'] as OperationType[]).map(item => (
-                    <label key={item} className="flex items-center gap-2 text-xs font-mono">
-                      <input type="radio" checked={opType === item} onChange={() => setOpType(item)} />
-                      {item}
+                  {types.map(item => (
+                    <label key={item.id} className="flex items-center gap-2 text-xs font-mono">
+                      <input
+                        type="radio"
+                        checked={opType === item.id}
+                        onChange={() => setOpType(item.id)}
+                      />
+                      {item.label}
                     </label>
                   ))}
                 </div>
@@ -327,13 +378,13 @@ export function ContestedSystemBar({ state, onActionResult }: ContestedSystemBar
                       <div className="space-y-2">
                         <RadioGroup
                           label="Approach Axis"
-                          options={['direct', 'flank', 'dispersed', 'stealth']}
+                          options={phase1Approach}
                           value={phase1.axis}
                           onChange={value => setPhase1(prev => ({ ...prev, axis: value }))}
                         />
                         <RadioGroup
                           label="Fire Support Prep"
-                          options={['conserve', 'preparatory']}
+                          options={phase1Fire}
                           value={phase1.fire}
                           onChange={value => setPhase1(prev => ({ ...prev, fire: value }))}
                         />
@@ -343,13 +394,13 @@ export function ContestedSystemBar({ state, onActionResult }: ContestedSystemBar
                       <div className="space-y-2">
                         <RadioGroup
                           label="Engagement Posture"
-                          options={['shock', 'methodical', 'siege', 'feint']}
+                          options={phase2Posture}
                           value={phase2.posture}
                           onChange={value => setPhase2(prev => ({ ...prev, posture: value }))}
                         />
                         <RadioGroup
                           label="Risk Tolerance"
-                          options={['low', 'med', 'high']}
+                          options={phase2Risk}
                           value={phase2.risk}
                           onChange={value => setPhase2(prev => ({ ...prev, risk: value }))}
                         />
@@ -359,13 +410,13 @@ export function ContestedSystemBar({ state, onActionResult }: ContestedSystemBar
                       <div className="space-y-2">
                         <RadioGroup
                           label="Focus"
-                          options={['push', 'secure']}
+                          options={phase3Focus}
                           value={phase3.focus}
                           onChange={value => setPhase3(prev => ({ ...prev, focus: value }))}
                         />
                         <RadioGroup
                           label="End State"
-                          options={['capture', 'raid', 'destroy', 'withdraw']}
+                          options={phase3End}
                           value={phase3.endState}
                           onChange={value => setPhase3(prev => ({ ...prev, endState: value }))}
                         />
@@ -485,7 +536,7 @@ function RadioGroup({
   onChange,
 }: {
   label: string;
-  options: string[];
+  options: { id: string; label: string }[];
   value: string;
   onChange: (value: string) => void;
 }) {
@@ -495,14 +546,14 @@ function RadioGroup({
       <div className="grid grid-cols-2 gap-2">
         {options.map(option => (
           <button
-            key={option}
+            key={option.id}
             type="button"
-            onClick={() => onChange(option)}
+            onClick={() => onChange(option.id)}
             className={`px-2 py-1 text-[10px] uppercase tracking-[0.2em] border ${
-              value === option ? 'bg-contested text-space border-contested' : 'border-contested/30 text-contested'
+              value === option.id ? 'bg-contested text-space border-contested' : 'border-contested/30 text-contested'
             }`}
           >
-            {option}
+            {option.label}
           </button>
         ))}
       </div>

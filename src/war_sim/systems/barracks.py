@@ -6,8 +6,8 @@ import logging
 from dataclasses import dataclass
 from enum import Enum
 
-from schism_sim.engine.production import _allocate_parallel_share
-from schism_sim.engine.types import LocationId
+from war_sim.domain.types import LocationId
+from war_sim.systems.production import _allocate_parallel_share
 
 logger = logging.getLogger(__name__)
 
@@ -195,4 +195,3 @@ class BarracksState:
             summary.append((job.job_type.value, job.quantity, c_day, job.stop_at.value))
 
         return summary
-

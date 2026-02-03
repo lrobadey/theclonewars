@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import type { ApiResponse, GameStateResponse } from '../../api/types';
+import type { ApiResponse, CatalogResponse, GameStateResponse } from '../../api/types';
 import { postAdvanceDay } from '../../api/client';
 import { Chip } from './ui/Chip';
 import { CoreWorldsBar } from './CoreWorldsBar';
@@ -13,6 +13,7 @@ interface NodeBarDrawerProps {
   isOpen: boolean;
   selectedNodeId: NodeId | null;
   state: GameStateResponse;
+  catalog: CatalogResponse | null;
   onClose: () => void;
   onActionResult: (resp: ApiResponse) => void;
   onRefresh: () => void;
@@ -52,11 +53,24 @@ export function NodeBarDrawer({
   isOpen,
   selectedNodeId,
   state,
+  catalog,
   onClose,
   onActionResult,
   onRefresh,
 }: NodeBarDrawerProps) {
-  const meta = selectedNodeId ? NODE_META[selectedNodeId] : null;
+  const mapNode = selectedNodeId
+    ? state.mapView?.nodes.find(node => node.id === selectedNodeId) ?? null
+    : null;
+  const meta = mapNode
+    ? {
+        title: mapNode.label,
+        subtitle: mapNode.subtitle1,
+        tone: mapNode.type,
+        dotClass: mapNode.type === 'core' ? 'bg-core text-core' : mapNode.type === 'contested' ? 'bg-contested text-contested' : 'bg-deep text-deep',
+      }
+    : selectedNodeId
+      ? NODE_META[selectedNodeId]
+      : null;
 
   const routeHealth = useMemo(() => {
     const counts = { active: 0, disrupted: 0, blocked: 0, severity: 'good' as 'good' | 'warn' | 'danger' };
@@ -166,7 +180,7 @@ export function NodeBarDrawer({
                   animate={{ opacity: 1, y: 0, transition: { duration: 0.22, ease: 'easeOut' } }}
                   exit={{ opacity: 0, y: 12, transition: { duration: 0.16, ease: 'easeIn' } }}
                 >
-                  <ContestedSystemBar state={state} onActionResult={onActionResult} />
+                  <ContestedSystemBar state={state} catalog={catalog} onActionResult={onActionResult} />
                 </motion.div>
               )}
             </AnimatePresence>

@@ -2,7 +2,20 @@
 
 See `CLONE_WARS_WAR_SIM_MVP.md` for the finalized, agent-ready MVP scope and intended design.
 
-## Scaffolding (Python + Textual)
+## V2 Web UI (Primary)
+
+The primary interface is the v2 web UI backed by the shared engine in `src/war_sim`.
+
+Run from repo root:
+
+- `cd sim-v2/client && npm install && npm run build`
+- `python sim-v2/run_server.py`
+- Open `http://127.0.0.1:8000`
+
+Scenario data (v2):
+- `sim-v2/data/scenarios/default.json`
+
+## Legacy Scaffolding (Python + Textual)
 
 Prereqs: Python 3.11+
 

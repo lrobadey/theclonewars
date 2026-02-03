@@ -5,14 +5,14 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import TYPE_CHECKING
 
-from schism_sim.engine.rules import GlobalConfig
-from schism_sim.engine.types import Supplies
+from war_sim.domain.types import Supplies
+from war_sim.rules.ruleset import GlobalConfig
 
 # 1 Walker can effectively screen 20 Infantry.
 WALKER_COVERAGE_CAPACITY = 20
 
 if TYPE_CHECKING:
-    from schism_sim.engine.state import GameState
+    from war_sim.sim.state import GameState
 
 
 class RaidBeat(Enum):
@@ -258,55 +258,54 @@ class RaidCombatSession:
             event_parts.append("Under pressure")
         elif your_advantage > 1.2:
             event_parts.append("Pressing attack")
-        elif enemy_advantage > 1.2:
-            event_parts.append("Resistance stiffens")
-        else:
-            event_parts.append("Exchange of fire")
 
-        event = f"{beat.value}: " + ", ".join(event_parts)
-
-        self.tick = tick_num
-        tick_record = CombatTick(
+        event_text = " / ".join(event_parts) if event_parts else "Skirmish"
+        tick_data = CombatTick(
             tick=tick_num,
-            your_power=round(your_power, 1),
-            enemy_power=round(enemy_power, 1),
-            your_cohesion=round(self.your_cohesion, 2),
-            enemy_cohesion=round(self.enemy_cohesion, 2),
+            your_power=your_power,
+            enemy_power=enemy_power,
+            your_cohesion=self.your_cohesion,
+            enemy_cohesion=self.enemy_cohesion,
             your_casualties=your_applied,
             enemy_casualties=enemy_applied,
-            event=event,
+            event=event_text,
             beat=beat.value,
         )
-        self.tick_log.append(tick_record)
+        self.tick_log.append(tick_data)
+        self.tick += 1
 
-        if self.enemy_cohesion < 0.2:
+        if self.your_cohesion <= 0.0 or self.enemy_cohesion <= 0.0:
+            self._finalize_broken()
+
+        return tick_data
+
+    def _finalize_stall(self) -> None:
+        self.outcome = "STALEMATE"
+        self.reason = "Operation stalled"
+
+    def _finalize_broken(self) -> None:
+        if self.your_cohesion <= 0.0 and self.enemy_cohesion <= 0.0:
+            self.outcome = "STALEMATE"
+            self.reason = "Both sides collapsed"
+        elif self.enemy_cohesion <= 0.0:
             self.outcome = "VICTORY"
-            self.reason = f"Enemy broke at {int(self.enemy_cohesion * 100)}% cohesion after {tick_num} ticks"
-        elif self.your_cohesion < 0.2:
+            self.reason = "Enemy cohesion shattered"
+        else:
             self.outcome = "DEFEAT"
-            self.reason = f"Your force broke at {int(self.your_cohesion * 100)}% cohesion after {tick_num} ticks"
-
-        if self.tick >= self.max_ticks and self.outcome is None:
-            self._finalize_stall()
-
-        return tick_record
+            self.reason = "Your cohesion collapsed"
 
     def to_result(self) -> CombatResult:
-        if self.outcome is None or self.reason is None:
-            self._finalize_stall()
-
+        supplies_after = self.supplies_before
         supplies_consumed = Supplies(
-            ammo=min(self.supplies_before.ammo, self.config.raid_ammo_cost),
-            fuel=min(self.supplies_before.fuel, self.config.raid_fuel_cost),
-            med_spares=min(self.supplies_before.med_spares, self.config.raid_med_cost),
+            ammo=max(0, supplies_after.ammo - int(self.supplies_before.ammo * self.ammo_ratio)),
+            fuel=max(0, supplies_after.fuel - int(self.supplies_before.fuel * self.fuel_ratio)),
+            med_spares=max(0, supplies_after.med_spares - self.config.raid_med_cost),
         )
 
-        top_factors = self._build_top_factors()
-
         return CombatResult(
-            outcome=self.outcome,
-            reason=self.reason,
-            ticks=len(self.tick_log),
+            outcome=self.outcome or "STALEMATE",
+            reason=self.reason or "Raid ended",
+            ticks=self.tick,
             your_final_cohesion=self.your_cohesion,
             enemy_final_cohesion=self.enemy_cohesion,
             your_casualties_total=self.your_casualties_total,
@@ -323,121 +322,14 @@ class RaidCombatSession:
             },
             tick_log=list(self.tick_log),
             supplies_consumed=supplies_consumed,
-            top_factors=top_factors,
+            top_factors=self._build_top_factors(),
         )
 
-    def _build_top_factors(self) -> list[RaidFactor]:
-        factors: list[RaidFactor] = []
-        total_ticks = len(self.tick_log)
-        if total_ticks == 0:
-            return factors
-
-        if self.initiative_wins > 0 or self.initiative_losses > 0:
-            net_init = self.initiative_wins - self.initiative_losses
-            if net_init > 0:
-                factors.append(
-                    RaidFactor(
-                        name="initiative_advantage",
-                        value=float(net_init),
-                        why=f"Won initiative {self.initiative_wins}/{total_ticks} ticks (+damage, -casualties)",
-                    )
-                )
-            elif net_init < 0:
-                factors.append(
-                    RaidFactor(
-                        name="initiative_deficit",
-                        value=float(net_init),
-                        why=f"Lost initiative {self.initiative_losses}/{total_ticks} ticks (+casualties)",
-                    )
-                )
-
-        if self.ammo_pinch_ticks > 0:
-            factors.append(
-                RaidFactor(
-                    name="ammo_pinch",
-                    value=float(-self.ammo_pinch_ticks),
-                    why=f"Low ammo reduced firepower for {self.ammo_pinch_ticks} ticks",
-                )
-            )
-
-        if self.walker_screen_saves > 0:
-            avg_efficiency = (
-                self.screen_efficiency_total / self.screen_efficiency_ticks
-                if self.screen_efficiency_ticks > 0
-                else 0.0
-            )
-            avg_percent = round(avg_efficiency * 100)
-            factors.append(
-                RaidFactor(
-                    name="walker_screen",
-                    value=float(self.walker_screen_saves),
-                    why=(
-                        "Walkers provided "
-                        f"{avg_percent}% coverage, absorbing {self.walker_screen_saves} casualties"
-                    ),
-                )
-            )
-
-        if self.fortification_penalty_ticks > 0:
-            factors.append(
-                RaidFactor(
-                    name="fortification_penalty",
-                    value=float(-self.fortification_penalty_ticks),
-                    why=f"Enemy fortification slowed infiltration for {self.fortification_penalty_ticks} ticks",
-                )
-            )
-
-        if self.enemy_counterattacks > 0:
-            factors.append(
-                RaidFactor(
-                    name="enemy_counterattacks",
-                    value=float(-self.enemy_counterattacks),
-                    why=f"Enemy counterattacked {self.enemy_counterattacks} times during breach",
-                )
-            )
-
-        factors.sort(key=lambda f: abs(f.value), reverse=True)
-        return factors[:5]
-
-    def _finalize_stall(self) -> None:
-        if self.outcome is None:
-            self.outcome = "DEFEAT"
-            self.reason = f"Raid stalled after {self.max_ticks} ticks, forced to withdraw"
-
-    def _sample_casualties(self, force_size: int, cohesion_damage: float) -> int:
-        expected = max(0.0, force_size * cohesion_damage * self.config.raid_casualty_rate)
-        whole = int(expected)
-        if self.rng.random() < (expected - whole):
-            whole += 1
-        return whole
-
-    @staticmethod
-    def _split_casualties(total: int, infantry: int, walkers: int, support: int) -> tuple[int, int, int]:
-        if total <= 0:
-            return (0, 0, 0)
-        weights = (0.7, 0.2, 0.1)
-        raw = (total * weights[0], total * weights[1], total * weights[2])
-        inf_loss = min(infantry, int(raw[0]))
-        walk_loss = min(walkers, int(raw[1]))
-        sup_loss = min(support, int(raw[2]))
-        remaining = total - (inf_loss + walk_loss + sup_loss)
-        for idx in (0, 1, 2):
-            if remaining <= 0:
-                break
-            if idx == 0:
-                cap = infantry - inf_loss
-                add = min(cap, remaining)
-                inf_loss += add
-            elif idx == 1:
-                cap = walkers - walk_loss
-                add = min(cap, remaining)
-                walk_loss += add
-            else:
-                cap = support - sup_loss
-                add = min(cap, remaining)
-                sup_loss += add
-            remaining -= add
-        return (inf_loss, walk_loss, sup_loss)
+    def _calculate_screen_efficiency(self, walkers: int, infantry: int) -> float:
+        if infantry <= 0:
+            return 1.0
+        capacity = walkers * WALKER_COVERAGE_CAPACITY
+        return min(1.0, capacity / max(1, infantry))
 
     def _split_casualties_dynamic(
         self,
@@ -445,53 +337,96 @@ class RaidCombatSession:
         infantry: int,
         walkers: int,
         support: int,
-        *,
-        screen_efficiency: float = 0.0,
+        screen_efficiency: float = 1.0,
     ) -> tuple[int, int, int]:
         if total <= 0:
-            return (0, 0, 0)
+            return 0, 0, 0
 
-        if screen_efficiency > 0.0 and walkers > 0:
-            effective_protection = self.config.walker_screen_infantry_protect * screen_efficiency
-            inf_weight = 0.7 * (1.0 - effective_protection)
-            walk_weight = 0.2 + 0.7 * effective_protection
-            sup_weight = 0.1
-        else:
-            inf_weight = 0.7
-            walk_weight = 0.2
-            sup_weight = 0.1
+        base_inf = 0.7
+        base_walk = 0.2
+        base_sup = 0.1
+        inf_weight = base_inf * (1.0 - 0.5 * screen_efficiency)
+        walk_weight = base_walk + (0.5 * base_inf * screen_efficiency)
+        sup_weight = base_sup
 
-        raw = (total * inf_weight, total * walk_weight, total * sup_weight)
-        inf_loss = min(infantry, int(raw[0]))
-        walk_loss = min(walkers, int(raw[1]))
-        sup_loss = min(support, int(raw[2]))
-        remaining = total - (inf_loss + walk_loss + sup_loss)
+        weight_sum = inf_weight + walk_weight + sup_weight
+        inf_loss = int(total * (inf_weight / weight_sum))
+        walk_loss = int(total * (walk_weight / weight_sum))
+        sup_loss = total - inf_loss - walk_loss
 
-        for idx in (0, 1, 2):
-            if remaining <= 0:
-                break
-            if idx == 0:
-                cap = infantry - inf_loss
-                add = min(cap, remaining)
-                inf_loss += add
-            elif idx == 1:
-                cap = walkers - walk_loss
-                add = min(cap, remaining)
-                walk_loss += add
-            else:
-                cap = support - sup_loss
-                add = min(cap, remaining)
-                sup_loss += add
-            remaining -= add
+        inf_loss = min(inf_loss, infantry)
+        walk_loss = min(walk_loss, walkers)
+        sup_loss = min(sup_loss, support)
 
-        return (inf_loss, walk_loss, sup_loss)
+        return inf_loss, walk_loss, sup_loss
 
-    @staticmethod
-    def _calculate_screen_efficiency(walkers: int, infantry: int) -> float:
-        if infantry <= 0:
-            return 1.0
-        capacity = walkers * WALKER_COVERAGE_CAPACITY
-        return min(1.0, capacity / max(1, infantry))
+    def _split_casualties(
+        self, total: int, infantry: int, walkers: int, support: int
+    ) -> tuple[int, int, int]:
+        if total <= 0:
+            return 0, 0, 0
+        inf_weight = 0.7
+        walk_weight = 0.2
+        sup_weight = 0.1
+        weight_sum = inf_weight + walk_weight + sup_weight
+        inf_loss = int(total * (inf_weight / weight_sum))
+        walk_loss = int(total * (walk_weight / weight_sum))
+        sup_loss = total - inf_loss - walk_loss
+        inf_loss = min(inf_loss, infantry)
+        walk_loss = min(walk_loss, walkers)
+        sup_loss = min(sup_loss, support)
+        return inf_loss, walk_loss, sup_loss
+
+    def _sample_casualties(self, size: int, damage_rate: float) -> int:
+        if size <= 0:
+            return 0
+        mean = size * damage_rate
+        return int(self.rng.gauss(mean, max(1.0, mean * 0.3)))
+
+    def _build_top_factors(self) -> list[RaidFactor]:
+        factors: list[RaidFactor] = []
+        if self.initiative_wins or self.initiative_losses:
+            initiative_ratio = self.initiative_wins / max(1, self.initiative_wins + self.initiative_losses)
+            factors.append(
+                RaidFactor(
+                    name="initiative",
+                    value=initiative_ratio,
+                    why="Higher initiative improves damage output",
+                )
+            )
+        if self.ammo_pinch_ticks:
+            factors.append(
+                RaidFactor(
+                    name="ammo_pinch",
+                    value=float(self.ammo_pinch_ticks),
+                    why="Ammo pinch reduces effectiveness",
+                )
+            )
+        if self.walker_screen_saves:
+            factors.append(
+                RaidFactor(
+                    name="walker_screen",
+                    value=float(self.walker_screen_saves),
+                    why="Walkers screened infantry casualties",
+                )
+            )
+        if self.fortification_penalty_ticks:
+            factors.append(
+                RaidFactor(
+                    name="fortification",
+                    value=float(self.fortification_penalty_ticks),
+                    why="Enemy fortifications penalized breaches",
+                )
+            )
+        if self.enemy_counterattacks:
+            factors.append(
+                RaidFactor(
+                    name="counterattacks",
+                    value=float(self.enemy_counterattacks),
+                    why="Enemy counterattacks increased losses",
+                )
+            )
+        return factors
 
 
 def calculate_power(
@@ -499,54 +434,44 @@ def calculate_power(
     walkers: int,
     support: int,
     cohesion: float,
-    supply_modifier: float = 1.0,
+    supply_mod: float = 1.0,
     fortification: float = 1.0,
 ) -> float:
-    base_power = (infantry * 1.0) + (walkers * 5.0) + (support * 0.5)
-    return base_power * cohesion * supply_modifier * fortification
-
-
-def get_supply_modifier(supplies: Supplies, ammo_needed: int, fuel_needed: int) -> float:
-    ammo_ratio = min(1.0, supplies.ammo / max(1, ammo_needed))
-    fuel_ratio = min(1.0, supplies.fuel / max(1, fuel_needed))
-    return max(0.5, (ammo_ratio + fuel_ratio) / 2)
+    if infantry <= 0 and walkers <= 0 and support <= 0:
+        return 0.0
+    base = infantry * 1.0 + walkers * 12.0 + support * 4.0
+    cohesion_mod = max(0.0, min(1.0, cohesion))
+    return base * cohesion_mod * supply_mod / max(0.5, fortification)
 
 
 def start_raid_session(state: "GameState", rng: random.Random) -> RaidCombatSession:
+    rules = state.rules
+    g = rules.globals
     tf = state.task_force
     enemy = state.contested_planet.enemy
-    config = state.rules.globals
 
-    supply_mod = get_supply_modifier(tf.supplies, config.raid_ammo_cost, config.raid_fuel_cost)
+    ammo_ratio = min(1.0, tf.supplies.ammo / max(1, g.raid_ammo_cost * g.raid_max_ticks))
+    fuel_ratio = min(1.0, tf.supplies.fuel / max(1, g.raid_fuel_cost * g.raid_max_ticks))
+    supply_mod = 0.8 + 0.2 * ((ammo_ratio + fuel_ratio) / 2)
 
-    ammo_ratio = min(1.0, tf.supplies.ammo / max(1, config.raid_ammo_cost))
-    fuel_ratio = min(1.0, tf.supplies.fuel / max(1, config.raid_fuel_cost))
-
-    return RaidCombatSession(
+    session = RaidCombatSession(
         rng=rng,
-        config=config,
+        config=g,
         supply_mod=supply_mod,
         enemy_fortification=enemy.fortification,
         supplies_before=tf.supplies,
         your_infantry=tf.composition.infantry,
         your_walkers=tf.composition.walkers,
         your_support=tf.composition.support,
-        your_cohesion=max(0.0, min(1.0, tf.readiness)),
+        your_cohesion=tf.cohesion,
         enemy_infantry=enemy.infantry,
         enemy_walkers=enemy.walkers,
         enemy_support=enemy.support,
-        enemy_cohesion=max(0.0, min(1.0, enemy.cohesion)),
+        enemy_cohesion=enemy.cohesion,
+        max_ticks=g.raid_max_ticks,
         ammo_ratio=ammo_ratio,
         fuel_ratio=fuel_ratio,
         intel_confidence=enemy.intel_confidence,
         initial_walkers=tf.composition.walkers,
-        max_ticks=config.raid_max_ticks,
     )
-
-
-def execute_raid(state: "GameState", rng: random.Random) -> CombatResult:
-    session = start_raid_session(state, rng)
-    while session.outcome is None:
-        session.step()
-    return session.to_result()
-
+    return session

@@ -2,15 +2,22 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Request, Response
 
-from schism_sim.engine.actions import (
-    ActionError,
-    ActionManager,
-    ActionType,
-    PlayerAction,
-    ShipmentPayload,
+from war_sim.domain.actions import (
+    AcknowledgeAar,
+    AcknowledgePhaseReport,
+    AdvanceDay,
+    DispatchShipment,
+    QueueBarracks,
+    QueueProduction,
+    RaidResolve,
+    RaidTick,
+    StartOperation,
+    StartRaid,
+    SubmitPhaseDecisions,
+    UpgradeBarracks,
+    UpgradeFactory,
 )
-from schism_sim.engine.barracks import BarracksJobType
-from schism_sim.engine.ops import (
+from war_sim.domain.ops_models import (
     OperationIntent,
     OperationTarget,
     OperationTypeId,
@@ -18,8 +25,9 @@ from schism_sim.engine.ops import (
     Phase2Decisions,
     Phase3Decisions,
 )
-from schism_sim.engine.production import ProductionJobType
-from schism_sim.engine.types import LocationId, Supplies, UnitStock
+from war_sim.domain.types import LocationId, Supplies, UnitStock
+from war_sim.sim.reducer import apply_action
+from war_sim.view.catalog import build_catalog
 from server.api import mappers, schemas
 from server.session import get_or_create_session
 
@@ -37,6 +45,9 @@ def _parse_target(value: str) -> OperationTarget:
     for target in OperationTarget:
         if target.value == value:
             return target
+    lowered = value.lower().replace(" ", "_")
+    if lowered in ("foundry", "comms", "power"):
+        return OperationTarget[lowered.upper()]
     raise ValueError(f"Unknown target: {value}")
 
 
@@ -56,6 +67,17 @@ def _build_response(
     return payload
 
 
+def _from_result(result) -> schemas.ApiResponse:
+    payload = schemas.ApiResponse(
+        ok=result.ok,
+        message=result.message,
+        message_kind=result.message_kind,
+    )
+    if result.state is not None:
+        payload.state = mappers.build_state_response(result.state)
+    return payload
+
+
 @router.get("/health")
 async def health():
     return {"status": "ok"}
@@ -66,6 +88,15 @@ async def get_state(request: Request, response: Response):
     session_id, session = get_or_create_session(request.cookies.get("session_id"))
     async with session.lock:
         data = mappers.build_state_response(session.state)
+    response.set_cookie("session_id", session_id, httponly=True)
+    return data
+
+
+@router.get("/catalog", response_model=schemas.CatalogResponse)
+async def get_catalog(request: Request, response: Response):
+    session_id, session = get_or_create_session(request.cookies.get("session_id"))
+    async with session.lock:
+        data = build_catalog(session.state.rules, session.state.scenario)
     response.set_cookie("session_id", session_id, httponly=True)
     return data
 
@@ -83,29 +114,23 @@ async def dispatch_shipment(payload: schemas.DispatchRequest, request: Request, 
     session_id, session = get_or_create_session(request.cookies.get("session_id"))
     response.set_cookie("session_id", session_id, httponly=True)
     async with session.lock:
-        try:
-            origin = _parse_location(payload.origin)
-            destination = _parse_location(payload.destination)
-            supplies = Supplies(
-                ammo=payload.supplies.ammo,
-                fuel=payload.supplies.fuel,
-                med_spares=payload.supplies.med_spares,
-            )
-            units = UnitStock(
-                infantry=payload.units.infantry,
-                walkers=payload.units.walkers,
-                support=payload.units.support,
-            )
-            mgr = ActionManager(session.state)
-            mgr.perform_action(
-                PlayerAction(
-                    ActionType.DISPATCH_SHIPMENT,
-                    payload=ShipmentPayload(origin=origin, destination=destination, supplies=supplies, units=units),
-                )
-            )
-            return _build_response(session.state, ok=True, message="Shipment dispatched", kind="accent")
-        except (ActionError, ValueError) as exc:
-            return _build_response(session.state, ok=False, message=str(exc), kind="error")
+        origin = _parse_location(payload.origin)
+        destination = _parse_location(payload.destination)
+        supplies = Supplies(
+            ammo=payload.supplies.ammo,
+            fuel=payload.supplies.fuel,
+            med_spares=payload.supplies.med_spares,
+        )
+        units = UnitStock(
+            infantry=payload.units.infantry,
+            walkers=payload.units.walkers,
+            support=payload.units.support,
+        )
+        result = apply_action(
+            session.state,
+            DispatchShipment(origin=origin, destination=destination, supplies=supplies, units=units),
+        )
+        return _from_result(result)
 
 
 @router.post("/actions/production", response_model=schemas.ApiResponse)
@@ -113,12 +138,11 @@ async def queue_production(payload: schemas.ProductionRequest, request: Request,
     session_id, session = get_or_create_session(request.cookies.get("session_id"))
     response.set_cookie("session_id", session_id, httponly=True)
     async with session.lock:
-        try:
-            job_type = ProductionJobType(payload.job_type)
-            session.state.production.queue_job(job_type, payload.quantity)
-            return _build_response(session.state, ok=True, message="Factory job queued", kind="accent")
-        except ValueError as exc:
-            return _build_response(session.state, ok=False, message=str(exc), kind="error")
+        result = apply_action(
+            session.state,
+            QueueProduction(job_type=payload.job_type, quantity=payload.quantity, stop_at=LocationId.NEW_SYSTEM_CORE),
+        )
+        return _from_result(result)
 
 
 @router.post("/actions/barracks", response_model=schemas.ApiResponse)
@@ -126,12 +150,11 @@ async def queue_barracks(payload: schemas.ProductionRequest, request: Request, r
     session_id, session = get_or_create_session(request.cookies.get("session_id"))
     response.set_cookie("session_id", session_id, httponly=True)
     async with session.lock:
-        try:
-            job_type = BarracksJobType(payload.job_type)
-            session.state.barracks.queue_job(job_type, payload.quantity)
-            return _build_response(session.state, ok=True, message="Barracks job queued", kind="accent")
-        except ValueError as exc:
-            return _build_response(session.state, ok=False, message=str(exc), kind="error")
+        result = apply_action(
+            session.state,
+            QueueBarracks(job_type=payload.job_type, quantity=payload.quantity, stop_at=LocationId.NEW_SYSTEM_CORE),
+        )
+        return _from_result(result)
 
 
 @router.post("/actions/upgrade-factory", response_model=schemas.ApiResponse)
@@ -139,12 +162,8 @@ async def upgrade_factory(request: Request, response: Response):
     session_id, session = get_or_create_session(request.cookies.get("session_id"))
     response.set_cookie("session_id", session_id, httponly=True)
     async with session.lock:
-        try:
-            mgr = ActionManager(session.state)
-            mgr.perform_action(PlayerAction(ActionType.UPGRADE_FACTORY))
-            return _build_response(session.state, ok=True, message="Factory upgraded", kind="accent")
-        except (ActionError, ValueError) as exc:
-            return _build_response(session.state, ok=False, message=str(exc), kind="error")
+        result = apply_action(session.state, UpgradeFactory())
+        return _from_result(result)
 
 
 @router.post("/actions/upgrade-barracks", response_model=schemas.ApiResponse)
@@ -152,12 +171,8 @@ async def upgrade_barracks(request: Request, response: Response):
     session_id, session = get_or_create_session(request.cookies.get("session_id"))
     response.set_cookie("session_id", session_id, httponly=True)
     async with session.lock:
-        try:
-            mgr = ActionManager(session.state)
-            mgr.perform_action(PlayerAction(ActionType.UPGRADE_BARRACKS))
-            return _build_response(session.state, ok=True, message="Barracks upgraded", kind="accent")
-        except (ActionError, ValueError) as exc:
-            return _build_response(session.state, ok=False, message=str(exc), kind="error")
+        result = apply_action(session.state, UpgradeBarracks())
+        return _from_result(result)
 
 
 @router.post("/actions/advance-day", response_model=schemas.ApiResponse)
@@ -165,18 +180,8 @@ async def advance_day(request: Request, response: Response):
     session_id, session = get_or_create_session(request.cookies.get("session_id"))
     response.set_cookie("session_id", session_id, httponly=True)
     async with session.lock:
-        state = session.state
-        if state.raid_session is not None:
-            return _build_response(state, ok=False, message="Raid in progress", kind="error")
-        if state.operation is not None:
-            op = state.operation
-            if op.pending_phase_record is not None:
-                return _build_response(state, ok=False, message="Acknowledge phase report", kind="error")
-            if op.awaiting_player_decision:
-                return _build_response(state, ok=False, message="Awaiting phase orders", kind="error")
-        state.advance_day()
-        state.action_points = 3
-        return _build_response(state, ok=True, message="Day advanced", kind="info")
+        result = apply_action(session.state, AdvanceDay())
+        return _from_result(result)
 
 
 @router.post("/actions/operation/start", response_model=schemas.ApiResponse)
@@ -184,18 +189,11 @@ async def start_operation(payload: schemas.OperationStartRequest, request: Reque
     session_id, session = get_or_create_session(request.cookies.get("session_id"))
     response.set_cookie("session_id", session_id, httponly=True)
     async with session.lock:
-        try:
-            target = _parse_target(payload.target)
-            op_type = _parse_op_type(payload.op_type)
-            mgr = ActionManager(session.state)
-            if op_type == OperationTypeId.RAID:
-                mgr.perform_action(PlayerAction(ActionType.START_RAID, payload=target))
-                return _build_response(session.state, ok=True, message="Raid launched", kind="accent")
-            intent = OperationIntent(target=target, op_type=op_type)
-            mgr.perform_action(PlayerAction(ActionType.START_OPERATION, payload=intent))
-            return _build_response(session.state, ok=True, message="Operation launched", kind="accent")
-        except (ActionError, ValueError, RuntimeError) as exc:
-            return _build_response(session.state, ok=False, message=str(exc), kind="error")
+        target = _parse_target(payload.target)
+        op_type = _parse_op_type(payload.op_type)
+        intent = OperationIntent(target=target, op_type=op_type)
+        result = apply_action(session.state, StartOperation(intent=intent))
+        return _from_result(result)
 
 
 @router.post("/actions/operation/decisions", response_model=schemas.ApiResponse)
@@ -220,8 +218,8 @@ async def submit_phase_decisions(payload: schemas.PhaseDecisionRequest, request:
                 if not payload.focus or not payload.end_state:
                     raise ValueError("Missing phase 3 decisions")
                 decisions = Phase3Decisions(exploit_vs_secure=payload.focus, end_state=payload.end_state)
-            state.submit_phase_decisions(decisions)
-            return _build_response(state, ok=True, message="Phase orders submitted", kind="accent")
+            result = apply_action(session.state, SubmitPhaseDecisions(decisions=decisions))
+            return _from_result(result)
         except (ValueError, RuntimeError, TypeError) as exc:
             return _build_response(state, ok=False, message=str(exc), kind="error")
 
@@ -231,11 +229,8 @@ async def acknowledge_phase(request: Request, response: Response):
     session_id, session = get_or_create_session(request.cookies.get("session_id"))
     response.set_cookie("session_id", session_id, httponly=True)
     async with session.lock:
-        state = session.state
-        if state.operation is None or state.operation.pending_phase_record is None:
-            return _build_response(state, ok=False, message="No phase report", kind="error")
-        state.acknowledge_phase_result()
-        return _build_response(state, ok=True, message="Phase acknowledged", kind="info")
+        result = apply_action(session.state, AcknowledgePhaseReport())
+        return _from_result(result)
 
 
 @router.post("/actions/raid/tick", response_model=schemas.ApiResponse)
@@ -243,11 +238,8 @@ async def raid_tick(request: Request, response: Response):
     session_id, session = get_or_create_session(request.cookies.get("session_id"))
     response.set_cookie("session_id", session_id, httponly=True)
     async with session.lock:
-        try:
-            session.state.advance_raid_tick()
-            return _build_response(session.state, ok=True, message="Raid tick advanced", kind="info")
-        except RuntimeError as exc:
-            return _build_response(session.state, ok=False, message=str(exc), kind="error")
+        result = apply_action(session.state, RaidTick())
+        return _from_result(result)
 
 
 @router.post("/actions/raid/resolve", response_model=schemas.ApiResponse)
@@ -255,11 +247,8 @@ async def raid_resolve(request: Request, response: Response):
     session_id, session = get_or_create_session(request.cookies.get("session_id"))
     response.set_cookie("session_id", session_id, httponly=True)
     async with session.lock:
-        try:
-            session.state.resolve_active_raid()
-            return _build_response(session.state, ok=True, message="Raid resolved", kind="accent")
-        except RuntimeError as exc:
-            return _build_response(session.state, ok=False, message=str(exc), kind="error")
+        result = apply_action(session.state, RaidResolve())
+        return _from_result(result)
 
 
 @router.post("/actions/raid/start", response_model=schemas.ApiResponse)
@@ -267,13 +256,9 @@ async def raid_start(payload: schemas.OperationStartRequest, request: Request, r
     session_id, session = get_or_create_session(request.cookies.get("session_id"))
     response.set_cookie("session_id", session_id, httponly=True)
     async with session.lock:
-        try:
-            target = _parse_target(payload.target)
-            mgr = ActionManager(session.state)
-            mgr.perform_action(PlayerAction(ActionType.START_RAID, payload=target))
-            return _build_response(session.state, ok=True, message="Raid launched", kind="accent")
-        except (ActionError, ValueError, RuntimeError) as exc:
-            return _build_response(session.state, ok=False, message=str(exc), kind="error")
+        target = _parse_target(payload.target)
+        result = apply_action(session.state, StartRaid(target=target))
+        return _from_result(result)
 
 
 @router.post("/actions/ack-aar", response_model=schemas.ApiResponse)
@@ -281,5 +266,5 @@ async def acknowledge_aar(request: Request, response: Response):
     session_id, session = get_or_create_session(request.cookies.get("session_id"))
     response.set_cookie("session_id", session_id, httponly=True)
     async with session.lock:
-        session.state.last_aar = None
-        return _build_response(session.state, ok=True, message="AAR acknowledged", kind="info")
+        result = apply_action(session.state, AcknowledgeAar())
+        return _from_result(result)

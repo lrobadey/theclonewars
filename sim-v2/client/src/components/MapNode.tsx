@@ -1,15 +1,15 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState } from 'react';
-import type { MapNodeData } from '../data/mapFromGameState';
+import type { MapNode } from '../api/types';
 
 interface MapNodeProps {
-  data: MapNodeData;
+  data: MapNode;
   isSelected?: boolean;
   onNodeClick?: (nodeId: string) => void;
 }
 
-type NodeType = MapNodeData['type'];
-type NodeSize = MapNodeData['size'];
+type NodeType = MapNode['type'];
+type NodeSize = MapNode['size'];
 
 // Get colors based on node type
 function getNodeColors(type: NodeType) {

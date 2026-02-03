@@ -25,5 +25,68 @@
       "reinforcement_rate": 0.0,
       "intel_confidence": 0.7
     }
+  },
+  "map": {
+    "nodes": [
+      {
+        "id": "new_system_core",
+        "label": "Core Hub",
+        "kind": "core",
+        "description": "Core Hub staging point",
+        "position": { "x": 8, "y": 50 }
+      },
+      {
+        "id": "deep_space",
+        "label": "Deep Space",
+        "kind": "deep",
+        "description": "Deep Space staging point",
+        "position": { "x": 30, "y": 35 }
+      },
+      {
+        "id": "contested_spaceport",
+        "label": "Spaceport",
+        "kind": "tactical",
+        "description": "Spaceport staging point",
+        "position": { "x": 52, "y": 46 }
+      },
+      {
+        "id": "contested_mid_depot",
+        "label": "Mid Depot",
+        "kind": "tactical",
+        "description": "Mid Depot staging point",
+        "position": { "x": 70, "y": 60 }
+      },
+      {
+        "id": "contested_front",
+        "label": "Contested Front",
+        "kind": "tactical",
+        "description": "Contested Front staging point",
+        "position": { "x": 90, "y": 48 }
+      }
+    ],
+    "strategicGroups": [
+      {
+        "id": "core",
+        "label": "Core Worlds",
+        "kind": "core",
+        "nodeIds": ["new_system_core"]
+      },
+      {
+        "id": "deep",
+        "label": "Deep Space",
+        "kind": "deep",
+        "nodeIds": ["deep_space"]
+      },
+      {
+        "id": "contested",
+        "label": "Contested System",
+        "kind": "contested",
+        "nodeIds": [
+          "contested_spaceport",
+          "contested_mid_depot",
+          "contested_front"
+        ]
+      }
+    ]
   }
 }

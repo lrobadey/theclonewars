@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion';
-import type { ConnectionData } from '../data/mapFromGameState';
+import type { MapConnection } from '../api/types';
 
-type ConnectionStatus = ConnectionData['status'];
+type ConnectionStatus = MapConnection['status'];
 
 interface RouteLabelProps {
   pathId: string;

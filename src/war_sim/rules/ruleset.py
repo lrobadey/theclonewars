@@ -1,4 +1,4 @@
-"""Data-driven rules engine for The Schism sim."""
+"""Data-driven rules engine."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from schism_sim.engine.types import LocationId
+from war_sim.domain.types import LocationId
 
 
 class RulesError(ValueError):
@@ -263,164 +263,52 @@ def _load_objectives(path: Path) -> dict[str, ObjectiveDef]:
 
 
 def _load_operation_rules(path: Path) -> dict[str, Any]:
-    """Load operation decision rules (approach axes, postures, etc.)."""
     data = _load_json(path)
-    result: dict[str, Any] = {}
-    for key in [
-        "approach_axes",
-        "fire_support_prep",
-        "engagement_postures",
-        "risk_tolerances",
-        "exploit_vs_secure",
-        "end_states",
-    ]:
-        if key not in data:
-            raise RulesError(f"{path}: missing '{key}' key")
-        result[key] = data[key]
-    return result
-
-
-def _parse_location_id(value: Any, *, path: Path, field: str) -> LocationId:
-    if not isinstance(value, str):
-        raise RulesError(f"{path}: {field} keys must be strings")
-    try:
-        return LocationId(value)
-    except ValueError:
-        try:
-            return LocationId[value]
-        except KeyError as exc:
-            raise RulesError(f"{path}: unknown location id '{value}' in {field}") from exc
+    return {
+        "approach_axes": data.get("approach_axes", {}),
+        "fire_support_prep": data.get("fire_support_prep", {}),
+        "engagement_postures": data.get("engagement_postures", {}),
+        "risk_tolerances": data.get("risk_tolerances", {}),
+        "exploit_vs_secure": data.get("exploit_vs_secure", {}),
+        "end_states": data.get("end_states", {}),
+    }
 
 
 def _load_globals(path: Path) -> GlobalConfig:
-    """Load global balance constants."""
     data = _load_json(path)
-    try:
-        raid_max_ticks = int(data["raid_max_ticks"])
-        raid_ammo_cost = int(data["raid_ammo_cost"])
-        raid_fuel_cost = int(data["raid_fuel_cost"])
-        raid_med_cost = int(data["raid_med_cost"])
-        raid_base_damage_rate = float(data["raid_base_damage_rate"])
-        raid_casualty_rate = float(data["raid_casualty_rate"])
-        ammo_pinch_threshold = float(data["ammo_pinch_threshold"])
-        walker_screen_infantry_protect = float(data["walker_screen_infantry_protect"])
-    except KeyError as exc:
-        raise RulesError(f"{path}: missing required global config field {exc}") from exc
-    except (TypeError, ValueError) as exc:
-        raise RulesError(f"{path}: invalid global config value: {exc}") from exc
-
-    storage_risk_raw = data.get("storage_risk_per_day")
-    if not isinstance(storage_risk_raw, dict):
-        raise RulesError(f"{path}: storage_risk_per_day must be an object")
-    storage_risk_per_day = {
-        _parse_location_id(key, path=path, field="storage_risk_per_day"): float(value)
-        for key, value in storage_risk_raw.items()
-    }
-
-    storage_loss_raw = data.get("storage_loss_pct_range")
-    if not isinstance(storage_loss_raw, dict):
-        raise RulesError(f"{path}: storage_loss_pct_range must be an object")
-    storage_loss_pct_range: dict[LocationId, tuple[float, float]] = {}
-    for key, value in storage_loss_raw.items():
-        depot = _parse_location_id(key, path=path, field="storage_loss_pct_range")
-        if not isinstance(value, list) or len(value) != 2:
-            raise RulesError(f"{path}: storage_loss_pct_range.{key} must be [min, max]")
-        storage_loss_pct_range[depot] = (float(value[0]), float(value[1]))
-
+    storage_risk_raw = data.get("storage_risk_per_day", {})
+    storage_loss_raw = data.get("storage_loss_pct_range", {})
     return GlobalConfig(
-        raid_max_ticks=raid_max_ticks,
-        raid_ammo_cost=raid_ammo_cost,
-        raid_fuel_cost=raid_fuel_cost,
-        raid_med_cost=raid_med_cost,
-        raid_base_damage_rate=raid_base_damage_rate,
-        raid_casualty_rate=raid_casualty_rate,
-        ammo_pinch_threshold=ammo_pinch_threshold,
-        walker_screen_infantry_protect=walker_screen_infantry_protect,
-        storage_risk_per_day=storage_risk_per_day,
-        storage_loss_pct_range=storage_loss_pct_range,
+        raid_max_ticks=int(data.get("raid_max_ticks", 12)),
+        raid_ammo_cost=int(data.get("raid_ammo_cost", 2)),
+        raid_fuel_cost=int(data.get("raid_fuel_cost", 2)),
+        raid_med_cost=int(data.get("raid_med_cost", 1)),
+        raid_base_damage_rate=float(data.get("raid_base_damage_rate", 0.12)),
+        raid_casualty_rate=float(data.get("raid_casualty_rate", 0.02)),
+        ammo_pinch_threshold=float(data.get("ammo_pinch_threshold", 0.35)),
+        walker_screen_infantry_protect=float(data.get("walker_screen_infantry_protect", 0.65)),
+        storage_risk_per_day={LocationId(k): float(v) for k, v in storage_risk_raw.items()},
+        storage_loss_pct_range={
+            LocationId(k): (float(v[0]), float(v[1])) for k, v in storage_loss_raw.items()
+        },
     )
 
 
 def _load_production_config(path: Path) -> tuple[ProductionConfig, BarracksConfig]:
-    """Load production and barracks tuning config."""
     data = _load_json(path)
-    if not isinstance(data, dict):
-        raise RulesError(f"{path}: root must be an object")
+    production_data = data.get("production", data)
+    barracks_data = data.get("barracks", data)
 
-    def _parse_costs(raw: Any, section: str) -> dict[str, int]:
-        if not isinstance(raw, dict):
-            raise RulesError(f"{path}: {section}.costs must be an object")
-        costs: dict[str, int] = {}
-        for key, value in raw.items():
-            if not isinstance(key, str):
-                raise RulesError(f"{path}: {section}.costs keys must be strings")
-            try:
-                cost = int(value)
-            except (TypeError, ValueError) as exc:
-                raise RulesError(f"{path}: {section}.costs.{key} must be an int") from exc
-            if cost <= 0:
-                raise RulesError(f"{path}: {section}.costs.{key} must be positive")
-            costs[key] = cost
-        if not costs:
-            raise RulesError(f"{path}: {section}.costs must not be empty")
-        return costs
-
-    factory_raw = data.get("factory")
-    if not isinstance(factory_raw, dict):
-        raise RulesError(f"{path}: missing factory config")
-    barracks_raw = data.get("barracks")
-    if not isinstance(barracks_raw, dict):
-        raise RulesError(f"{path}: missing barracks config")
-
-    try:
-        slots_per_factory = int(factory_raw["slots_per_factory"])
-        max_factories = int(factory_raw["max_factories"])
-    except KeyError as exc:
-        raise RulesError(f"{path}: factory missing required field {exc}") from exc
-    except (TypeError, ValueError) as exc:
-        raise RulesError(f"{path}: factory config invalid: {exc}") from exc
-
-    if slots_per_factory <= 0:
-        raise RulesError(f"{path}: factory.slots_per_factory must be positive")
-    if max_factories <= 0:
-        raise RulesError(f"{path}: factory.max_factories must be positive")
-
-    factory_queue_policy = factory_raw.get("queue_policy", "parallel")
-    if not isinstance(factory_queue_policy, str):
-        raise RulesError(f"{path}: factory.queue_policy must be a string")
-
-    factory_costs = _parse_costs(factory_raw.get("costs"), "factory")
-
-    try:
-        slots_per_barracks = int(barracks_raw["slots_per_barracks"])
-        max_barracks = int(barracks_raw["max_barracks"])
-    except KeyError as exc:
-        raise RulesError(f"{path}: barracks missing required field {exc}") from exc
-    except (TypeError, ValueError) as exc:
-        raise RulesError(f"{path}: barracks config invalid: {exc}") from exc
-
-    if slots_per_barracks <= 0:
-        raise RulesError(f"{path}: barracks.slots_per_barracks must be positive")
-    if max_barracks <= 0:
-        raise RulesError(f"{path}: barracks.max_barracks must be positive")
-
-    barracks_queue_policy = barracks_raw.get("queue_policy", "parallel")
-    if not isinstance(barracks_queue_policy, str):
-        raise RulesError(f"{path}: barracks.queue_policy must be a string")
-
-    barracks_costs = _parse_costs(barracks_raw.get("costs"), "barracks")
-
-    return (
-        ProductionConfig(
-            slots_per_factory=slots_per_factory,
-            max_factories=max_factories,
-            queue_policy=factory_queue_policy,
-            costs=factory_costs,
-        ),
-        BarracksConfig(
-            slots_per_barracks=slots_per_barracks,
-            max_barracks=max_barracks,
-            queue_policy=barracks_queue_policy,
-            costs=barracks_costs,
-        ),
+    production = ProductionConfig(
+        slots_per_factory=int(production_data.get("slots_per_factory", 20)),
+        max_factories=int(production_data.get("max_factories", 6)),
+        queue_policy=str(production_data.get("queue_policy", "parallel")),
+        costs={k: int(v) for k, v in production_data.get("costs", {}).items()},
     )
+    barracks = BarracksConfig(
+        slots_per_barracks=int(barracks_data.get("slots_per_barracks", 20)),
+        max_barracks=int(barracks_data.get("max_barracks", 6)),
+        queue_policy=str(barracks_data.get("queue_policy", "parallel")),
+        costs={k: int(v) for k, v in barracks_data.get("costs", {}).items()},
+    )
+    return production, barracks

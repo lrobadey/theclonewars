@@ -3,7 +3,7 @@ import { StrategicMap } from './components/StrategicMap';
 import { StatusHeader } from './components/StatusHeader';
 import { NodeBarDrawer } from './components/nodeBars/NodeBarDrawer';
 import { useGameState } from './hooks/useGameState';
-import { mapFromGameState } from './data/mapFromGameState';
+import { useCatalog } from './hooks/useCatalog';
 import { AnimatePresence, motion } from 'framer-motion';
 import type { ApiResponse } from './api/types';
 
@@ -16,13 +16,15 @@ interface Toast {
 function App() {
   type NodeId = 'new_system_core' | 'deep_space' | 'contested_front';
   const { state, loading, error, refresh, applyApiResponse } = useGameState();
+  const { catalog } = useCatalog();
   const [selectedNodeId, setSelectedNodeId] = useState<NodeId | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
 
   const mapData = useMemo(() => {
     if (!state) return { nodes: [], connections: [] };
-    return mapFromGameState(state);
+    if (state.mapView) return { nodes: state.mapView.nodes, connections: state.mapView.connections };
+    return { nodes: [], connections: [] };
   }, [state]);
 
   const addToast = (message: string, kind?: ApiResponse['messageKind']) => {
@@ -104,6 +106,7 @@ function App() {
         onClose={handleDrawerClose}
         selectedNodeId={selectedNodeId}
         state={state}
+        catalog={catalog}
         onActionResult={handleActionResult}
         onRefresh={refresh}
       />

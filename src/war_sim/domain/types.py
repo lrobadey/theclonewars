@@ -1,4 +1,4 @@
-"""Common types and enums (The Schism)."""
+"""Core domain types for the war simulation."""
 
 from __future__ import annotations
 
@@ -85,3 +85,18 @@ class UnitStock:
             support=max(0, self.support),
         )
 
+
+@dataclass()
+class UnitComposition:
+    infantry: int
+    walkers: int
+    support: int
+
+
+@dataclass()
+class TaskForceState:
+    composition: UnitComposition
+    readiness: float
+    cohesion: float
+    supplies: Supplies
+    location: LocationId = LocationId.CONTESTED_SPACEPORT

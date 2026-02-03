@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import type { MapNodeData, ConnectionData } from '../data/mapFromGameState';
+import type { MapConnection, MapNode } from '../api/types';
 import { MapNode } from './MapNode';
 import { SupplyRoute } from './SupplyRoute';
 import { FlowingParticles } from './FlowingParticles';
@@ -7,8 +7,8 @@ import { RouteLabel } from './RouteLabel';
 import { Starfield } from './Starfield';
 
 interface StrategicMapProps {
-  nodes: MapNodeData[];
-  connections: ConnectionData[];
+  nodes: MapNode[];
+  connections: MapConnection[];
   selectedNodeId?: string;
   onNodeClick?: (nodeId: string) => void;
 }
@@ -40,7 +40,7 @@ function calculateBezierPath(
 export function StrategicMap({ nodes, connections, selectedNodeId, onNodeClick }: StrategicMapProps) {
   // Create a lookup map for nodes by ID
   const nodeMap = useMemo(() => {
-    const map = new Map<string, MapNodeData>();
+    const map = new Map<string, MapNode>();
     nodes.forEach(node => map.set(node.id, node));
     return map;
   }, [nodes]);
