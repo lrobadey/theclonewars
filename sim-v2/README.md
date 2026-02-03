@@ -9,6 +9,20 @@ Turn-based strategic sim for the Schism setting (New System vs Human Collective)
 
 ## Quick start
 
+### One-liner (build + run + open browser)
+
+From the repo root on macOS:
+
+```bash
+(cd sim-v2/client && npm install && npm run build) && python sim-v2/run_server.py & sleep 1; open http://127.0.0.1:8000; wait
+```
+
+If the client is already built:
+
+```bash
+python sim-v2/run_server.py & sleep 1; open http://127.0.0.1:8000; wait
+```
+
 1. **Install client dependencies and build** (first time only):
 
    ```bash
