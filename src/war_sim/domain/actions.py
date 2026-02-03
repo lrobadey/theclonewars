@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TypeAlias, Union
 
 from war_sim.domain.ops_models import OperationIntent, OperationTarget
 from war_sim.domain.types import LocationId, Supplies, UnitStock
@@ -80,18 +81,18 @@ class AcknowledgeAar:
     pass
 
 
-Action = (
-    AdvanceDay
-    | QueueProduction
-    | QueueBarracks
-    | UpgradeFactory
-    | UpgradeBarracks
-    | DispatchShipment
-    | StartOperation
-    | StartRaid
-    | SubmitPhaseDecisions
-    | AcknowledgePhaseReport
-    | RaidTick
-    | RaidResolve
-    | AcknowledgeAar
-)
+Action: TypeAlias = Union[
+    AdvanceDay,
+    QueueProduction,
+    QueueBarracks,
+    UpgradeFactory,
+    UpgradeBarracks,
+    DispatchShipment,
+    StartOperation,
+    StartRaid,
+    SubmitPhaseDecisions,
+    AcknowledgePhaseReport,
+    RaidTick,
+    RaidResolve,
+    AcknowledgeAar,
+]
