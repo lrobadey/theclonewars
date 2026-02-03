@@ -108,31 +108,29 @@ export function NodeBarDrawer({
           transition={{ type: 'spring', damping: 26, stiffness: 220, mass: 0.9 }}
           className={`nodebar-shell fixed bottom-0 left-0 right-0 z-40 overflow-hidden ${meta.tone}`}
         >
-          <div className="nodebar-header px-6 py-4 border-b border-white/10">
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex items-center gap-4">
-                <div className={`w-3 h-3 rounded-full shadow-[0_0_10px_currentColor] ${meta.dotClass}`} />
-                <div>
-                  <div className="text-xs text-text-secondary font-mono uppercase tracking-[0.28em]">
-                    {meta.title}
-                  </div>
-                  <div className="text-[11px] text-text-secondary font-mono uppercase tracking-[0.18em]">
-                    {meta.subtitle}
-                  </div>
+          <div className="nodebar-header relative px-6 py-4 border-b border-white/10">
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close node bar"
+              title="Close"
+              className="btn-action absolute right-3 top-3 grid h-8 w-8 place-items-center rounded border border-white/10 text-text-secondary hover:text-text-primary hover:border-white/30"
+            >
+              <span aria-hidden className="text-lg leading-none">
+                ×
+              </span>
+            </button>
+
+            <div className="flex items-center gap-4 pr-10">
+              <div className={`w-3 h-3 rounded-full shadow-[0_0_10px_currentColor] ${meta.dotClass}`} />
+              <div>
+                <div className="text-xs text-text-secondary font-mono uppercase tracking-[0.28em]">
+                  {meta.title}
+                </div>
+                <div className="text-[11px] text-text-secondary font-mono uppercase tracking-[0.18em]">
+                  {meta.subtitle}
                 </div>
               </div>
-
-              <button
-                type="button"
-                onClick={onClose}
-                aria-label="Close node bar"
-                title="Close"
-                className="btn-action -mt-1 h-7 w-7 rounded border border-white/10 text-text-secondary hover:text-text-primary hover:border-white/30"
-              >
-                <span aria-hidden className="text-base leading-none">
-                  ×
-                </span>
-              </button>
             </div>
             <div className="flex items-center gap-2 nodebar-chiprow">
               <Chip
