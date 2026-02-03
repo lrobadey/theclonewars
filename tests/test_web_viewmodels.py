@@ -1,6 +1,6 @@
 """Tests for web viewmodel payloads."""
 
-from clone_wars.engine.logging import Event, TopFactor
+from clone_wars.engine.logging import Event, TopFactor, FactorScope
 from clone_wars.engine.ops import (
     OperationPhase,
     OperationPhaseRecord,
@@ -29,7 +29,16 @@ def test_console_vm_operation_aar_payload() -> None:
         end_day=2,
         decisions=Phase1Decisions(approach_axis="direct", fire_support_prep="preparatory"),
         summary=summary,
-        events=[Event(name="base_progress", phase="contact_shaping", value=0.2, delta="progress", why="Base")],
+        events=[
+            Event(
+                name="base_progress",
+                phase="contact_shaping",
+                value=0.2,
+                delta="progress",
+                why="Base",
+                scope=FactorScope(kind="operation", id="test"),
+            )
+        ],
     )
     report = AfterActionReport(
         outcome="CAPTURED",

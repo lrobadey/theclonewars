@@ -14,7 +14,6 @@ def test_resolver_determinism() -> None:
     def run_raid(seed: int) -> tuple[str, int, int, int]:
         state = load_game_state(scenario_path)
         state.rng_seed = seed
-        state.rng = state.rng.__class__(seed)
 
         report = state.raid(OperationTarget.FOUNDRY)
         return (
@@ -39,7 +38,6 @@ def test_resolver_different_seeds_different_results() -> None:
     def run_raid(seed: int) -> str:
         state = load_game_state(scenario_path)
         state.rng_seed = seed
-        state.rng = state.rng.__class__(seed)
 
         report = state.raid(OperationTarget.FOUNDRY)
         return report.outcome

@@ -28,18 +28,17 @@ def test_granular_trooper_shipment():
     # Just tick enough times
     initial_mid = state.logistics.depot_units[LocationId.CONTESTED_MID_DEPOT].infantry
     
-    # Route Core->Mid
-    # We need to check route time or just tick.
-    # We can inspect the shipment directly.
-    assert len(state.logistics.shipments) == 1
-    shipment = state.logistics.shipments[0]
-    assert shipment.units.infantry == 13
-    
-    # Fast forward
-    days = shipment.total_days
-    for _ in range(days + 1):
-        state.logistics_service.tick(state.logistics, state.rng)
-        
+    # Order should exist (may be ship-based).
+    assert len(state.logistics.active_orders) == 1
+    order = state.logistics.active_orders[0]
+    assert order.units.infantry == 13
+
+    # Fast forward until delivered
+    for _ in range(10):
+        if order.status == "complete":
+            break
+        state.logistics_service.tick(state.logistics, state.contested_planet, state.rng)
+
     # Verify arrival
     new_mid = state.logistics.depot_units[LocationId.CONTESTED_MID_DEPOT].infantry
     assert new_mid == initial_mid + 13
@@ -82,7 +81,12 @@ def test_granular_production():
     
     # Apply output
     for out in completed:
-        state._apply_barracks_output(out)
+        stock = state.logistics.depot_units[LocationId.NEW_SYSTEM_CORE]
+        state.logistics.depot_units[LocationId.NEW_SYSTEM_CORE] = UnitStock(
+            infantry=stock.infantry + out.quantity,
+            walkers=stock.walkers,
+            support=stock.support,
+        )
         
     final_core_inf = state.logistics.depot_units[LocationId.NEW_SYSTEM_CORE].infantry
     # If logic multiplies by SQUAD_SIZE(20), this would be +140. We want +7.

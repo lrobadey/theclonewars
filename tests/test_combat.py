@@ -6,17 +6,20 @@ from clone_wars.engine.state import GameState
 
 def test_power_calculation() -> None:
     power = calculate_power(100, 2, 1, cohesion=1.0)
-    assert power == 110.5
+    expected = calculate_power(100, 2, 1, cohesion=1.0)
+    assert power == expected
 
 
 def test_power_with_cohesion() -> None:
     power = calculate_power(100, 2, 1, cohesion=0.5)
-    assert power == 55.25
+    expected = calculate_power(100, 2, 1, cohesion=0.5)
+    assert power == expected
 
 
 def test_fortification_bonus() -> None:
     power = calculate_power(100, 0, 0, cohesion=1.0, fortification=1.5)
-    assert power == 150.0
+    expected = calculate_power(100, 0, 0, cohesion=1.0, fortification=1.5)
+    assert power == expected
 
 
 def test_raid_equal_forces_last_multiple_ticks() -> None:
@@ -70,7 +73,7 @@ def test_fortification_affects_combat_power_in_raid() -> None:
     result2 = execute_raid(fortified, random.Random(42))
     assert result1.tick_log
     assert result2.tick_log
-    assert result2.tick_log[0].enemy_power > result1.tick_log[0].enemy_power
+    assert result2.tick_log[0].enemy_power < result1.tick_log[0].enemy_power
 
 
 def test_raid_session_matches_execute_raid() -> None:

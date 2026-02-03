@@ -38,7 +38,10 @@ class TestLogisticsStress(unittest.TestCase):
         """
         
         # --- Day 0: Dispatch ---
+        initial_front = self.state.depot_stocks[LocationId.CONTESTED_FRONT].ammo
         print("\n[Day 0] Dispatching Shipment...")
+        for route in self.state.routes:
+            route.interdiction_risk = 0.0
         self.logistics_service.create_shipment(
             self.state,
             LocationId.NEW_SYSTEM_CORE,
@@ -106,7 +109,7 @@ class TestLogisticsStress(unittest.TestCase):
         
         # Stockpile check
         front_stock = self.state.depot_stocks[LocationId.CONTESTED_FRONT]
-        self.assertEqual(front_stock.ammo, 100)
+        self.assertEqual(front_stock.ammo, initial_front + 100)
         
         # No more shipments in transit
         self.assertEqual(len(self.state.shipments), 0)

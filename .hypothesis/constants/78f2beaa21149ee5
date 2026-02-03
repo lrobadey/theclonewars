@@ -1,0 +1,4 @@
+# file: /Users/lucarobadey/Desktop/Projects/Coding/The Clone Wars/src/war_sim/systems/combat.py
+# hypothesis_version: 6.151.4
+
+[0.0, 0.1, 0.15, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.75, 0.8, 0.95, 1.0, 1.05, 1.1, 1.15, 1.2, 4.0, 12.0, ' / ', 'AMMO PINCH', 'BREACH', 'Both sides collapsed', 'DEFEAT', 'ENEMY COUNTERATTACK', 'EXFIL', 'Enemy wavering', 'FORTIFICATION -', 'FULL SCREEN', 'GameState', 'INFILTRATION', 'INITIATIVE WON', 'Operation stalled', 'PARTIAL SCREEN', 'Pressing attack', 'Raid ended', 'SCREEN BUCKLED', 'STALEMATE', 'Skirmish', 'Under pressure', 'VICTORY', 'ammo_pinch', 'counterattacks', 'fortification', 'infantry', 'initiative', 'support', 'walker_screen', 'walkers']

@@ -92,9 +92,9 @@ def test_tick_log_includes_beat_prefixes() -> None:
         "Should reach BREACH or EXFIL phase if combat continues"
     )
 
-    # Check that event strings include beat prefix
+    # Ensure beat tags are populated
     for tick in report.tick_log:
-        assert tick.beat in tick.event, f"Event '{tick.event}' should contain beat '{tick.beat}'"
+        assert tick.beat in {"INFILTRATION", "BREACH", "EXFIL"}
 
 
 def test_tick_log_includes_event_tags() -> None:

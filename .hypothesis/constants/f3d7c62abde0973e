@@ -1,0 +1,4 @@
+# file: /Users/lucarobadey/Desktop/Projects/Coding/The Clone Wars/src/war_sim/systems/logistics.py
+# hypothesis_version: 6.151.4
+
+[0.0, 0.05, 0.1, 0.2, 0.4, 100, 150, 200, 400, 1000, '1', 'LogisticsState', 'UNKNOWN', '_', 'arrived', 'complete', 'completed', 'contested_', 'departed', 'idle', 'interdicted', 'new_system_', 'pending', 'transit']

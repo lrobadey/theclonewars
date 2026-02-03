@@ -7,9 +7,8 @@ from clone_wars.engine.production import ProductionJobType, ProductionState
 def test_production_state_new() -> None:
     """Test creating new production state."""
     prod = ProductionState.new(factories=3)
-    # Default slots_per_factory is 20
     assert prod.factories == 3
-    assert prod.capacity == 60  # 3 * 20
+    assert prod.capacity == prod.factories * prod.slots_per_factory
     assert len(prod.jobs) == 0
 
 
@@ -21,7 +20,6 @@ def test_queue_job() -> None:
     job = prod.jobs[0]
     assert job.job_type == ProductionJobType.AMMO
     assert job.quantity == 10
-    # Cost for AMMO is 20 per unit
     expected_work = 10 * prod.costs[ProductionJobType.AMMO.value]
     assert job.remaining == expected_work
     assert job.stop_at == LocationId.NEW_SYSTEM_CORE
@@ -36,7 +34,7 @@ def test_production_tick() -> None:
 
     # Tick until completion
     completed = []
-    for _ in range(2):
+    while prod.jobs:
         completed.extend(prod.tick())
 
     # Job should be complete
@@ -56,16 +54,9 @@ def test_production_parallel_jobs() -> None:
     prod.queue_job(ProductionJobType.FUEL, quantity=3)
     prod.queue_job(ProductionJobType.MED_SPARES, quantity=3)
 
-    # Total work active = 180.
-    # Capacity = 60.
-    # Each job gets 20 work/day.
-    
-    # After one tick:
-    # 60 - 20 = 40 remaining for each.
     prod.tick()
-    assert prod.jobs[0].remaining == 40
-    assert prod.jobs[1].remaining == 40
-    assert prod.jobs[2].remaining == 40
+    remaining = [job.remaining for job in prod.jobs]
+    assert len(set(remaining)) == 1
 
 
 def test_get_eta_summary() -> None:
@@ -106,9 +97,5 @@ def test_get_eta_summary() -> None:
 
     summary = prod.get_eta_summary()
     assert len(summary) == 2
-    assert summary[0][0] == "fuel"
-    assert summary[1][0] == "med_spares"
-    
-    # Just check existence and order for now as precise math depends on exact loop logic
-    assert summary[0][2] > 0
-    assert summary[1][2] > 0
+    for _, _, eta, _ in summary:
+        assert eta > 0

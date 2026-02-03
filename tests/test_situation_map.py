@@ -96,7 +96,7 @@ def test_situation_map_default_view(mock_state, controller):
     assert chain[2]["name"] == "FRONT"
 
 def test_situation_map_core_selection(mock_state, controller):
-    controller.selected_system_node = LocationId.NEW_SYSTEM_CORE
+    controller.selected_node = LocationId.NEW_SYSTEM_CORE
     vm = situation_map_vm(mock_state, controller)
     
     assert vm["detail"]["type"] == "core"
@@ -104,7 +104,7 @@ def test_situation_map_core_selection(mock_state, controller):
     assert "factories" in vm["detail"]
 
 def test_situation_map_deep_space_selection(mock_state, controller):
-    controller.selected_system_node = LocationId.DEEP_SPACE
+    controller.selected_node = LocationId.DEEP_SPACE
     vm = situation_map_vm(mock_state, controller)
     
     assert vm["detail"]["type"] == "deep_space"

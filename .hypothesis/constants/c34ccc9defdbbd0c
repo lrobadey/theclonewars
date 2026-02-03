@@ -1,0 +1,4 @@
+# file: /Users/lucarobadey/Desktop/Projects/Coding/The Clone Wars/src/war_sim/systems/raid.py
+# hypothesis_version: 6.151.4
+
+[0.0, 0.02, 0.03, 0.05, 0.1, 0.25, 0.35, 0.6, 1.0, 2.5, 'No active raid', 'VICTORY', 'combat', 'infantry', 'raid', 'support', 'walkers']

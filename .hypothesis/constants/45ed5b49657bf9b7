@@ -1,0 +1,4 @@
+# file: /Users/lucarobadey/Desktop/Projects/Coding/The Clone Wars/src/clone_wars/web/render/format.py
+# hypothesis_version: 6.151.4
+
+[0.0, 0.015, 0.04, 1.0, 100, '.', '=', 'CONTESTED', 'ELEVATED', 'ENEMY HELD', 'FRIENDLY', 'HIGH', 'LOW', 'SECURE', '[', ']', 'status-contested', 'status-enemy', 'status-secured']

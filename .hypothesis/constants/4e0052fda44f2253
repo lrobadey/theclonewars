@@ -1,0 +1,4 @@
+# file: /Users/lucarobadey/Desktop/Projects/Coding/The Clone Wars/sim-v2/server/api/router.py
+# hypothesis_version: 6.151.4
+
+['/actions/ack-aar', '/actions/advance-day', '/actions/barracks', '/actions/dispatch', '/actions/production', '/actions/raid/start', '/actions/raid/tick', '/api', '/catalog', '/health', '/nav', '/state', 'Navigation updated', 'No active operation', '_', 'comms', 'contact_shaping', 'engagement', 'error', 'foundry', 'info', 'ok', 'power', 'session_id', 'status']

@@ -1,0 +1,4 @@
+# file: /Users/lucarobadey/Desktop/Projects/Coding/The Clone Wars/src/war_sim/domain/types.py
+# hypothesis_version: 6.151.4
+
+['Supplies', 'UnitStock', 'collective', 'contested', 'contested_front', 'contested_mid_depot', 'contested_spaceport', 'deep_space', 'enemy', 'new_system', 'new_system_core', 'secured']

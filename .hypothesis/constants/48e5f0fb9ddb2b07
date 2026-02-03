@@ -1,0 +1,4 @@
+# file: /Users/lucarobadey/Desktop/Projects/Coding/The Clone Wars/src/war_sim/rules/ruleset.py
+# hypothesis_version: 6.151.4
+
+[0.02, 0.12, 0.35, 0.65, 0.75, 1.0, 'Ruleset', 'ammo_pinch_threshold', 'approach_axes', 'barracks', 'base_difficulty', 'base_duration_days', 'base_power', 'capabilities', 'classes', 'costs', 'description', 'duration_range', 'end_states', 'engagement_postures', 'exploit_vs_secure', 'fire_support_prep', 'globals.json', 'id', 'max_barracks', 'max_factories', 'name', 'objectives', 'objectives.json', 'operation_types.json', 'parallel', 'production', 'production.json', 'queue_policy', 'r', 'raid_ammo_cost', 'raid_casualty_rate', 'raid_fuel_cost', 'raid_max_ticks', 'raid_med_cost', 'recon', 'required_progress', 'risk_tolerances', 'roles', 'shortage_effects', 'slots_per_barracks', 'slots_per_factory', 'storage_risk_per_day', 'strategic', 'supplies.json', 'sustainment', 'transport_protection', 'type', 'types', 'unit_roles.json', 'utf-8']

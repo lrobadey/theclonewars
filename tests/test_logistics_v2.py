@@ -46,12 +46,12 @@ def test_cargo_ship_space_transit(service, rng):
     
     # Verify Ship Loaded & Launched
     assert ship.state == ShipState.TRANSIT
-    assert ship.supplies.ammo == 100
+    assert ship.supplies.ammo == payload.ammo
     assert ship.location == LocationId.NEW_SYSTEM_CORE # Origin
     assert ship.destination == LocationId.DEEP_SPACE # Next Hop
     
     # Verify Core Stock Deducted
-    assert state.depot_stocks[LocationId.NEW_SYSTEM_CORE].ammo == initial_core_ammo - 100
+    assert state.depot_stocks[LocationId.NEW_SYSTEM_CORE].ammo == initial_core_ammo - payload.ammo
     
     # 2. Tick 1: Travel to Deep Space
     # Assuming Core->Deep is 1 day
@@ -70,7 +70,7 @@ def test_cargo_ship_space_transit(service, rng):
     assert ship.supplies.ammo == 0 # Unloaded
     
     # Verify Spaceport Stock Increased
-    assert state.depot_stocks[LocationId.CONTESTED_SPACEPORT].ammo == 100
+    assert state.depot_stocks[LocationId.CONTESTED_SPACEPORT].ammo == payload.ammo
 
 def test_ground_convoy_movement(service, rng):
     state = LogisticsState.new()
@@ -103,7 +103,7 @@ def test_ground_convoy_movement(service, rng):
         
     # Verify Delivery
     assert len(state.shipments) == 0 # Delivered
-    assert state.depot_stocks[LocationId.CONTESTED_MID_DEPOT].ammo == 100
+    assert state.depot_stocks[LocationId.CONTESTED_MID_DEPOT].ammo == payload.ammo
 
 def test_insufficient_capacity_raises_error(service, rng):
     """When no ships are available for a space leg, create_shipment should raise."""

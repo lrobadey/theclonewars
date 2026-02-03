@@ -1,0 +1,4 @@
+# file: /Users/lucarobadey/Desktop/Projects/Coding/The Clone Wars/src/war_sim/view/catalog.py
+# hypothesis_version: 6.151.4
+
+['Communications Array', 'Droid Foundry', 'Power Plant', '_', 'approachAxis', 'comms', 'decisions', 'description', 'endState', 'engagementPosture', 'exploitVsSecure', 'fireSupportPrep', 'foundry', 'id', 'label', 'objectives', 'operationTargets', 'operationTypes', 'phase1', 'phase2', 'phase3', 'power', 'riskTolerance']

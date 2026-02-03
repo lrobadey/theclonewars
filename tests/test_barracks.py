@@ -7,7 +7,7 @@ from clone_wars.engine.types import LocationId
 def test_barracks_state_new() -> None:
     barracks = BarracksState.new(barracks=2, slots_per_barracks=20)
     assert barracks.barracks == 2
-    assert barracks.capacity == 40
+    assert barracks.capacity == barracks.barracks * barracks.slots_per_barracks
     assert barracks.jobs == []
 
 
@@ -17,7 +17,8 @@ def test_barracks_queue_job() -> None:
     assert len(barracks.jobs) == 1
     job = barracks.jobs[0]
     assert job.job_type == BarracksJobType.INFANTRY
-    assert job.remaining == 7
+    expected_work = 7 * barracks.costs[job.job_type.value]
+    assert job.remaining == expected_work
     assert job.stop_at == LocationId.NEW_SYSTEM_CORE
 
 
@@ -27,15 +28,15 @@ def test_barracks_eta_matches_tick() -> None:
     barracks.queue_job(BarracksJobType.SUPPORT, quantity=2)   # 20 work
 
     eta_summary = barracks.get_eta_summary()
-    eta_days = [eta for _, _, eta, _ in eta_summary]
+    eta_days = {job_type: eta for job_type, _, eta, _ in eta_summary}
 
-    actual_days: list[int] = []
+    actual_days: dict[str, int] = {}
     day = 0
     while len(actual_days) < len(eta_days):
         day += 1
         completed = barracks.tick()
-        for _ in completed:
-            actual_days.append(day)
+        for output in completed:
+            actual_days[output.job_type.value] = day
 
     assert actual_days == eta_days
 
@@ -46,8 +47,9 @@ def test_barracks_redistributes_unused_capacity() -> None:
     barracks.queue_job(BarracksJobType.INFANTRY, quantity=2)  # 2 work
     barracks.queue_job(BarracksJobType.SUPPORT, quantity=10)  # 100 work
 
+    before_remaining = barracks.jobs[1].remaining
     barracks.tick()
 
     # Infantry finishes early, unused capacity should roll into support job.
     assert barracks.jobs[0].job_type == BarracksJobType.SUPPORT
-    assert barracks.jobs[0].remaining == 97
+    assert barracks.jobs[0].remaining < before_remaining

@@ -62,6 +62,17 @@ class GameState:
         """Legacy RNG accessor for compatibility."""
         return Random(self.rng_seed)
 
+    @classmethod
+    def new(cls, seed: int = 1) -> "GameState":
+        """Legacy constructor for tests; loads default scenario."""
+        from pathlib import Path
+        from war_sim.rules.scenario import load_game_state
+
+        data_path = Path(__file__).resolve().parents[2] / "clone_wars" / "data" / "scenario.json"
+        state = load_game_state(data_path)
+        state.rng_seed = seed
+        return state
+
     def set_front_supplies(self, supplies) -> None:
         self.logistics.depot_stocks[LocationId.CONTESTED_FRONT] = supplies
         self.task_force.supplies = supplies
