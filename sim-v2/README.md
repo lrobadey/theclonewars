@@ -40,6 +40,15 @@ PYTHONPATH=. uv run uvicorn server.main:app --reload
 
 The UI currently shows **mock map data**. Live game state will be wired in a follow-up (swap mock for `getState()` and map response to `MapState` when `/api/state` is extended or `/api/map` exists).
 
+## Tests
+
+From the repo root with the project venv activated:
+
+```bash
+python -m pip install -e ".[dev]"
+pytest sim-v2/server/tests
+```
+
 ## Running without the run script
 
 From repo root with the project venv activated:

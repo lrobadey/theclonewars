@@ -69,7 +69,6 @@ class GlobalConfig:
     raid_casualty_rate: float
     ammo_pinch_threshold: float
     walker_screen_infantry_protect: float
-    walker_screen_infantry_protect: float
     storage_risk_per_day: dict[LocationId, float]
     storage_loss_pct_range: dict[LocationId, tuple[float, float]]
 
@@ -425,4 +424,3 @@ def _load_production_config(path: Path) -> tuple[ProductionConfig, BarracksConfi
             costs=barracks_costs,
         ),
     )
-

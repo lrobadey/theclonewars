@@ -72,7 +72,7 @@ class LogisticsService:
             self._log_event(state, current_day, f"{ship.name} arrived at {loc_name}", "arrived")
 
             # Unload ship and process orders - goods land at this depot
-            self._arrive_at_location(state, ship.location, ship.orders, rng)
+            self._arrive_at_location(state, ship.location, ship.orders, rng, current_day)
 
             # Clear ship payload
             ship.orders = []
@@ -96,7 +96,7 @@ class LogisticsService:
                 self._maybe_interdict_ground_convoy(state, shipment, rng, current_day)
                 shipment.days_remaining -= 1
                 if shipment.days_remaining <= 0:
-                    self._arrive_at_location(state, shipment.destination, shipment.orders, rng)
+                    self._arrive_at_location(state, shipment.destination, shipment.orders, rng, current_day)
                 else:
                     active_list.append(shipment)
             else:
@@ -201,11 +201,13 @@ class LogisticsService:
         location: LocationId,
         orders: list[TransportOrder],
         rng: Random,
+        current_day: int,
     ) -> None:
         """Process arrival of goods at a node. Goods are ALWAYS added to depot stock here."""
         stock = state.depot_stocks[location]
         units_stock = state.depot_units[location]
 
+        completed_ids: set[str] = set()
         for order in orders:
             order.current_location = location
             order.in_transit_leg = None
@@ -224,11 +226,42 @@ class LogisticsService:
 
             if location == order.final_destination:
                 order.status = "complete"
+                completed_ids.add(order.order_id)
+                dest_name = (
+                    location.value.replace("contested_", "")
+                    .replace("new_system_", "")
+                    .replace("_", " ")
+                    .strip()
+                    .upper()
+                )
+                summary_parts: list[str] = []
+                if order.supplies.ammo:
+                    summary_parts.append(f"A-{order.supplies.ammo}")
+                if order.supplies.fuel:
+                    summary_parts.append(f"F-{order.supplies.fuel}")
+                if order.supplies.med_spares:
+                    summary_parts.append(f"M-{order.supplies.med_spares}")
+                if order.units.infantry:
+                    summary_parts.append(f"I-{order.units.infantry}")
+                if order.units.walkers:
+                    summary_parts.append(f"W-{order.units.walkers}")
+                if order.units.support:
+                    summary_parts.append(f"S-{order.units.support}")
+                summary = f" ({' '.join(summary_parts)})" if summary_parts else ""
+                self._log_event(
+                    state,
+                    current_day,
+                    f"Order {order.order_id} completed at {dest_name}{summary}",
+                    "completed",
+                )
             else:
                 order.status = "pending"
 
             stock = state.depot_stocks[location]
             units_stock = state.depot_units[location]
+
+        if completed_ids:
+            state.active_orders = [order for order in state.active_orders if order.order_id not in completed_ids]
 
     def _dispatch_pending_orders(self, state: LogisticsState, rng: Random, current_day: int) -> None:
         """Scan all pending orders and attempt to create shipments for their next leg."""
@@ -441,4 +474,3 @@ class LogisticsService:
             path.append(parent[path[-1]])
         path.reverse()
         return tuple(path)
-

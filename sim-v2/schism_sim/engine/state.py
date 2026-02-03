@@ -196,7 +196,6 @@ class GameState:
         self._tick_production_and_distribute_to_core()
         self._tick_barracks_and_distribute_to_core()
         self._tick_logistics()
-        self._resupply_task_force_daily()
         self._apply_daily_upkeep()
         self._apply_enemy_passive_reactions()
         self._apply_storage_loss_events()
@@ -441,9 +440,6 @@ class GameState:
         self.logistics_service.tick(self.logistics, self.contested_planet, self.rng, self.day)
         self._sync_task_force_supplies()
 
-    def _resupply_task_force_daily(self) -> None:
-        self.resupply_task_force()
-
     def _apply_daily_upkeep(self) -> None:
         upkeep_fuel = 2
         upkeep_med = 1
@@ -519,44 +515,6 @@ class GameState:
                     self.acknowledge_phase_result()
                     if self.operation is not None:
                         self.operation.awaiting_player_decision = False
-
-    def resupply_task_force(self) -> None:
-        caps = Supplies(ammo=300, fuel=200, med_spares=100)
-        depot_node = LocationId.CONTESTED_SPACEPORT
-        depot_stock = self.logistics.depot_stocks[depot_node]
-        depot_units = self.logistics.depot_units[depot_node]
-        tf_supplies = self.front_supplies
-
-        ammo_deficit = max(0, caps.ammo - tf_supplies.ammo)
-        fuel_deficit = max(0, caps.fuel - tf_supplies.fuel)
-        med_deficit = max(0, caps.med_spares - tf_supplies.med_spares)
-
-        ammo_transfer = min(depot_stock.ammo, ammo_deficit)
-        fuel_transfer = min(depot_stock.fuel, fuel_deficit)
-        med_transfer = min(depot_stock.med_spares, med_deficit)
-
-        transfer_units = depot_units.infantry or depot_units.walkers or depot_units.support
-        transfer_supplies = ammo_transfer or fuel_transfer or med_transfer
-        if not transfer_units and not transfer_supplies:
-            return
-
-        self.logistics.depot_stocks[depot_node] = Supplies(
-            ammo=depot_stock.ammo - ammo_transfer,
-            fuel=depot_stock.fuel - fuel_transfer,
-            med_spares=depot_stock.med_spares - med_transfer,
-        )
-        if transfer_units:
-            self.logistics.depot_units[depot_node] = UnitStock(infantry=0, walkers=0, support=0)
-            self.task_force.composition.infantry += depot_units.infantry
-            self.task_force.composition.walkers += depot_units.walkers
-            self.task_force.composition.support += depot_units.support
-        self.set_front_supplies(
-            Supplies(
-                ammo=tf_supplies.ammo + ammo_transfer,
-                fuel=tf_supplies.fuel + fuel_transfer,
-                med_spares=tf_supplies.med_spares + med_transfer,
-            )
-        )
 
     def start_operation(self, plan: OperationPlan) -> None:
         intent = plan.to_intent()
@@ -1201,4 +1159,3 @@ class GameState:
             self.contested_planet.objectives.comms = status
         elif target == OperationTarget.POWER:
             self.contested_planet.objectives.power = status
-

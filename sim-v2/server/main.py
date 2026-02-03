@@ -3,7 +3,7 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -31,6 +31,8 @@ def create_app() -> FastAPI:
 
     @app.get("/{path:path}")
     async def serve_spa(path: str):
+        if path == "api" or path.startswith("api/"):
+            raise HTTPException(status_code=404)
         if INDEX_FILE.exists():
             return FileResponse(INDEX_FILE)
         return HTMLResponse(

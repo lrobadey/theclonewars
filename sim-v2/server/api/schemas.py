@@ -2,13 +2,11 @@ from __future__ import annotations
 
 from typing import Dict, List, Optional, Tuple, Union
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class CamelModel(BaseModel):
-    class Config:
-        allow_population_by_field_name = True
-        populate_by_name = True
+    model_config = ConfigDict(populate_by_name=True, validate_by_name=True)
 
 
 class Position(CamelModel):
@@ -329,4 +327,3 @@ class PhaseDecisionRequest(CamelModel):
     risk: Optional[str] = None
     focus: Optional[str] = None
     end_state: Optional[str] = Field(None, alias="endState")
-
