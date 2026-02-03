@@ -33,7 +33,7 @@ Hot reload (restarts on file changes):
 - `python -m clone_wars.dev` (after activating `.venv`)
 
 Browser dev server:
-- `python3.11 clone` (or `python3 clone` after activating `.venv`) starts the FastAPI dev server for the browser UI (default host `127.0.0.1`, port `8000`, uvicorn `--reload` on, browser auto-opens). Use `--no-reload` to disable hot reload or `--no-browser` to skip the automatic browser tab.
+- `python3.11 clone` (or `python3 clone` after activating `.venv`; macOS system `python3` may be 3.9) starts the FastAPI dev server for the browser UI (default host `127.0.0.1`, port `8000`, uvicorn `--reload` on, browser auto-opens). Use `--no-reload` to disable hot reload or `--no-browser` to skip the automatic browser tab.
 
 Scenario data:
 - `src/clone_wars/data/scenario.json`

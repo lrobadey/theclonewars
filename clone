@@ -9,6 +9,26 @@ import sys
 import webbrowser
 
 
+MIN_PY = (3, 11)
+
+
+def _ensure_supported_python() -> None:
+    if sys.version_info >= MIN_PY:
+        return
+
+    repo_root = os.path.dirname(os.path.abspath(__file__))
+    venv_python = os.path.join(repo_root, ".venv", "bin", "python")
+    if os.path.exists(venv_python) and os.access(venv_python, os.X_OK):
+        os.execv(venv_python, [venv_python, *sys.argv])
+
+    sys.stderr.write(
+        "This project requires Python >= 3.11.\n"
+        f"Detected: {sys.version.splitlines()[0]}\n"
+        "Fix: run `source .venv/bin/activate` (or create the venv), then re-run.\n"
+    )
+    raise SystemExit(2)
+
+
 def _terminate(proc: subprocess.Popen[object] | None) -> None:
     if proc is None or proc.poll() is not None:
         return
@@ -59,6 +79,8 @@ def _build_server_cmd(host: str, port: int, reload: bool) -> list[str]:
 
 
 def main(argv: list[str] | None = None) -> int:
+    _ensure_supported_python()
+
     parser = argparse.ArgumentParser(
         prog="python3 clone",
         description="Launch the React FastAPI dev server for The Schism.",
