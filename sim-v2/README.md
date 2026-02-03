@@ -9,19 +9,21 @@ Turn-based strategic sim for the Schism setting (New System vs Human Collective)
 
 ## Quick start
 
-### One-liner (build + run + open browser)
-
-From the repo root on macOS:
+From the repo root:
 
 ```bash
-(cd sim-v2/client && npm install && npm run build) && python sim-v2/run_server.py & sleep 1; open http://127.0.0.1:8000; wait
+python sim-v2/run_server.py
 ```
 
-If the client is already built:
+- Use `python3` if `python` isn’t available.
+- The launcher builds the client if `sim-v2/client/dist/index.html` is missing.
+- If port `8000` is already in use, it auto-selects `8001+` and prints the URL.
 
-```bash
-python sim-v2/run_server.py & sleep 1; open http://127.0.0.1:8000; wait
-```
+Useful flags:
+- `--no-open` (don’t open a browser tab)
+- `--no-build` (skip client build)
+- `--build` (force client rebuild)
+- `--port 8005` (start scanning from a different port)
 
 1. **Install client dependencies and build** (first time only):
 
@@ -44,7 +46,7 @@ python sim-v2/run_server.py & sleep 1; open http://127.0.0.1:8000; wait
 PYTHONPATH=. uv run uvicorn server.main:app --reload
    ```
 
-3. **Open** [http://127.0.0.1:8000](http://127.0.0.1:8000).
+3. **Open** the URL printed by the launcher (usually `http://127.0.0.1:8000`).
 
 ## Layout
 

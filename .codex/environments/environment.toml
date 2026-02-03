@@ -8,4 +8,4 @@ script = ""
 [[actions]]
 name = "Run"
 icon = "run"
-command = "(cd sim-v2/client && npm install && npm run build) && python3 sim-v2/run_server.py & sleep 1; open http://127.0.0.1:8000; wait"
+command = "cd \"/Users/lucarobadey/Desktop/Projects/Coding/The Clone Wars\" && \"$(brew --prefix python@3.11)/bin/python3.11\" -m pip install -r requirements.txt && \"$(brew --prefix python@3.11)/bin/python3.11\" sim-v2/run_server.py"
