@@ -1,22 +1,23 @@
 import { useState, useMemo } from 'react';
 import { StrategicMap } from './components/StrategicMap';
 import { StatusHeader } from './components/StatusHeader';
-import { SystemDrawer } from './components/SystemDrawer';
-import { QueueJobModal } from './components/QueueJobModal';
+import { NodeBarDrawer } from './components/nodeBars/NodeBarDrawer';
 import { useGameState } from './hooks/useGameState';
 import { mapFromGameState } from './data/mapFromGameState';
 import { AnimatePresence, motion } from 'framer-motion';
+import type { ApiResponse } from './api/types';
 
 interface Toast {
   id: number;
   message: string;
+  kind?: ApiResponse['messageKind'];
 }
 
 function App() {
-  const { state, loading, error } = useGameState();
-  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  type NodeId = 'new_system_core' | 'deep_space' | 'contested_front';
+  const { state, loading, error, refresh, applyApiResponse } = useGameState();
+  const [selectedNodeId, setSelectedNodeId] = useState<NodeId | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [activePoolType, setActivePoolType] = useState<'factory' | 'barracks' | null>(null);
   const [toasts, setToasts] = useState<Toast[]>([]);
 
   const mapData = useMemo(() => {
@@ -24,19 +25,21 @@ function App() {
     return mapFromGameState(state);
   }, [state]);
 
-  const addToast = (message: string) => {
+  const addToast = (message: string, kind?: ApiResponse['messageKind']) => {
     const id = Date.now();
-    setToasts(prev => [...prev, { id, message }]);
+    setToasts(prev => [...prev, { id, message, kind }]);
     setTimeout(() => {
       setToasts(prev => prev.filter(t => t.id !== id));
     }, 3000);
   };
 
   const handleNodeClick = (nodeId: string) => {
-    if (nodeId === 'new_system_core') {
-      setSelectedNodeId(nodeId);
-      setIsDrawerOpen(true);
+    if (isDrawerOpen && selectedNodeId === nodeId) {
+      handleDrawerClose();
+      return;
     }
+    setSelectedNodeId(nodeId as NodeId);
+    setIsDrawerOpen(true);
   };
 
   const handleDrawerClose = () => {
@@ -44,13 +47,10 @@ function App() {
     setSelectedNodeId(null);
   };
 
-  const handleQueueJob = (poolType: 'factory' | 'barracks') => {
-    setActivePoolType(poolType);
-  };
-
-  const handleModalSubmit = (type: string, quantity: number) => {
-    addToast(`${type} x${quantity} queued. Not wired yet.`);
-    setActivePoolType(null);
+  const handleActionResult = (resp: ApiResponse) => {
+    applyApiResponse(resp);
+    const message = resp.message ?? (resp.ok ? 'OK' : 'ERROR');
+    addToast(message, resp.messageKind);
   };
 
   if (loading) {
@@ -99,37 +99,33 @@ function App() {
       </main>
 
       {/* System Drawer */}
-      <SystemDrawer 
+      <NodeBarDrawer 
         isOpen={isDrawerOpen}
         onClose={handleDrawerClose}
         selectedNodeId={selectedNodeId}
         state={state}
-        onQueueJob={handleQueueJob}
-      />
-
-      {/* Queue Job Modal */}
-      <QueueJobModal 
-        isOpen={activePoolType !== null}
-        onClose={() => setActivePoolType(null)}
-        poolType={activePoolType}
-        onSubmit={handleModalSubmit}
+        onActionResult={handleActionResult}
+        onRefresh={refresh}
       />
 
       {/* Toasts */}
       <div className="toast-container">
         <AnimatePresence>
-          {toasts.map(toast => (
+          {toasts.map(toast => {
+            const tone =
+              toast.kind === 'error' ? 'border-contested text-contested' : toast.kind === 'accent' ? 'border-deep text-deep' : 'border-core text-core';
+            return (
             <motion.div
               key={toast.id}
               initial={{ x: 100, opacity: 0 }}
               animate={{ x: 0, opacity: 1 }}
               exit={{ x: 100, opacity: 0 }}
-              className="toast"
+              className={`toast ${tone}`}
             >
-              <div className="w-2 h-2 bg-core rounded-full animate-pulse" />
+              <div className="w-2 h-2 bg-current rounded-full animate-pulse" />
               {toast.message}
             </motion.div>
-          ))}
+          )})}
         </AnimatePresence>
       </div>
     </div>

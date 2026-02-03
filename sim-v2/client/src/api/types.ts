@@ -245,3 +245,12 @@ export type ApiResponse = {
   messageKind?: "info" | "error" | "accent";
   state?: GameStateResponse;
 };
+
+export type PhaseDecisionRequest = {
+  axis?: string;
+  fire?: string;
+  posture?: string;
+  risk?: string;
+  focus?: string;
+  endState?: string;
+};

@@ -8,6 +8,9 @@ export interface MapNodeData {
   type: 'core' | 'deep' | 'contested';
   size: 'large' | 'medium' | 'small';
   isLabeled: boolean;
+  subtitle1: string;
+  subtitle2?: string;
+  severity: 'good' | 'warn' | 'danger';
 }
 
 export interface ConnectionData {
@@ -57,6 +60,9 @@ export function mapFromGameState(state: GameStateResponse) {
       let uiType: 'core' | 'deep' | 'contested' = 'deep';
       let uiSize: 'large' | 'medium' | 'small' = 'small';
       let isLabeled = false;
+      let subtitle1 = '';
+      let subtitle2: string | undefined;
+      let severity: 'good' | 'warn' | 'danger' = 'good';
 
       // Map logic from requirements:
       // new_system_core -> CORE WORLDS, core, large, Yes
@@ -68,16 +74,41 @@ export function mapFromGameState(state: GameStateResponse) {
         uiType = 'core';
         uiSize = 'large';
         isLabeled = true;
+        const totalJobs = state.production.jobs.length + state.barracks.jobs.length;
+        subtitle1 = state.production.capacity > 0 ? 'Production online' : 'Production offline';
+        subtitle2 = `Factory jobs: ${state.production.jobs.length} | Barracks jobs: ${state.barracks.jobs.length}`;
+        if (state.production.capacity === 0) severity = 'danger';
+        else if (totalJobs > 0) severity = 'warn';
+        else severity = 'good';
       } else if (node.id === 'deep_space') {
         uiLabel = 'DEEP SPACE';
         uiType = 'deep';
         uiSize = 'medium';
         isLabeled = true;
+        subtitle1 = `Transit orders: ${state.logistics.activeOrders.length}`;
+        subtitle2 = `Shipments: ${state.logistics.shipments.length} | Ships: ${state.logistics.ships.length}`;
+        const deepRoutes = state.logistics.routes.filter(
+          route => route.origin === 'deep_space' || route.destination === 'deep_space'
+        );
+        const maxRisk = Math.max(0, ...deepRoutes.map(route => route.interdictionRisk));
+        if (maxRisk > 0.6) severity = 'danger';
+        else if (maxRisk > 0.3) severity = 'warn';
+        else severity = 'good';
       } else if (node.id === 'contested_front') {
         uiLabel = 'CONTESTED SYSTEM';
         uiType = 'contested';
         uiSize = 'medium';
         isLabeled = true;
+        const controlPct = Math.round(state.contestedPlanet.control * 100);
+        subtitle1 = `Control: ${controlPct}%`;
+        subtitle2 = state.operation
+          ? `Operation: ${state.operation.currentPhase}`
+          : state.raid
+            ? 'Raid in progress'
+            : 'No active op';
+        if (state.contestedPlanet.control < 0.3) severity = 'danger';
+        else if (state.contestedPlanet.control < 0.6) severity = 'warn';
+        else severity = 'good';
       }
 
       return {
@@ -88,6 +119,9 @@ export function mapFromGameState(state: GameStateResponse) {
         type: uiType,
         size: uiSize,
         isLabeled,
+        subtitle1,
+        subtitle2,
+        severity,
       };
     });
 

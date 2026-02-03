@@ -102,10 +102,11 @@ function generateTendrils(x: number, y: number, type: NodeType): React.ReactNode
 }
 
 export function MapNode({ data, isSelected, onNodeClick }: MapNodeProps) {
-  const { id, type, label, size = 'medium', x, y, isLabeled } = data;
+  const { id, type, label, size = 'medium', x, y, isLabeled, subtitle1, subtitle2, severity } = data;
   const colors = getNodeColors(type);
   const dimensions = getNodeSize(size);
   const [isHovered, setIsHovered] = useState(false);
+  const [pulseKey, setPulseKey] = useState(0);
   
   const isLarge = size === 'large';
   const isClickable = isLabeled; // requirement: only major nodes with labels are clickable
@@ -113,6 +114,7 @@ export function MapNode({ data, isSelected, onNodeClick }: MapNodeProps) {
   const handleClick = () => {
     if (isClickable && onNodeClick) {
       onNodeClick(id);
+      setPulseKey(prev => prev + 1);
     }
   };
 
@@ -130,10 +132,8 @@ export function MapNode({ data, isSelected, onNodeClick }: MapNodeProps) {
     setIsHovered(false);
   };
 
-  // Status text for tooltip (example data)
-  const statusText = type === 'core' ? 'Garrisoned' : 
-                     type === 'contested' ? 'Under Attack' : 
-                     'Stable';
+  const severityColor =
+    severity === 'danger' ? '#FF3B3B' : severity === 'warn' ? '#FFB800' : '#00D4FF';
 
   return (
     <motion.g
@@ -164,6 +164,22 @@ export function MapNode({ data, isSelected, onNodeClick }: MapNodeProps) {
           animate={{ opacity: [0.2, 0.4, 0.2] }}
           transition={{ duration: 2, repeat: Infinity }}
           filter="blur(8px)"
+        />
+      )}
+
+      {/* One-time selection pulse ring */}
+      {pulseKey > 0 && (
+        <motion.circle
+          key={`pulse-${pulseKey}`}
+          cx={x}
+          cy={y}
+          r={dimensions.glowRadius}
+          fill="none"
+          stroke={colors.primary}
+          strokeWidth="2"
+          initial={{ opacity: 0.7, r: dimensions.glowRadius }}
+          animate={{ opacity: 0, r: dimensions.glowRadius + 55 }}
+          transition={{ duration: 0.65, ease: 'easeOut' }}
         />
       )}
 
@@ -403,7 +419,7 @@ export function MapNode({ data, isSelected, onNodeClick }: MapNodeProps) {
               x={x - 60}
               y={y - dimensions.outerRadius - 60}
               width="120"
-              height="50"
+              height={subtitle2 ? 62 : 52}
               rx="8"
               fill="rgba(10, 14, 20, 0.95)"
               stroke={colors.primary}
@@ -433,21 +449,30 @@ export function MapNode({ data, isSelected, onNodeClick }: MapNodeProps) {
               fontSize="10"
               style={{ fontFamily: 'Space Mono, monospace' }}
             >
-              Status: {statusText}
+              {subtitle1}
             </text>
-            
-            {/* Tooltip action hint */}
-            <text
-              x={x}
-              y={y - dimensions.outerRadius - 14}
-              textAnchor="middle"
-              fill="#8BA4B4"
-              fontSize="9"
-              opacity="0.7"
-              style={{ fontFamily: 'Space Mono, monospace' }}
-            >
-              Click for details
-            </text>
+
+            {subtitle2 && (
+              <text
+                x={x}
+                y={y - dimensions.outerRadius - 14}
+                textAnchor="middle"
+                fill="#8BA4B4"
+                fontSize="9"
+                opacity="0.8"
+                style={{ fontFamily: 'Space Mono, monospace' }}
+              >
+                {subtitle2}
+              </text>
+            )}
+
+            {/* Tooltip severity dot */}
+            <circle
+              cx={x - 52}
+              cy={y - dimensions.outerRadius - 42}
+              r="3"
+              fill={severityColor}
+            />
           </motion.g>
         )}
       </AnimatePresence>
