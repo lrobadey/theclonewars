@@ -9,10 +9,7 @@ from war_sim.domain.actions import (
     DispatchShipment,
     QueueBarracks,
     QueueProduction,
-    RaidResolve,
-    RaidTick,
     StartOperation,
-    StartRaid,
     SubmitPhaseDecisions,
     UpgradeBarracks,
     UpgradeFactory,
@@ -230,34 +227,6 @@ async def acknowledge_phase(request: Request, response: Response):
     response.set_cookie("session_id", session_id, httponly=True)
     async with session.lock:
         result = apply_action(session.state, AcknowledgePhaseReport())
-        return _from_result(result)
-
-
-@router.post("/actions/raid/tick", response_model=schemas.ApiResponse)
-async def raid_tick(request: Request, response: Response):
-    session_id, session = get_or_create_session(request.cookies.get("session_id"))
-    response.set_cookie("session_id", session_id, httponly=True)
-    async with session.lock:
-        result = apply_action(session.state, RaidTick())
-        return _from_result(result)
-
-
-@router.post("/actions/raid/resolve", response_model=schemas.ApiResponse)
-async def raid_resolve(request: Request, response: Response):
-    session_id, session = get_or_create_session(request.cookies.get("session_id"))
-    response.set_cookie("session_id", session_id, httponly=True)
-    async with session.lock:
-        result = apply_action(session.state, RaidResolve())
-        return _from_result(result)
-
-
-@router.post("/actions/raid/start", response_model=schemas.ApiResponse)
-async def raid_start(payload: schemas.OperationStartRequest, request: Request, response: Response):
-    session_id, session = get_or_create_session(request.cookies.get("session_id"))
-    response.set_cookie("session_id", session_id, httponly=True)
-    async with session.lock:
-        target = _parse_target(payload.target)
-        result = apply_action(session.state, StartRaid(target=target))
         return _from_result(result)
 
 

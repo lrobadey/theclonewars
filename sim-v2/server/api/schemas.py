@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -212,9 +212,11 @@ class OperationDecisionSummary(CamelModel):
 class PhaseSummary(CamelModel):
     progress_delta: float = Field(..., alias="progressDelta")
     losses: int
+    enemy_losses: int = Field(..., alias="enemyLosses")
     supplies_spent: Supplies = Field(..., alias="suppliesSpent")
     readiness_delta: float = Field(..., alias="readinessDelta")
     cohesion_delta: float = Field(..., alias="cohesionDelta")
+    enemy_cohesion_delta: float = Field(..., alias="enemyCohesionDelta")
 
 
 class Event(CamelModel):
@@ -225,12 +227,45 @@ class Event(CamelModel):
     phase: str
 
 
+class BattleSupplySnapshot(CamelModel):
+    ammo_before: int = Field(..., alias="ammoBefore")
+    fuel_before: int = Field(..., alias="fuelBefore")
+    med_before: int = Field(..., alias="medBefore")
+    ammo_spent: int = Field(..., alias="ammoSpent")
+    fuel_spent: int = Field(..., alias="fuelSpent")
+    med_spent: int = Field(..., alias="medSpent")
+    ammo_ratio: float = Field(..., alias="ammoRatio")
+    fuel_ratio: float = Field(..., alias="fuelRatio")
+    med_ratio: float = Field(..., alias="medRatio")
+    shortage_flags: List[str] = Field(..., alias="shortageFlags")
+
+
+class BattleDayTick(CamelModel):
+    day_index: int = Field(..., alias="dayIndex")
+    global_day: int = Field(..., alias="globalDay")
+    phase: str
+    your_power: float = Field(..., alias="yourPower")
+    enemy_power: float = Field(..., alias="enemyPower")
+    your_advantage: float = Field(..., alias="yourAdvantage")
+    initiative: bool
+    progress_delta: float = Field(..., alias="progressDelta")
+    your_losses: Dict[str, int] = Field(..., alias="yourLosses")
+    enemy_losses: Dict[str, int] = Field(..., alias="enemyLosses")
+    your_remaining: Dict[str, int] = Field(..., alias="yourRemaining")
+    enemy_remaining: Dict[str, int] = Field(..., alias="enemyRemaining")
+    your_cohesion: float = Field(..., alias="yourCohesion")
+    enemy_cohesion: float = Field(..., alias="enemyCohesion")
+    supplies: BattleSupplySnapshot
+    tags: List[str]
+
+
 class PhaseRecord(CamelModel):
     phase: str
     start_day: int = Field(..., alias="startDay")
     end_day: int = Field(..., alias="endDay")
     decisions: Optional[Dict[str, str]]
     summary: PhaseSummary
+    days: List[BattleDayTick]
     events: List[Event]
 
 
@@ -247,24 +282,8 @@ class OperationState(CamelModel):
     decisions: OperationDecisionSummary
     phase_history: List[PhaseRecord] = Field(..., alias="phaseHistory")
     sampled_enemy_strength: Optional[float] = Field(None, alias="sampledEnemyStrength")
-
-
-class RaidTick(CamelModel):
-    tick: int
-    event: str
-    beat: str
-
-
-class RaidState(CamelModel):
-    tick: int
-    max_ticks: int = Field(..., alias="maxTicks")
-    your_cohesion: float = Field(..., alias="yourCohesion")
-    enemy_cohesion: float = Field(..., alias="enemyCohesion")
-    your_casualties: int = Field(..., alias="yourCasualties")
-    enemy_casualties: int = Field(..., alias="enemyCasualties")
-    outcome: Optional[str]
-    reason: Optional[str]
-    tick_log: List[RaidTick] = Field(..., alias="tickLog")
+    latest_battle_day: Optional[BattleDayTick] = Field(None, alias="latestBattleDay")
+    current_phase_days: List[BattleDayTick] = Field(..., alias="currentPhaseDays")
 
 
 class TopFactor(CamelModel):
@@ -281,31 +300,11 @@ class AfterActionReport(CamelModel):
     operation_type: str = Field(..., alias="operationType")
     days: int
     losses: int
+    enemy_losses: int = Field(..., alias="enemyLosses")
     remaining_supplies: Supplies = Field(..., alias="remainingSupplies")
     top_factors: List[TopFactor] = Field(..., alias="topFactors")
     phases: List[PhaseRecord]
     events: List[Event]
-
-
-class RaidFactor(CamelModel):
-    name: str
-    value: float
-    why: str
-
-
-class RaidReport(CamelModel):
-    kind: str
-    outcome: str
-    reason: str
-    target: str
-    ticks: int
-    your_casualties: int = Field(..., alias="yourCasualties")
-    enemy_casualties: int = Field(..., alias="enemyCasualties")
-    your_remaining: Dict[str, int] = Field(..., alias="yourRemaining")
-    enemy_remaining: Dict[str, int] = Field(..., alias="enemyRemaining")
-    supplies_used: Supplies = Field(..., alias="suppliesUsed")
-    key_moments: List[str] = Field(..., alias="keyMoments")
-    top_factors: List[RaidFactor] = Field(..., alias="topFactors")
 
 
 class TaskForce(CamelModel):
@@ -327,8 +326,7 @@ class GameStateResponse(CamelModel):
     barracks: BarracksState
     logistics: LogisticsState
     operation: Optional[OperationState]
-    raid: Optional[RaidState]
-    last_aar: Optional[Union[AfterActionReport, RaidReport]] = Field(None, alias="lastAar")
+    last_aar: Optional[AfterActionReport] = Field(None, alias="lastAar")
     map_view: Optional[MapView] = Field(None, alias="mapView")
 
 

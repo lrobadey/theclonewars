@@ -20,8 +20,10 @@ def test_console_vm_operation_aar_payload() -> None:
     summary = PhaseSummary(
         progress_delta=0.2,
         losses=5,
+        enemy_losses=4,
         supplies_spent=Supplies(ammo=10, fuel=5, med_spares=2),
         readiness_delta=0.05,
+        enemy_cohesion_delta=-0.08,
     )
     record = OperationPhaseRecord(
         phase=OperationPhase.CONTACT_SHAPING,
@@ -29,6 +31,7 @@ def test_console_vm_operation_aar_payload() -> None:
         end_day=2,
         decisions=Phase1Decisions(approach_axis="direct", fire_support_prep="preparatory"),
         summary=summary,
+        days=[],
         events=[
             Event(
                 name="base_progress",
@@ -46,6 +49,7 @@ def test_console_vm_operation_aar_payload() -> None:
         operation_type="campaign",
         days=3,
         losses=5,
+        enemy_losses=4,
         remaining_supplies=Supplies(ammo=90, fuel=80, med_spares=30),
         top_factors=[TopFactor(name="base_progress", value=0.2, delta="progress", why="Base")],
         phases=[record],

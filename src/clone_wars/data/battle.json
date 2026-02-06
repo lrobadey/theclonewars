@@ -1,0 +1,46 @@
+{
+  "base_damage_rate": 0.06,
+  "base_casualty_rate": 0.012,
+  "variance_base": 0.08,
+  "variance_cap": 0.15,
+  "initiative_base": 0.5,
+  "initiative_recon_per_support": 0.006,
+  "initiative_axis_bonus": {
+    "direct": 0.01,
+    "flank": 0.03,
+    "dispersed": 0.0,
+    "stealth": 0.04
+  },
+  "fortification_power_factor": 0.6,
+  "objective_difficulty_power_factor": 0.5,
+  "progress_ratio_scale": 1.1,
+  "supply_rates": {
+    "ammo_per_infantry_per_intensity": 0.12,
+    "ammo_per_walker_per_intensity": 0.8,
+    "ammo_per_support_per_intensity": 0.2,
+    "fuel_per_walker_per_intensity": 0.45,
+    "fuel_axis_extra": {
+      "direct": 1.0,
+      "flank": 1.4,
+      "dispersed": 0.8,
+      "stealth": 0.7
+    },
+    "med_per_loss": 0.25,
+    "med_per_unit_per_day": 0.01
+  },
+  "walker_screen": {
+    "coverage_per_walker": 20,
+    "transfer_fraction_cap": 0.35,
+    "degradation_threshold": 0.5
+  },
+  "cohesion_model": {
+    "loss_per_casualty_ratio": 0.35,
+    "recovery_per_day_secure": 0.02
+  },
+  "fortification_erosion": {
+    "base_erosion_per_day": 0.01,
+    "siege_multiplier": 1.8,
+    "preparatory_multiplier": 1.4,
+    "enemy_counter_erosion": -0.005
+  }
+}

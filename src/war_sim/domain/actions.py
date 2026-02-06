@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TypeAlias, Union
 
-from war_sim.domain.ops_models import OperationIntent, OperationTarget
+from war_sim.domain.ops_models import OperationIntent
 from war_sim.domain.types import LocationId, Supplies, UnitStock
 
 
@@ -52,27 +52,12 @@ class StartOperation:
 
 
 @dataclass(frozen=True)
-class StartRaid:
-    target: OperationTarget
-
-
-@dataclass(frozen=True)
 class SubmitPhaseDecisions:
     decisions: object
 
 
 @dataclass(frozen=True)
 class AcknowledgePhaseReport:
-    pass
-
-
-@dataclass(frozen=True)
-class RaidTick:
-    pass
-
-
-@dataclass(frozen=True)
-class RaidResolve:
     pass
 
 
@@ -89,10 +74,7 @@ Action: TypeAlias = Union[
     UpgradeBarracks,
     DispatchShipment,
     StartOperation,
-    StartRaid,
     SubmitPhaseDecisions,
     AcknowledgePhaseReport,
-    RaidTick,
-    RaidResolve,
     AcknowledgeAar,
 ]

@@ -1,0 +1,4 @@
+# file: /Users/lucarobadey/Desktop/Projects/Coding/The Clone Wars/src/war_sim/sim/reducer.py
+# hypothesis_version: 6.151.4
+
+['AAR acknowledged', 'Barracks job queued', 'Barracks upgraded', 'Day advanced', 'Factory job queued', 'Factory upgraded', 'No phase report', 'Operation launched', 'Phase acknowledged', 'Shipment dispatched', 'Unknown action', 'accent', 'dispatch', 'error', 'info', 'logistics', 'none', 'operation', 'ops', 'start']

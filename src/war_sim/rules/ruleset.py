@@ -74,6 +74,56 @@ class GlobalConfig:
 
 
 @dataclass(frozen=True)
+class BattleSupplyRates:
+    ammo_per_infantry_per_intensity: float
+    ammo_per_walker_per_intensity: float
+    ammo_per_support_per_intensity: float
+    fuel_per_walker_per_intensity: float
+    fuel_axis_extra: dict[str, float]
+    med_per_loss: float
+    med_per_unit_per_day: float
+
+
+@dataclass(frozen=True)
+class BattleWalkerScreen:
+    coverage_per_walker: float
+    transfer_fraction_cap: float
+    degradation_threshold: float
+
+
+@dataclass(frozen=True)
+class BattleCohesionModel:
+    loss_per_casualty_ratio: float
+    recovery_per_day_secure: float
+
+
+@dataclass(frozen=True)
+class BattleFortificationErosion:
+    base_erosion_per_day: float
+    siege_multiplier: float
+    preparatory_multiplier: float
+    enemy_counter_erosion: float
+
+
+@dataclass(frozen=True)
+class BattleConfig:
+    base_damage_rate: float
+    base_casualty_rate: float
+    variance_base: float
+    variance_cap: float
+    initiative_base: float
+    initiative_recon_per_support: float
+    initiative_axis_bonus: dict[str, float]
+    fortification_power_factor: float
+    objective_difficulty_power_factor: float
+    progress_ratio_scale: float
+    supply_rates: BattleSupplyRates
+    walker_screen: BattleWalkerScreen
+    cohesion_model: BattleCohesionModel
+    fortification_erosion: BattleFortificationErosion
+
+
+@dataclass(frozen=True)
 class ProductionConfig:
     slots_per_factory: int
     max_factories: int
@@ -104,6 +154,7 @@ class Ruleset:
     exploit_vs_secure: dict[str, dict[str, float]]
     end_states: dict[str, dict[str, float]]
     globals: GlobalConfig
+    battle: BattleConfig
     production: ProductionConfig
     barracks: BarracksConfig
 
@@ -116,6 +167,7 @@ class Ruleset:
         objectives = _load_objectives(data_dir / "objectives.json")
         operation_rules = _load_operation_rules(data_dir / "operation_types.json")
         global_config = _load_globals(data_dir / "globals.json")
+        battle_config = _load_battle(data_dir / "battle.json")
         production_config, barracks_config = _load_production_config(data_dir / "production.json")
 
         return Ruleset(
@@ -130,6 +182,7 @@ class Ruleset:
             exploit_vs_secure=operation_rules["exploit_vs_secure"],
             end_states=operation_rules["end_states"],
             globals=global_config,
+            battle=battle_config,
             production=production_config,
             barracks=barracks_config,
         )
@@ -265,13 +318,40 @@ def _load_objectives(path: Path) -> dict[str, ObjectiveDef]:
 def _load_operation_rules(path: Path) -> dict[str, Any]:
     data = _load_json(path)
     return {
-        "approach_axes": data.get("approach_axes", {}),
-        "fire_support_prep": data.get("fire_support_prep", {}),
-        "engagement_postures": data.get("engagement_postures", {}),
-        "risk_tolerances": data.get("risk_tolerances", {}),
-        "exploit_vs_secure": data.get("exploit_vs_secure", {}),
-        "end_states": data.get("end_states", {}),
+        "approach_axes": _normalize_rule_bucket(data.get("approach_axes", {})),
+        "fire_support_prep": _normalize_rule_bucket(data.get("fire_support_prep", {})),
+        "engagement_postures": _normalize_rule_bucket(data.get("engagement_postures", {})),
+        "risk_tolerances": _normalize_rule_bucket(data.get("risk_tolerances", {})),
+        "exploit_vs_secure": _normalize_rule_bucket(data.get("exploit_vs_secure", {})),
+        "end_states": _normalize_rule_bucket(data.get("end_states", {})),
     }
+
+
+def _normalize_rule_bucket(value: Any) -> dict[str, dict[str, float]]:
+    if not isinstance(value, dict):
+        return {}
+    bucket: dict[str, dict[str, float]] = {}
+    for key, entry in value.items():
+        if not isinstance(entry, dict):
+            continue
+        normalized: dict[str, float] = {}
+        for entry_key, entry_value in entry.items():
+            try:
+                normalized[str(entry_key)] = float(entry_value)
+            except (TypeError, ValueError):
+                continue
+        normalized.setdefault("progress_mod", 0.0)
+        normalized.setdefault("loss_mod", 0.0)
+        normalized.setdefault("intensity_mult", 1.0)
+        normalized.setdefault("variance_mult", normalized.get("variance_multiplier", 1.0))
+        normalized.setdefault("initiative_bonus", 0.0)
+        normalized.setdefault("progress_mult", 1.0)
+        normalized.setdefault("ammo_mult", 1.0)
+        normalized.setdefault("fuel_mult", 1.0)
+        normalized.setdefault("med_mult", 1.0)
+        normalized.setdefault("fort_erosion_mult", 1.0)
+        bucket[str(key)] = normalized
+    return bucket
 
 
 def _load_globals(path: Path) -> GlobalConfig:
@@ -291,6 +371,63 @@ def _load_globals(path: Path) -> GlobalConfig:
         storage_loss_pct_range={
             LocationId(k): (float(v[0]), float(v[1])) for k, v in storage_loss_raw.items()
         },
+    )
+
+
+def _load_battle(path: Path) -> BattleConfig:
+    data = _load_json(path)
+    supply_rates_data = data.get("supply_rates", {})
+    walker_screen_data = data.get("walker_screen", {})
+    cohesion_data = data.get("cohesion_model", {})
+    fort_data = data.get("fortification_erosion", {})
+
+    return BattleConfig(
+        base_damage_rate=float(data.get("base_damage_rate", 0.06)),
+        base_casualty_rate=float(data.get("base_casualty_rate", 0.012)),
+        variance_base=float(data.get("variance_base", 0.08)),
+        variance_cap=float(data.get("variance_cap", 0.15)),
+        initiative_base=float(data.get("initiative_base", 0.5)),
+        initiative_recon_per_support=float(data.get("initiative_recon_per_support", 0.005)),
+        initiative_axis_bonus={
+            str(k): float(v) for k, v in dict(data.get("initiative_axis_bonus", {})).items()
+        },
+        fortification_power_factor=float(data.get("fortification_power_factor", 0.6)),
+        objective_difficulty_power_factor=float(data.get("objective_difficulty_power_factor", 0.5)),
+        progress_ratio_scale=float(data.get("progress_ratio_scale", 1.1)),
+        supply_rates=BattleSupplyRates(
+            ammo_per_infantry_per_intensity=float(
+                supply_rates_data.get("ammo_per_infantry_per_intensity", 0.12)
+            ),
+            ammo_per_walker_per_intensity=float(
+                supply_rates_data.get("ammo_per_walker_per_intensity", 0.8)
+            ),
+            ammo_per_support_per_intensity=float(
+                supply_rates_data.get("ammo_per_support_per_intensity", 0.2)
+            ),
+            fuel_per_walker_per_intensity=float(
+                supply_rates_data.get("fuel_per_walker_per_intensity", 0.45)
+            ),
+            fuel_axis_extra={
+                str(k): float(v) for k, v in dict(supply_rates_data.get("fuel_axis_extra", {})).items()
+            },
+            med_per_loss=float(supply_rates_data.get("med_per_loss", 0.25)),
+            med_per_unit_per_day=float(supply_rates_data.get("med_per_unit_per_day", 0.01)),
+        ),
+        walker_screen=BattleWalkerScreen(
+            coverage_per_walker=float(walker_screen_data.get("coverage_per_walker", 20.0)),
+            transfer_fraction_cap=float(walker_screen_data.get("transfer_fraction_cap", 0.35)),
+            degradation_threshold=float(walker_screen_data.get("degradation_threshold", 0.5)),
+        ),
+        cohesion_model=BattleCohesionModel(
+            loss_per_casualty_ratio=float(cohesion_data.get("loss_per_casualty_ratio", 0.35)),
+            recovery_per_day_secure=float(cohesion_data.get("recovery_per_day_secure", 0.02)),
+        ),
+        fortification_erosion=BattleFortificationErosion(
+            base_erosion_per_day=float(fort_data.get("base_erosion_per_day", 0.01)),
+            siege_multiplier=float(fort_data.get("siege_multiplier", 1.8)),
+            preparatory_multiplier=float(fort_data.get("preparatory_multiplier", 1.4)),
+            enemy_counter_erosion=float(fort_data.get("enemy_counter_erosion", -0.005)),
+        ),
     )
 
 

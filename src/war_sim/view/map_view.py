@@ -98,8 +98,6 @@ def build_map_view(state: GameState) -> dict:
     operation_status = "No active op"
     if state.operation:
         operation_status = f"Operation: {state.operation.current_phase.value}"
-    elif state.raid_session:
-        operation_status = "Raid in progress"
 
     nodes.append(
         {

@@ -1,4 +1,4 @@
-"""Tests for raid combat determinism."""
+"""Tests for unified battle resolver determinism."""
 
 from pathlib import Path
 
@@ -7,7 +7,7 @@ from clone_wars.engine.scenario import load_game_state
 
 
 def test_resolver_determinism() -> None:
-    """Test that raid produces same results with same seed."""
+    """Operation-based raid produces same results with same seed."""
     data_dir = Path(__file__).resolve().parents[1] / "src" / "clone_wars" / "data"
     scenario_path = data_dir / "scenario.json"
 
@@ -18,20 +18,18 @@ def test_resolver_determinism() -> None:
         report = state.raid(OperationTarget.FOUNDRY)
         return (
             report.outcome,
-            report.your_casualties,
-            report.enemy_casualties,
-            report.ticks,
+            report.losses,
+            report.enemy_losses,
+            report.days,
         )
 
     result1 = run_raid(42)
     result2 = run_raid(42)
 
-    # Results should be identical with same seed
     assert result1 == result2
 
 
 def test_resolver_different_seeds_different_results() -> None:
-    """Smoke test that different seeds still run."""
     data_dir = Path(__file__).resolve().parents[1] / "src" / "clone_wars" / "data"
     scenario_path = data_dir / "scenario.json"
 

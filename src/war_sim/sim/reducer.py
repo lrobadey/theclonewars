@@ -12,23 +12,18 @@ from war_sim.domain.actions import (
     DispatchShipment,
     QueueBarracks,
     QueueProduction,
-    RaidResolve,
-    RaidTick,
     StartOperation,
-    StartRaid,
     SubmitPhaseDecisions,
     UpgradeBarracks,
     UpgradeFactory,
 )
 from war_sim.domain.events import FactorEvent, UiEvent
-from war_sim.domain.ops_models import OperationTypeId
 from war_sim.domain.types import FactionId, LocationId, Supplies, UnitStock
 from war_sim.sim.day_stepper import DayAdvanceError, advance_day
 from war_sim.sim.rng import derive_seed
 from war_sim.sim.state import GameState
-from war_sim.systems import raid
 from war_sim.systems.barracks import BarracksJobType
-from war_sim.systems.operations import FactorLog, start_operation, start_operation_phased, submit_phase_decisions
+from war_sim.systems.operations import FactorLog, start_operation_phased, submit_phase_decisions
 from war_sim.systems.production import ProductionJobType
 
 
@@ -155,23 +150,9 @@ def apply_action(state: GameState, action: Action) -> ActionResult:
         if state.action_points < 1:
             return fail("No action points remaining (Need 1 AP).")
         try:
-            if action.intent.op_type == OperationTypeId.RAID:
-                raid.start_raid(state, action.intent.target, ctx.rng("raid", "start"))
-                state.action_points = max(0, state.action_points - 1)
-                return ok("Raid launched", "accent")
             start_operation_phased(state, action.intent, ctx.rng("ops", "start"))
             state.action_points = max(0, state.action_points - 1)
             return ok("Operation launched", "accent")
-        except (ValueError, RuntimeError) as exc:
-            return fail(str(exc))
-
-    if isinstance(action, StartRaid):
-        if state.action_points < 1:
-            return fail("No action points remaining (Need 1 AP).")
-        try:
-            raid.start_raid(state, action.target, ctx.rng("raid", "start"))
-            state.action_points = max(0, state.action_points - 1)
-            return ok("Raid launched", "accent")
         except (ValueError, RuntimeError) as exc:
             return fail(str(exc))
 
@@ -190,22 +171,6 @@ def apply_action(state: GameState, action: Action) -> ActionResult:
 
             acknowledge_phase_result(state)
             return ok("Phase acknowledged", "info")
-        except RuntimeError as exc:
-            return fail(str(exc))
-
-    if isinstance(action, RaidTick):
-        try:
-            raid.advance_raid_tick(state)
-            return ok("Raid tick advanced", "info")
-        except RuntimeError as exc:
-            return fail(str(exc))
-
-    if isinstance(action, RaidResolve):
-        try:
-            raid.resolve_active_raid(state)
-            if state.last_aar and hasattr(state.last_aar, "events"):
-                factor_events.extend(getattr(state.last_aar, "events"))
-            return ok("Raid resolved", "accent")
         except RuntimeError as exc:
             return fail(str(exc))
 

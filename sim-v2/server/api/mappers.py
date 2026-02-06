@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from typing import Iterable
 
+from war_sim.domain.battle_models import BattleDayTick
 from war_sim.domain.ops_models import Phase1Decisions, Phase2Decisions, Phase3Decisions
-from war_sim.domain.reports import AfterActionReport, RaidReport
+from war_sim.domain.reports import AfterActionReport
 from war_sim.domain.types import LocationId, Supplies, UnitStock
 from war_sim.sim.state import GameState
 from war_sim.systems.barracks import BarracksJob
@@ -42,7 +43,6 @@ def build_state_response(state: GameState) -> schemas.GameStateResponse:
         barracks=_barracks_state(state),
         logistics=_logistics_state(state),
         operation=_operation_state(state),
-        raid=_raid_state(state),
         last_aar=_last_aar(state),
         map_view=_map_view(state),
     )
@@ -300,6 +300,8 @@ def _operation_state(state: GameState) -> schemas.OperationState | None:
         decisions=decisions_summary,
         phase_history=[record for record in (_phase_record(r) for r in op.phase_history) if record is not None],
         sampled_enemy_strength=op.sampled_enemy_strength,
+        latest_battle_day=_battle_day(op.battle_log[-1]) if op.battle_log else None,
+        current_phase_days=[_battle_day(day) for day in op.battle_phase_acc.days],
     )
 
 
@@ -357,10 +359,13 @@ def _phase_record(record) -> schemas.PhaseRecord | None:
         summary=schemas.PhaseSummary(
             progress_delta=record.summary.progress_delta,
             losses=record.summary.losses,
+            enemy_losses=record.summary.enemy_losses,
             supplies_spent=_supplies(record.summary.supplies_spent),
             readiness_delta=record.summary.readiness_delta,
             cohesion_delta=record.summary.cohesion_delta,
+            enemy_cohesion_delta=record.summary.enemy_cohesion_delta,
         ),
+        days=[_battle_day(day) for day in record.days],
         events=[
             schemas.Event(
                 name=event.name,
@@ -374,66 +379,61 @@ def _phase_record(record) -> schemas.PhaseRecord | None:
     )
 
 
-def _raid_state(state: GameState) -> schemas.RaidState | None:
-    session = state.raid_session
-    if session is None:
+def _last_aar(state: GameState) -> schemas.AfterActionReport | None:
+    report = state.last_aar
+    if report is None:
         return None
-    return schemas.RaidState(
-        tick=session.tick,
-        max_ticks=session.max_ticks,
-        your_cohesion=session.your_cohesion,
-        enemy_cohesion=session.enemy_cohesion,
-        your_casualties=session.your_casualties_total,
-        enemy_casualties=session.enemy_casualties_total,
-        outcome=session.outcome,
-        reason=session.reason,
-        tick_log=[
-            schemas.RaidTick(tick=entry.tick, event=entry.event, beat=entry.beat) for entry in session.tick_log
+    return schemas.AfterActionReport(
+        kind="operation",
+        outcome=report.outcome,
+        target=report.target.value,
+        operation_type=report.operation_type,
+        days=report.days,
+        losses=report.losses,
+        enemy_losses=report.enemy_losses,
+        remaining_supplies=_supplies(report.remaining_supplies),
+        top_factors=[
+            schemas.TopFactor(name=factor.name, value=factor.value, delta=factor.delta, why=factor.why)
+            for factor in report.top_factors
+        ],
+        phases=[record for record in (_phase_record(p) for p in report.phases) if record is not None],
+        events=[
+            schemas.Event(name=event.name, value=event.value, delta=event.delta, why=event.why, phase=event.phase)
+            for event in report.events
         ],
     )
 
 
-def _last_aar(state: GameState) -> schemas.AfterActionReport | schemas.RaidReport | None:
-    report = state.last_aar
-    if report is None:
-        return None
-    if isinstance(report, RaidReport):
-        return schemas.RaidReport(
-            kind="raid",
-            outcome=report.outcome,
-            reason=report.reason,
-            target=report.target.value,
-            ticks=report.ticks,
-            your_casualties=report.your_casualties,
-            enemy_casualties=report.enemy_casualties,
-            your_remaining=report.your_remaining,
-            enemy_remaining=report.enemy_remaining,
-            supplies_used=_supplies(report.supplies_used),
-            key_moments=report.key_moments,
-            top_factors=[schemas.RaidFactor(name=factor.name, value=factor.value, why=factor.why) for factor in report.top_factors],
-        )
-
-    if isinstance(report, AfterActionReport):
-        return schemas.AfterActionReport(
-            kind="operation",
-            outcome=report.outcome,
-            target=report.target.value,
-            operation_type=report.operation_type,
-            days=report.days,
-            losses=report.losses,
-            remaining_supplies=_supplies(report.remaining_supplies),
-            top_factors=[
-                schemas.TopFactor(name=factor.name, value=factor.value, delta=factor.delta, why=factor.why)
-                for factor in report.top_factors
-            ],
-            phases=[record for record in (_phase_record(p) for p in report.phases) if record is not None],
-            events=[
-                schemas.Event(name=event.name, value=event.value, delta=event.delta, why=event.why, phase=event.phase)
-                for event in report.events
-            ],
-        )
-
-    return None
+def _battle_day(day: BattleDayTick) -> schemas.BattleDayTick:
+    return schemas.BattleDayTick(
+        day_index=day.day_index,
+        global_day=day.global_day,
+        phase=day.phase,
+        your_power=day.your_power,
+        enemy_power=day.enemy_power,
+        your_advantage=day.your_advantage,
+        initiative=day.initiative,
+        progress_delta=day.progress_delta,
+        your_losses=day.your_losses,
+        enemy_losses=day.enemy_losses,
+        your_remaining=day.your_remaining,
+        enemy_remaining=day.enemy_remaining,
+        your_cohesion=day.your_cohesion,
+        enemy_cohesion=day.enemy_cohesion,
+        supplies=schemas.BattleSupplySnapshot(
+            ammo_before=day.supplies.ammo_before,
+            fuel_before=day.supplies.fuel_before,
+            med_before=day.supplies.med_before,
+            ammo_spent=day.supplies.ammo_spent,
+            fuel_spent=day.supplies.fuel_spent,
+            med_spent=day.supplies.med_spent,
+            ammo_ratio=day.supplies.ammo_ratio,
+            fuel_ratio=day.supplies.fuel_ratio,
+            med_ratio=day.supplies.med_ratio,
+            shortage_flags=day.supplies.shortage_flags,
+        ),
+        tags=day.tags,
+    )
 
 
 def _production_jobs(jobs: Iterable[ProductionJob], eta_summary: list[tuple[str, int, int, str]]):

@@ -26,34 +26,222 @@
     }
   ],
   "approach_axes": {
-    "direct": {"progress_mod": 0.05, "loss_mod": 0.04},
-    "flank": {"progress_mod": 0.08, "loss_mod": 0.02},
-    "dispersed": {"progress_mod": -0.02, "loss_mod": -0.03},
-    "stealth": {"progress_mod": 0.10, "loss_mod": 0.00}
+    "direct": {
+      "progress_mod": 0.05,
+      "loss_mod": 0.04,
+      "intensity_mult": 1.05,
+      "variance_mult": 0.95,
+      "initiative_bonus": 0.01,
+      "progress_mult": 1.02,
+      "ammo_mult": 1.05,
+      "fuel_mult": 1.0,
+      "med_mult": 1.0,
+      "fort_erosion_mult": 1.0
+    },
+    "flank": {
+      "progress_mod": 0.08,
+      "loss_mod": 0.02,
+      "intensity_mult": 1.08,
+      "variance_mult": 1.0,
+      "initiative_bonus": 0.03,
+      "progress_mult": 1.04,
+      "ammo_mult": 1.02,
+      "fuel_mult": 1.12,
+      "med_mult": 1.0,
+      "fort_erosion_mult": 0.95
+    },
+    "dispersed": {
+      "progress_mod": -0.02,
+      "loss_mod": -0.03,
+      "intensity_mult": 0.88,
+      "variance_mult": 0.85,
+      "initiative_bonus": 0.0,
+      "progress_mult": 0.94,
+      "ammo_mult": 0.9,
+      "fuel_mult": 0.92,
+      "med_mult": 0.95,
+      "fort_erosion_mult": 0.85
+    },
+    "stealth": {
+      "progress_mod": 0.10,
+      "loss_mod": 0.00,
+      "intensity_mult": 0.95,
+      "variance_mult": 0.8,
+      "initiative_bonus": 0.04,
+      "progress_mult": 1.06,
+      "ammo_mult": 0.85,
+      "fuel_mult": 0.88,
+      "med_mult": 0.95,
+      "fort_erosion_mult": 0.9
+    }
   },
   "fire_support_prep": {
-    "conserve": {"progress_mod": -0.05, "loss_mod": -0.02},
-    "preparatory": {"progress_mod": 0.08, "loss_mod": 0.03}
+    "conserve": {
+      "progress_mod": -0.05,
+      "loss_mod": -0.02,
+      "intensity_mult": 0.9,
+      "variance_mult": 0.95,
+      "initiative_bonus": 0.0,
+      "progress_mult": 0.94,
+      "ammo_mult": 0.8,
+      "fuel_mult": 0.95,
+      "med_mult": 1.0,
+      "fort_erosion_mult": 0.85
+    },
+    "preparatory": {
+      "progress_mod": 0.08,
+      "loss_mod": 0.03,
+      "intensity_mult": 1.1,
+      "variance_mult": 1.0,
+      "initiative_bonus": 0.02,
+      "progress_mult": 1.06,
+      "ammo_mult": 1.15,
+      "fuel_mult": 1.0,
+      "med_mult": 1.0,
+      "fort_erosion_mult": 1.2
+    }
   },
   "engagement_postures": {
-    "shock": {"progress_mod": 0.12, "loss_mod": 0.12},
-    "methodical": {"progress_mod": 0.05, "loss_mod": 0.04},
-    "siege": {"progress_mod": 0.08, "loss_mod": 0.02},
-    "feint": {"progress_mod": 0.03, "loss_mod": -0.03}
+    "shock": {
+      "progress_mod": 0.12,
+      "loss_mod": 0.12,
+      "intensity_mult": 1.2,
+      "variance_mult": 1.12,
+      "initiative_bonus": 0.02,
+      "progress_mult": 1.08,
+      "ammo_mult": 1.15,
+      "fuel_mult": 1.08,
+      "med_mult": 1.05,
+      "fort_erosion_mult": 1.0
+    },
+    "methodical": {
+      "progress_mod": 0.05,
+      "loss_mod": 0.04,
+      "intensity_mult": 1.0,
+      "variance_mult": 0.92,
+      "initiative_bonus": 0.01,
+      "progress_mult": 1.0,
+      "ammo_mult": 1.0,
+      "fuel_mult": 1.0,
+      "med_mult": 1.0,
+      "fort_erosion_mult": 1.0
+    },
+    "siege": {
+      "progress_mod": 0.08,
+      "loss_mod": 0.02,
+      "intensity_mult": 0.95,
+      "variance_mult": 0.88,
+      "initiative_bonus": 0.0,
+      "progress_mult": 0.98,
+      "ammo_mult": 1.05,
+      "fuel_mult": 0.9,
+      "med_mult": 1.0,
+      "fort_erosion_mult": 1.3
+    },
+    "feint": {
+      "progress_mod": 0.03,
+      "loss_mod": -0.03,
+      "intensity_mult": 0.9,
+      "variance_mult": 1.0,
+      "initiative_bonus": 0.015,
+      "progress_mult": 0.96,
+      "ammo_mult": 0.88,
+      "fuel_mult": 0.95,
+      "med_mult": 0.95,
+      "fort_erosion_mult": 0.9
+    }
   },
   "risk_tolerances": {
-    "low": {"progress_mod": -0.03, "loss_mod": -0.06, "variance_multiplier": 0.6},
-    "med": {"progress_mod": 0.00, "loss_mod": 0.00, "variance_multiplier": 1.0},
-    "high": {"progress_mod": 0.05, "loss_mod": 0.08, "variance_multiplier": 1.4}
+    "low": {
+      "progress_mod": -0.03,
+      "loss_mod": -0.06,
+      "variance_multiplier": 0.6,
+      "variance_mult": 0.75,
+      "intensity_mult": 0.9,
+      "initiative_bonus": 0.0,
+      "progress_mult": 0.95,
+      "ammo_mult": 0.95,
+      "fuel_mult": 0.95,
+      "med_mult": 1.0,
+      "fort_erosion_mult": 0.95
+    },
+    "med": {
+      "progress_mod": 0.00,
+      "loss_mod": 0.00,
+      "variance_multiplier": 1.0,
+      "variance_mult": 1.0,
+      "intensity_mult": 1.0,
+      "initiative_bonus": 0.0,
+      "progress_mult": 1.0,
+      "ammo_mult": 1.0,
+      "fuel_mult": 1.0,
+      "med_mult": 1.0,
+      "fort_erosion_mult": 1.0
+    },
+    "high": {
+      "progress_mod": 0.05,
+      "loss_mod": 0.08,
+      "variance_multiplier": 1.4,
+      "variance_mult": 1.2,
+      "intensity_mult": 1.12,
+      "initiative_bonus": 0.01,
+      "progress_mult": 1.03,
+      "ammo_mult": 1.08,
+      "fuel_mult": 1.05,
+      "med_mult": 1.05,
+      "fort_erosion_mult": 1.08
+    }
   },
   "exploit_vs_secure": {
-    "push": {"progress_mod": 0.06, "loss_mod": 0.05},
-    "secure": {"progress_mod": -0.02, "loss_mod": -0.03}
+    "push": {
+      "progress_mod": 0.06,
+      "loss_mod": 0.05,
+      "intensity_mult": 1.08,
+      "variance_mult": 1.05,
+      "initiative_bonus": 0.01,
+      "progress_mult": 1.04,
+      "ammo_mult": 1.06,
+      "fuel_mult": 1.04,
+      "med_mult": 1.05,
+      "fort_erosion_mult": 1.04
+    },
+    "secure": {
+      "progress_mod": -0.02,
+      "loss_mod": -0.03,
+      "intensity_mult": 0.9,
+      "variance_mult": 0.88,
+      "initiative_bonus": 0.0,
+      "progress_mult": 0.95,
+      "ammo_mult": 0.9,
+      "fuel_mult": 0.92,
+      "med_mult": 0.95,
+      "fort_erosion_mult": 0.92
+    }
   },
   "end_states": {
-    "capture": {"required_progress": 0.75, "fortification_reduction": 0.10, "reinforcement_reduction": 0.02},
-    "raid": {"required_progress": 0.60, "fortification_reduction": 0.0, "reinforcement_reduction": 0.01},
-    "destroy": {"required_progress": 0.70, "fortification_reduction": 0.05, "reinforcement_reduction": 0.015},
-    "withdraw": {"required_progress": 0.0, "fortification_reduction": 0.0, "reinforcement_reduction": 0.0}
+    "capture": {
+      "required_progress": 0.75,
+      "fortification_reduction": 0.10,
+      "reinforcement_reduction": 0.02,
+      "readiness_delta": -0.02
+    },
+    "raid": {
+      "required_progress": 0.60,
+      "fortification_reduction": 0.0,
+      "reinforcement_reduction": 0.01,
+      "readiness_delta": 0.0
+    },
+    "destroy": {
+      "required_progress": 0.70,
+      "fortification_reduction": 0.05,
+      "reinforcement_reduction": 0.015,
+      "readiness_delta": -0.01
+    },
+    "withdraw": {
+      "required_progress": 0.0,
+      "fortification_reduction": 0.0,
+      "reinforcement_reduction": 0.0,
+      "readiness_delta": 0.03
+    }
   }
 }

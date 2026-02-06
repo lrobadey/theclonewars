@@ -13,7 +13,7 @@
     {
       "id": "walkers",
       "name": "Walkers/Vehicles",
-      "base_power": 2.5,
+      "base_power": 12.0,
       "capabilities": ["combat", "transport", "armor"],
       "transport_protection": {
         "can_protect": true,
@@ -24,7 +24,7 @@
     {
       "id": "support",
       "name": "Support/Medics",
-      "base_power": 0.8,
+      "base_power": 4.0,
       "capabilities": ["recon", "medical", "sustainment"],
       "sustainment": {
         "casualty_reduction": 0.25,

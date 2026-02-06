@@ -81,14 +81,6 @@ export async function postAckPhase(): Promise<ApiResponse> {
   return postJson<ApiResponse>('/actions/operation/ack-phase');
 }
 
-export async function postRaidTick(): Promise<ApiResponse> {
-  return postJson<ApiResponse>('/actions/raid/tick');
-}
-
-export async function postRaidResolve(): Promise<ApiResponse> {
-  return postJson<ApiResponse>('/actions/raid/resolve');
-}
-
 export async function postAckAar(): Promise<ApiResponse> {
   return postJson<ApiResponse>('/actions/ack-aar');
 }

@@ -79,9 +79,11 @@ class PhaseSummary:
 
     progress_delta: float
     losses: int
+    enemy_losses: int
     supplies_spent: "Supplies"
     readiness_delta: float = 0.0
     cohesion_delta: float = 0.0
+    enemy_cohesion_delta: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -93,6 +95,7 @@ class OperationPhaseRecord:
     end_day: int
     decisions: PhaseDecisions
     summary: PhaseSummary
+    days: list["BattleDayTick"]
     events: list["FactorEvent"]
 
 
@@ -120,6 +123,13 @@ class ActiveOperation:
     sampled_enemy_strength: float | None = None
     accumulated_progress: float = 0.0
     accumulated_losses: int = 0
+    accumulated_enemy_losses: int = 0
+    battle_attacker: "BattleSideState | None" = None
+    battle_defender: "BattleSideState | None" = None
+    battle_phase_acc: "BattlePhaseAccumulator" = field(default_factory=lambda: BattlePhaseAccumulator())
+    battle_log: list["BattleDayTick"] = field(default_factory=list)
+    enemy_fortification_start: float = 1.0
+    enemy_fortification_current: float = 1.0
     op_id: str = ""
 
     @property
@@ -205,4 +215,5 @@ class OperationPlan:
 
 
 from war_sim.domain.events import FactorEvent  # noqa: E402
+from war_sim.domain.battle_models import BattleDayTick, BattlePhaseAccumulator, BattleSideState  # noqa: E402
 from war_sim.domain.types import Supplies  # noqa: E402

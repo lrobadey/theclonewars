@@ -5,8 +5,16 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from random import Random
 
-from war_sim.domain.ops_models import ActiveOperation, OperationTarget
-from war_sim.domain.reports import AfterActionReport, RaidReport
+from war_sim.domain.ops_models import (
+    ActiveOperation,
+    OperationIntent,
+    OperationTarget,
+    OperationTypeId,
+    Phase1Decisions,
+    Phase2Decisions,
+    Phase3Decisions,
+)
+from war_sim.domain.reports import AfterActionReport
 from war_sim.domain.types import (
     FactionId,
     LocationId,
@@ -21,7 +29,6 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from war_sim.rules.scenario import ScenarioData
-    from war_sim.systems.raid import RaidCombatSession
 
 
 @dataclass()
@@ -41,11 +48,11 @@ class GameState:
     action_points: int
     faction_turn: FactionId
 
-    raid_session: "RaidCombatSession" | None
+    raid_session: object | None
     raid_target: OperationTarget | None
     raid_id: str | None
     operation: ActiveOperation | None
-    last_aar: RaidReport | AfterActionReport | None
+    last_aar: AfterActionReport | None
 
     logistics_service: LogisticsService = field(default_factory=LogisticsService, init=False)
 
@@ -139,45 +146,40 @@ class GameState:
 
         return acknowledge_phase_result(self)
 
-    def start_raid(self, target) -> None:
-        from war_sim.sim.rng import derive_seed
-        from war_sim.systems import raid
-
-        rng = Random(
-            derive_seed(
-                self.rng_seed,
-                day=self.day,
-                action_seq=self.action_seq + 1,
-                stream="raid",
-                purpose="start",
-            )
-        )
-        raid.start_raid(self, target, rng)
-        self.action_seq += 1
+    def start_raid(self, target: OperationTarget) -> None:
+        intent = OperationIntent(target=target, op_type=OperationTypeId.RAID)
+        self.start_operation_phased(intent)
 
     def advance_raid_tick(self):
-        from war_sim.systems import raid
-
-        return raid.advance_raid_tick(self)
+        raise RuntimeError("Direct raid ticks were removed; use advance_day for opType=raid.")
 
     def resolve_active_raid(self):
-        from war_sim.systems import raid
+        if self.operation is None:
+            raise RuntimeError("No active raid/operation to resolve.")
+        while self.operation is not None:
+            if self.operation.pending_phase_record is not None:
+                self.acknowledge_phase_result()
+                continue
+            if self.operation.awaiting_player_decision:
+                phase = self.operation.current_phase
+                if phase.value == "contact_shaping":
+                    self.submit_phase_decisions(
+                        Phase1Decisions(approach_axis="direct", fire_support_prep="preparatory")
+                    )
+                elif phase.value == "engagement":
+                    self.submit_phase_decisions(
+                        Phase2Decisions(engagement_posture="methodical", risk_tolerance="med")
+                    )
+                elif phase.value == "exploit_consolidate":
+                    self.submit_phase_decisions(
+                        Phase3Decisions(exploit_vs_secure="secure", end_state="capture")
+                    )
+                continue
+            self.advance_day()
+        if self.last_aar is None:
+            raise RuntimeError("No report generated")
+        return self.last_aar
 
-        return raid.resolve_active_raid(self)
-
-    def raid(self, target):
-        from war_sim.sim.rng import derive_seed
-        from war_sim.systems import raid
-
-        rng = Random(
-            derive_seed(
-                self.rng_seed,
-                day=self.day,
-                action_seq=self.action_seq + 1,
-                stream="raid",
-                purpose="start",
-            )
-        )
-        report = raid.raid(self, target, rng)
-        self.action_seq += 1
-        return report
+    def raid(self, target: OperationTarget):
+        self.start_raid(target)
+        return self.resolve_active_raid()

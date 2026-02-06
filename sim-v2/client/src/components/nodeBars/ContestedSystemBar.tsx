@@ -3,8 +3,6 @@ import type { ApiResponse, CatalogResponse, GameStateResponse } from '../../api/
 import {
   postAckAar,
   postAckPhase,
-  postRaidResolve,
-  postRaidTick,
   postStartOperation,
   postSubmitPhaseDecisions,
 } from '../../api/client';
@@ -101,16 +99,6 @@ export function ContestedSystemBar({ state, catalog, onActionResult }: Contested
 
   const handleAckPhase = async () => {
     const resp = await postAckPhase();
-    onActionResult(resp);
-  };
-
-  const handleRaidTick = async () => {
-    const resp = await postRaidTick();
-    onActionResult(resp);
-  };
-
-  const handleRaidResolve = async () => {
-    const resp = await postRaidResolve();
     onActionResult(resp);
   };
 
@@ -230,50 +218,9 @@ export function ContestedSystemBar({ state, catalog, onActionResult }: Contested
             </div>
           </div>
 
-          <SectionHeader title="Operations & Raid" tone="contested" />
+          <SectionHeader title="Operations" tone="contested" />
           <div className="rounded border border-white/10 bg-space/40 p-4 space-y-4">
-            {state.raid ? (
-              <div className="space-y-3">
-                <div className="text-[10px] uppercase tracking-[0.2em] text-text-secondary font-mono">
-                  Raid Progress {state.raid.tick}/{state.raid.maxTicks}
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <KpiTile label="Your Cohesion" value={state.raid.yourCohesion.toFixed(2)} />
-                  <KpiTile label="Enemy Cohesion" value={state.raid.enemyCohesion.toFixed(2)} />
-                  <KpiTile label="Your Casualties" value={state.raid.yourCasualties} />
-                  <KpiTile label="Enemy Casualties" value={state.raid.enemyCasualties} />
-                </div>
-                <div className="space-y-1">
-                  <div className="text-[10px] uppercase tracking-[0.2em] text-text-secondary font-mono">
-                    Tick Log
-                  </div>
-                  <div className="space-y-1 max-h-32 overflow-y-auto">
-                    {state.raid.tickLog
-                      .slice(-10)
-                      .reverse()
-                      .map((entry, idx) => (
-                      <div key={`${entry.tick}-${idx}`} className="text-xs font-mono text-text-secondary">
-                        [{entry.tick}] {entry.event} — {entry.beat}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={handleRaidTick}
-                    className="btn-action px-3 py-1 text-[10px] uppercase tracking-[0.2em] border border-contested/40 text-contested"
-                  >
-                    Advance Tick
-                  </button>
-                  <button
-                    onClick={handleRaidResolve}
-                    className="btn-action px-3 py-1 text-[10px] uppercase tracking-[0.2em] border border-contested/40 text-contested"
-                  >
-                    Resolve Raid
-                  </button>
-                </div>
-              </div>
-            ) : !state.operation ? (
+            {!state.operation ? (
               <div className="space-y-3">
                 <div className="text-[10px] uppercase tracking-[0.2em] text-text-secondary font-mono">
                   Launch Operation
@@ -326,6 +273,39 @@ export function ContestedSystemBar({ state, catalog, onActionResult }: Contested
                   <div>Phase: {state.operation.currentPhase}</div>
                   <div>Day {state.operation.dayInOperation} / {state.operation.estimatedTotalDays}</div>
                 </div>
+                {state.operation.latestBattleDay && (
+                  <div className="space-y-2 rounded border border-contested/20 bg-space/20 p-3">
+                    <div className="text-[10px] uppercase tracking-[0.2em] text-text-secondary font-mono">
+                      Latest Battle Day
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-xs font-mono">
+                      <div>Power: {state.operation.latestBattleDay.yourPower.toFixed(1)} / {state.operation.latestBattleDay.enemyPower.toFixed(1)}</div>
+                      <div>Advantage: {state.operation.latestBattleDay.yourAdvantage.toFixed(2)}</div>
+                      <div>Initiative: {state.operation.latestBattleDay.initiative ? 'Yes' : 'No'}</div>
+                      <div>Progress Δ: {state.operation.latestBattleDay.progressDelta.toFixed(3)}</div>
+                      <div>Losses: {Object.values(state.operation.latestBattleDay.yourLosses).reduce((a, b) => a + b, 0)}</div>
+                      <div>Enemy Losses: {Object.values(state.operation.latestBattleDay.enemyLosses).reduce((a, b) => a + b, 0)}</div>
+                    </div>
+                    <div className="text-xs font-mono text-text-secondary">
+                      Supply Ratios A/F/M: {state.operation.latestBattleDay.supplies.ammoRatio.toFixed(2)} / {state.operation.latestBattleDay.supplies.fuelRatio.toFixed(2)} / {state.operation.latestBattleDay.supplies.medRatio.toFixed(2)}
+                    </div>
+                    <div className="text-xs font-mono text-text-secondary">
+                      Tags: {state.operation.latestBattleDay.tags.length > 0 ? state.operation.latestBattleDay.tags.join(', ') : 'none'}
+                    </div>
+                  </div>
+                )}
+                {state.operation.currentPhaseDays.length > 0 && (
+                  <div className="space-y-1 rounded border border-white/10 p-2 max-h-28 overflow-y-auto">
+                    <div className="text-[10px] uppercase tracking-[0.2em] text-text-secondary font-mono">
+                      Current Phase Days
+                    </div>
+                    {state.operation.currentPhaseDays.slice(-8).map(day => (
+                      <div key={`${day.dayIndex}-${day.phase}`} className="text-xs font-mono text-text-secondary">
+                        D{day.dayIndex}: Δ{day.progressDelta.toFixed(3)} | You {Object.values(day.yourLosses).reduce((a, b) => a + b, 0)} / Enemy {Object.values(day.enemyLosses).reduce((a, b) => a + b, 0)}
+                      </div>
+                    ))}
+                  </div>
+                )}
                 <div className="grid grid-cols-4 gap-1 text-[10px] uppercase tracking-[0.2em] text-text-secondary">
                   {['Contact_Shaping', 'Engagement', 'Exploit_Consolidate', 'Complete'].map((step, idx) => (
                     <div
@@ -349,12 +329,23 @@ export function ContestedSystemBar({ state, catalog, onActionResult }: Contested
                     <div className="grid grid-cols-2 gap-2 text-xs font-mono">
                       <div>Progress Δ: {pendingPhase.summary.progressDelta}</div>
                       <div>Losses: {pendingPhase.summary.losses}</div>
+                      <div>Enemy Losses: {pendingPhase.summary.enemyLosses}</div>
                       <div>Ammo: {pendingPhase.summary.suppliesSpent.ammo}</div>
                       <div>Fuel: {pendingPhase.summary.suppliesSpent.fuel}</div>
                       <div>Med: {pendingPhase.summary.suppliesSpent.medSpares}</div>
                       <div>Readiness Δ: {pendingPhase.summary.readinessDelta}</div>
                       <div>Cohesion Δ: {pendingPhase.summary.cohesionDelta}</div>
+                      <div>Enemy Cohesion Δ: {pendingPhase.summary.enemyCohesionDelta}</div>
                     </div>
+                    {pendingPhase.days.length > 0 && (
+                      <div className="space-y-1 max-h-24 overflow-y-auto text-xs font-mono text-text-secondary">
+                        {pendingPhase.days.map(day => (
+                          <div key={`${day.dayIndex}-${day.phase}`}>
+                            D{day.dayIndex}: Δ{day.progressDelta.toFixed(3)} | A/F/M {day.supplies.ammoRatio.toFixed(2)}/{day.supplies.fuelRatio.toFixed(2)}/{day.supplies.medRatio.toFixed(2)}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                     <div className="space-y-1 max-h-32 overflow-y-auto text-xs font-mono text-text-secondary">
                       {pendingPhase.events.map((ev, idx) => (
                         <div key={`${ev.name}-${idx}`}>
@@ -448,73 +439,47 @@ export function ContestedSystemBar({ state, catalog, onActionResult }: Contested
           {state.lastAar && (
             <div className="rounded border border-white/10 bg-space/40 p-4 space-y-3">
               <SectionHeader title="After Action Report" tone="contested" />
-              {state.lastAar.kind === 'operation' ? (
-                <div className="space-y-2 text-xs font-mono">
-                  <div>Outcome: {state.lastAar.outcome}</div>
-                  <div>Target: {state.lastAar.target}</div>
-                  <div>Op Type: {state.lastAar.operationType}</div>
-                  <div>Days: {state.lastAar.days}</div>
-                  <div>Losses: {state.lastAar.losses}</div>
-                  <div>
-                    Remaining Supplies: A{state.lastAar.remainingSupplies.ammo} / F
-                    {state.lastAar.remainingSupplies.fuel} / M
-                    {state.lastAar.remainingSupplies.medSpares}
-                  </div>
-                  <div className="space-y-1">
-                    <div className="text-[10px] uppercase tracking-[0.2em] text-text-secondary">
-                      Top Factors
-                    </div>
-                    {state.lastAar.topFactors.map((factor, idx) => (
-                      <div key={`${factor.name}-${idx}`}>
-                        {factor.name}: {factor.value} ({factor.delta}) — {factor.why}
-                      </div>
-                    ))}
-                  </div>
-                  <div className="space-y-1">
-                    <div className="text-[10px] uppercase tracking-[0.2em] text-text-secondary">
-                      Phases
-                    </div>
-                    {state.lastAar.phases.map((phase, idx) => (
-                      <div key={`${phase.phase}-${idx}`}>
-                        {phase.phase} Day {phase.startDay}–{phase.endDay}: Progress {phase.summary.progressDelta}, Losses{' '}
-                        {phase.summary.losses}
-                      </div>
-                    ))}
-                  </div>
+              <div className="space-y-2 text-xs font-mono">
+                <div>Outcome: {state.lastAar.outcome}</div>
+                <div>Target: {state.lastAar.target}</div>
+                <div>Op Type: {state.lastAar.operationType}</div>
+                <div>Days: {state.lastAar.days}</div>
+                <div>Losses: {state.lastAar.losses}</div>
+                <div>Enemy Losses: {state.lastAar.enemyLosses}</div>
+                <div>
+                  Remaining Supplies: A{state.lastAar.remainingSupplies.ammo} / F
+                  {state.lastAar.remainingSupplies.fuel} / M
+                  {state.lastAar.remainingSupplies.medSpares}
                 </div>
-              ) : (
-                <div className="space-y-2 text-xs font-mono">
-                  <div>Outcome: {state.lastAar.outcome}</div>
-                  <div>Reason: {state.lastAar.reason}</div>
-                  <div>Target: {state.lastAar.target}</div>
-                  <div>Ticks: {state.lastAar.ticks}</div>
-                  <div>
-                    Casualties: Your {state.lastAar.yourCasualties} / Enemy {state.lastAar.enemyCasualties}
+                <div className="space-y-1">
+                  <div className="text-[10px] uppercase tracking-[0.2em] text-text-secondary">
+                    Top Factors
                   </div>
-                  <div>
-                    Supplies Used: A{state.lastAar.suppliesUsed.ammo} / F{state.lastAar.suppliesUsed.fuel} / M
-                    {state.lastAar.suppliesUsed.medSpares}
-                  </div>
-                  <div className="space-y-1">
-                    <div className="text-[10px] uppercase tracking-[0.2em] text-text-secondary">
-                      Key Moments
+                  {state.lastAar.topFactors.map((factor, idx) => (
+                    <div key={`${factor.name}-${idx}`}>
+                      {factor.name}: {factor.value} ({factor.delta}) — {factor.why}
                     </div>
-                    {state.lastAar.keyMoments.map((moment, idx) => (
-                      <div key={`${moment}-${idx}`}>{moment}</div>
-                    ))}
-                  </div>
-                  <div className="space-y-1">
-                    <div className="text-[10px] uppercase tracking-[0.2em] text-text-secondary">
-                      Top Factors
-                    </div>
-                    {state.lastAar.topFactors.map((factor, idx) => (
-                      <div key={`${factor.name}-${idx}`}>
-                        {factor.name}: {factor.value} — {factor.why}
-                      </div>
-                    ))}
-                  </div>
+                  ))}
                 </div>
-              )}
+                <div className="space-y-1">
+                  <div className="text-[10px] uppercase tracking-[0.2em] text-text-secondary">
+                    Phases
+                  </div>
+                  {state.lastAar.phases.map((phase, idx) => (
+                    <div key={`${phase.phase}-${idx}`} className="space-y-1">
+                      <div>
+                        {phase.phase} Day {phase.startDay}–{phase.endDay}: Progress {phase.summary.progressDelta.toFixed(3)}, Losses{' '}
+                        {phase.summary.losses}, Enemy {phase.summary.enemyLosses}
+                      </div>
+                      {phase.days.slice(-5).map(day => (
+                        <div key={`${day.dayIndex}-${day.phase}`} className="pl-2 text-text-secondary">
+                          D{day.dayIndex}: Δ{day.progressDelta.toFixed(3)} | You {Object.values(day.yourLosses).reduce((a, b) => a + b, 0)} / Enemy {Object.values(day.enemyLosses).reduce((a, b) => a + b, 0)}
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              </div>
               <button
                 onClick={handleAckAar}
                 className="btn-action px-3 py-2 text-[10px] uppercase tracking-[0.2em] border border-contested/40 text-contested"

@@ -177,9 +177,43 @@ export type OperationDecisionSummary = {
 export type PhaseSummary = {
   progressDelta: number;
   losses: number;
+  enemyLosses: number;
   suppliesSpent: Supplies;
   readinessDelta: number;
   cohesionDelta: number;
+  enemyCohesionDelta: number;
+};
+
+export type BattleSupplySnapshot = {
+  ammoBefore: number;
+  fuelBefore: number;
+  medBefore: number;
+  ammoSpent: number;
+  fuelSpent: number;
+  medSpent: number;
+  ammoRatio: number;
+  fuelRatio: number;
+  medRatio: number;
+  shortageFlags: string[];
+};
+
+export type BattleDayTick = {
+  dayIndex: number;
+  globalDay: number;
+  phase: string;
+  yourPower: number;
+  enemyPower: number;
+  yourAdvantage: number;
+  initiative: boolean;
+  progressDelta: number;
+  yourLosses: Record<string, number>;
+  enemyLosses: Record<string, number>;
+  yourRemaining: Record<string, number>;
+  enemyRemaining: Record<string, number>;
+  yourCohesion: number;
+  enemyCohesion: number;
+  supplies: BattleSupplySnapshot;
+  tags: string[];
 };
 
 export type PhaseRecord = {
@@ -188,6 +222,7 @@ export type PhaseRecord = {
   endDay: number;
   decisions: Record<string, string> | null;
   summary: PhaseSummary;
+  days: BattleDayTick[];
   events: { name: string; value: number; delta: string; why: string; phase: string }[];
 };
 
@@ -204,18 +239,8 @@ export type OperationState = {
   decisions: OperationDecisionSummary;
   phaseHistory: PhaseRecord[];
   sampledEnemyStrength: number | null;
-};
-
-export type RaidState = {
-  tick: number;
-  maxTicks: number;
-  yourCohesion: number;
-  enemyCohesion: number;
-  yourCasualties: number;
-  enemyCasualties: number;
-  outcome: string | null;
-  reason: string | null;
-  tickLog: { tick: number; event: string; beat: string }[];
+  latestBattleDay: BattleDayTick | null;
+  currentPhaseDays: BattleDayTick[];
 };
 
 export type TopFactor = {
@@ -232,25 +257,11 @@ export type AfterActionReport = {
   operationType: string;
   days: number;
   losses: number;
+  enemyLosses: number;
   remainingSupplies: Supplies;
   topFactors: TopFactor[];
   phases: PhaseRecord[];
   events: { name: string; value: number; delta: string; why: string; phase: string }[];
-};
-
-export type RaidReport = {
-  kind: "raid";
-  outcome: string;
-  reason: string;
-  target: string;
-  ticks: number;
-  yourCasualties: number;
-  enemyCasualties: number;
-  yourRemaining: Record<string, number>;
-  enemyRemaining: Record<string, number>;
-  suppliesUsed: Supplies;
-  keyMoments: string[];
-  topFactors: { name: string; value: number; why: string }[];
 };
 
 export type GameStateResponse = {
@@ -270,8 +281,7 @@ export type GameStateResponse = {
   barracks: BarracksState;
   logistics: LogisticsState;
   operation: OperationState | null;
-  raid: RaidState | null;
-  lastAar: AfterActionReport | RaidReport | null;
+  lastAar: AfterActionReport | null;
   mapView?: MapView;
 };
 

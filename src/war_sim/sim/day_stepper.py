@@ -13,8 +13,6 @@ class DayAdvanceError(RuntimeError):
 
 
 def advance_day(state: GameState, rng_provider, factor_log: FactorLog) -> None:
-    if state.raid_session is not None:
-        raise DayAdvanceError("Raid in progress")
     if state.operation is not None:
         op = state.operation
         if op.pending_phase_record is not None:

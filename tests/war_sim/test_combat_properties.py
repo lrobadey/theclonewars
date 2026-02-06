@@ -4,8 +4,8 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from tests.helpers.factories import make_state
-from war_sim.systems.combat import calculate_power
 from war_sim.domain.ops_models import OperationTarget
+from war_sim.systems.combat import calculate_power
 
 
 @given(
@@ -38,13 +38,15 @@ def test_raid_bounds_and_conservation(seed: int, your_inf: int, enemy_inf: int) 
         state.contested_planet.enemy.fortification = 1.0
 
     state = make_state(seed=seed, apply=apply)
+    initial_you = state.task_force.composition.infantry
+    initial_enemy = state.contested_planet.enemy.infantry
     report = state.raid(OperationTarget.FOUNDRY)
 
-    assert report.ticks <= state.rules.globals.raid_max_ticks
-    assert report.your_casualties >= 0
-    assert report.enemy_casualties >= 0
-    assert report.your_remaining["infantry"] + report.your_casualties == your_inf
-    assert report.enemy_remaining["infantry"] + report.enemy_casualties == enemy_inf
+    assert report.days >= 1
+    assert report.losses >= 0
+    assert report.enemy_losses >= 0
+    assert state.task_force.composition.infantry <= initial_you
+    assert state.contested_planet.enemy.infantry <= initial_enemy
     assert 0.0 <= state.task_force.cohesion <= 1.0
     assert 0.0 <= state.contested_planet.enemy.cohesion <= 1.0
 
@@ -65,6 +67,6 @@ def test_raid_determinism_same_seed() -> None:
     r2 = s2.raid(OperationTarget.FOUNDRY)
 
     assert r1.outcome == r2.outcome
-    assert r1.ticks == r2.ticks
-    assert r1.your_casualties == r2.your_casualties
-    assert r1.enemy_casualties == r2.enemy_casualties
+    assert r1.days == r2.days
+    assert r1.losses == r2.losses
+    assert r1.enemy_losses == r2.enemy_losses

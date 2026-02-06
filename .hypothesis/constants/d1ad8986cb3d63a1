@@ -1,0 +1,4 @@
+# file: /Users/lucarobadey/Desktop/Projects/Coding/The Clone Wars/src/war_sim/systems/battle_sim.py
+# hypothesis_version: 6.151.4
+
+[0.0, 0.015, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.5, 0.6, 0.7, 0.85, 0.9, 0.95, 1.0, 1.05, 1.1, 1.4, 2.5, 4.0, 12.0, 25.0, 'INITIATIVE', 'WALKER_SCREEN', 'advantage', 'ammo', 'ammo_mult', 'ammo_shortage', 'approach_axis', 'casualties', 'casualty_reduction', 'cohesion', 'combat', 'conserve', 'direct', 'enemy_cohesion', 'enemy_power', 'engagement_posture', 'exploit_vs_secure', 'fire_support_prep', 'fort_erosion_mult', 'fuel', 'fuel_mult', 'fuel_shortage', 'infantry', 'initiative_bonus', 'intensity', 'intensity_mult', 'loss_mod', 'loss_multiplier', 'med_mult', 'med_shortage', 'med_spares', 'methodical', 'preparatory', 'progress', 'progress_mod', 'progress_mult', 'progress_penalty', 'readiness', 'secure', 'siege', 'support', 'variance_mult', 'variance_reduction', 'walker_screen', 'walkers', 'your_power']

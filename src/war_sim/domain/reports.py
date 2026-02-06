@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from war_sim.domain.events import FactorEvent
 from war_sim.domain.ops_models import OperationPhaseRecord, OperationTarget
@@ -19,7 +19,9 @@ class TopFactor:
 
 @dataclass(frozen=True)
 class RaidReport:
-    outcome: str  # "VICTORY" / "DEFEAT" / "STALEMATE"
+    """Deprecated compatibility model; raids are now unified operations."""
+
+    outcome: str
     reason: str
     target: OperationTarget
     ticks: int
@@ -29,9 +31,8 @@ class RaidReport:
     enemy_remaining: dict[str, int]
     supplies_used: Supplies
     key_moments: list[str]
-    tick_log: list["CombatTick"]
-    top_factors: list[TopFactor] = field(default_factory=list)
-    events: list[FactorEvent] = field(default_factory=list)
+    top_factors: list[TopFactor]
+    events: list[FactorEvent]
 
 
 @dataclass(frozen=True)
@@ -41,10 +42,8 @@ class AfterActionReport:
     operation_type: str
     days: int
     losses: int
+    enemy_losses: int
     remaining_supplies: Supplies
     top_factors: list[TopFactor]
     phases: list[OperationPhaseRecord]
     events: list[FactorEvent]
-
-
-from war_sim.systems.combat import CombatTick  # noqa: E402
