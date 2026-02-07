@@ -1,0 +1,4 @@
+# file: /Users/lucarobadey/Desktop/Projects/Coding/The Clone Wars/src/war_sim/view/map_view.py
+# hypothesis_version: 6.151.4
+
+[0.0, 0.3, 0.6, 100, 400, 1200, 'CONTESTED SYSTEM', 'CORE WORLDS', 'DEEP SPACE', 'No active op', 'Production offline', 'Production online', 'active', 'aggregatedTravelDays', 'blocked', 'connections', 'contested', 'contested_', 'core', 'danger', 'deep', 'destination', 'disrupted', 'from', 'good', 'id', 'interdictionRisk', 'isLabeled', 'label', 'large', 'legs', 'maxRisk', 'medium', 'nodes', 'origin', 'risk', 'severity', 'size', 'status', 'subtitle1', 'subtitle2', 'to', 'totalTravelDays', 'travelDays', 'type', 'underlyingLegs', 'warn', 'x', 'y']

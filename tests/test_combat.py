@@ -4,21 +4,22 @@ from clone_wars.engine.state import GameState
 
 
 def test_power_calculation() -> None:
-    power = calculate_power(100, 2, 1, cohesion=1.0)
-    expected = calculate_power(100, 2, 1, cohesion=1.0)
-    assert power == expected
+    baseline = calculate_power(100, 2, 1, cohesion=1.0)
+    reinforced = calculate_power(130, 2, 1, cohesion=1.0)
+    assert baseline > 0.0
+    assert reinforced > baseline
 
 
 def test_power_with_cohesion() -> None:
-    power = calculate_power(100, 2, 1, cohesion=0.5)
-    expected = calculate_power(100, 2, 1, cohesion=0.5)
-    assert power == expected
+    full = calculate_power(100, 2, 1, cohesion=1.0)
+    degraded = calculate_power(100, 2, 1, cohesion=0.5)
+    assert degraded < full
 
 
 def test_fortification_bonus() -> None:
-    power = calculate_power(100, 0, 0, cohesion=1.0, fortification=1.5)
-    expected = calculate_power(100, 0, 0, cohesion=1.0, fortification=1.5)
-    assert power == expected
+    no_fort = calculate_power(100, 0, 0, cohesion=1.0, fortification=1.0)
+    fortified = calculate_power(100, 0, 0, cohesion=1.0, fortification=1.5)
+    assert fortified < no_fort
 
 
 def test_raid_operation_generates_multi_day_ticks() -> None:

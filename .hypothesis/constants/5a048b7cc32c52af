@@ -1,0 +1,4 @@
+# file: /Users/lucarobadey/Desktop/Projects/Coding/The Clone Wars/sim-v2/run_server.py
+# hypothesis_version: 6.151.4
+
+[1.0, 8000, '--build', '--host', '--no-build', '--no-open', '--no-reload', '--port', '0.0.0.0', '127.0.0.1', '::', '__main__', 'build', 'client', 'dist', 'index.html', 'install', 'node_modules', 'npm', 'run', 'server.main:app', 'sim-v2', 'src', 'store_true']
