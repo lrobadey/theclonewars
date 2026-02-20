@@ -588,7 +588,7 @@ h1, h2, h3, h4 {
    Node Bars
    ================================ */
 .nodebar-shell {
-  max-height: 52vh;
+  height: min(84vh, 860px);
   border-radius: 14px 14px 0 0;
   border-left: 0;
   border-right: 0;
@@ -612,10 +612,14 @@ h1, h2, h3, h4 {
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
   gap: 1rem;
+  flex: 0 0 auto;
+  position: sticky;
+  top: 0;
+  z-index: 2;
 }
 
 .nodebar-content {
-  max-height: calc(52vh - 74px);
+  flex: 1 1 auto;
 }
 
 .nodebar-chiprow {
@@ -625,6 +629,48 @@ h1, h2, h3, h4 {
 
 .nodebar-grid {
   align-items: start;
+}
+
+.nodebar-modules {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.nodebar-module {
+  overflow: hidden;
+}
+
+.nodebar-module-header {
+  width: 100%;
+  border: 0;
+  background: rgba(0, 0, 0, 0.12);
+  color: inherit;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  text-align: left;
+}
+
+.nodebar-module-header:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.nodebar-module-chevron {
+  display: inline-flex;
+  transition: transform 0.2s ease;
+  color: var(--text-secondary);
+}
+
+.nodebar-module-chevron.open {
+  transform: rotate(180deg);
+}
+
+.nodebar-module-body {
+  padding: 0 1rem 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .table-compact {
@@ -731,9 +777,7 @@ h1, h2, h3, h4 {
 
 @media (max-width: 768px) {
   .nodebar-shell {
-    max-height: 60vh;
-  }
-  .nodebar-content {
-    max-height: calc(60vh - 74px);
+    height: 100vh;
+    border-radius: 0;
   }
 }

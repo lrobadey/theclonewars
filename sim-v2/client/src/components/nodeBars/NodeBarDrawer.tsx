@@ -114,7 +114,7 @@ export function NodeBarDrawer({
           animate={{ y: 0 }}
           exit={{ y: '100%' }}
           transition={{ type: 'spring', damping: 26, stiffness: 220, mass: 0.9 }}
-          className={`nodebar-shell glass-surface glass-blur glass-strong glass-elev-high ${glassToneClass} fixed bottom-0 left-0 right-0 z-40 overflow-hidden ${meta.tone}`}
+          className={`nodebar-shell glass-surface glass-blur glass-strong glass-elev-high ${glassToneClass} fixed bottom-0 left-0 right-0 z-40 overflow-hidden flex flex-col ${meta.tone}`}
         >
           <div className={`nodebar-header glass-surface glass-strong glass-elev-low ${glassToneClass} relative m-2 px-6 py-4 border-b border-white/10`}>
             <button
@@ -165,7 +165,7 @@ export function NodeBarDrawer({
             </div>
           </div>
 
-          <div className="nodebar-content overflow-y-auto">
+          <div className="nodebar-content overflow-y-auto px-2 pb-2">
             <AnimatePresence mode="wait">
               {selectedNodeId === 'new_system_core' && (
                 <motion.div
