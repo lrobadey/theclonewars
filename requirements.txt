@@ -3,3 +3,4 @@ fastapi
 uvicorn[standard]
 jinja2
 python-multipart
+hypothesis>=6.0.0

@@ -29,29 +29,19 @@ def test_reducer_blocks_advance_during_active_operation():
     state = _load_state()
     result = apply_action(
         state,
-        StartOperation(intent=OperationIntent(target=OperationTarget.FOUNDRY, op_type=OperationTypeId.RAID)),
+        StartOperation(intent=OperationIntent(target=OperationTarget.FOUNDRY, op_type=OperationTypeId.CAMPAIGN)),
     )
     assert result.ok
     blocked = apply_action(state, AdvanceDay())
     assert blocked.ok is False
 
 
-def test_determinism_raid_operation():
+def test_non_campaign_operation_rejected():
     s1 = _load_state()
-    s2 = _load_state()
-
     intent = OperationIntent(target=OperationTarget.FOUNDRY, op_type=OperationTypeId.RAID)
-    assert apply_action(s1, StartOperation(intent=intent)).ok
-    assert apply_action(s2, StartOperation(intent=intent)).ok
-
-    _drive_to_completion(s1)
-    _drive_to_completion(s2)
-
-    report1 = s1.last_aar
-    report2 = s2.last_aar
-    assert report1 and report2
-    assert report1.outcome == report2.outcome
-    assert [f.name for f in report1.top_factors] == [f.name for f in report2.top_factors]
+    result = apply_action(s1, StartOperation(intent=intent))
+    assert result.ok is False
+    assert "Campaign operations only" in (result.message or "")
 
 
 def test_determinism_operation():

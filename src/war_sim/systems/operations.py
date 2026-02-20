@@ -61,8 +61,6 @@ def start_operation(state: GameState, plan: OperationPlan, rng) -> None:
 def start_operation_phased(state: GameState, intent: OperationIntent, rng) -> None:
     if state.operation is not None:
         raise RuntimeError("Only one active operation allowed")
-    if intent.target != OperationTarget.FOUNDRY:
-        raise RuntimeError("MVP currently supports Droid Foundry operations only.")
     if _get_objective_status(state, intent.target) == ObjectiveStatus.SECURED:
         raise RuntimeError(f"Cannot operate against {intent.target.value}; objective already secured")
 

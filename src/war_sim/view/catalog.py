@@ -9,11 +9,12 @@ def build_catalog(rules: Ruleset, scenario: ScenarioData) -> dict:
         return value.replace("_", " ").title()
 
     operation_targets = [
-        {"id": "foundry", "label": "Droid Foundry"},
+        {"id": obj.id, "label": obj.name}
+        for obj in rules.objectives.values()
     ]
-
     operation_types = [
-        {"id": op.id, "label": op.name} for op in rules.operation_types.values()
+        {"id": op.id, "label": op.name}
+        for op in rules.operation_types.values()
     ]
 
     return {

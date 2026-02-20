@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from clone_wars.engine.ops import OperationTarget
-from clone_wars.engine.state import GameState
+from tests.helpers.factories import make_state
+from war_sim.domain.ops_models import OperationTarget
+from war_sim.domain.types import Supplies
 
 
-def _configure_baseline(state: GameState) -> None:
+def _configure_baseline(state) -> None:
     state.task_force.composition.infantry = 180
     state.task_force.composition.walkers = 3
     state.task_force.composition.support = 4
@@ -15,13 +16,11 @@ def _configure_baseline(state: GameState) -> None:
 
 
 def test_shortage_increases_losses() -> None:
-    full = GameState.new(seed=17)
-    _configure_baseline(full)
-    full.set_front_supplies(type(full.front_supplies)(ammo=400, fuel=300, med_spares=200))
+    full = make_state(seed=17, apply=_configure_baseline)
+    full.set_front_supplies(Supplies(ammo=400, fuel=300, med_spares=200))
 
-    low = GameState.new(seed=17)
-    _configure_baseline(low)
-    low.set_front_supplies(type(low.front_supplies)(ammo=40, fuel=300, med_spares=200))
+    low = make_state(seed=17, apply=_configure_baseline)
+    low.set_front_supplies(Supplies(ammo=40, fuel=300, med_spares=200))
 
     report_full = full.raid(OperationTarget.FOUNDRY)
     report_low = low.raid(OperationTarget.FOUNDRY)
@@ -30,13 +29,16 @@ def test_shortage_increases_losses() -> None:
 
 
 def test_walker_screen_reduces_infantry_losses() -> None:
-    with_walkers = GameState.new(seed=23)
-    _configure_baseline(with_walkers)
-    with_walkers.task_force.composition.walkers = 8
+    def with_extra_walkers(state):
+        _configure_baseline(state)
+        state.task_force.composition.walkers = 8
 
-    without_walkers = GameState.new(seed=23)
-    _configure_baseline(without_walkers)
-    without_walkers.task_force.composition.walkers = 0
+    def no_walkers(state):
+        _configure_baseline(state)
+        state.task_force.composition.walkers = 0
+
+    with_walkers = make_state(seed=23, apply=with_extra_walkers)
+    without_walkers = make_state(seed=23, apply=no_walkers)
 
     with_walkers.raid(OperationTarget.FOUNDRY)
     without_walkers.raid(OperationTarget.FOUNDRY)
@@ -45,13 +47,16 @@ def test_walker_screen_reduces_infantry_losses() -> None:
 
 
 def test_medics_improve_readiness_recovery() -> None:
-    with_medics = GameState.new(seed=31)
-    _configure_baseline(with_medics)
-    with_medics.task_force.composition.support = 8
+    def with_extra_medics(state):
+        _configure_baseline(state)
+        state.task_force.composition.support = 8
 
-    without_medics = GameState.new(seed=31)
-    _configure_baseline(without_medics)
-    without_medics.task_force.composition.support = 0
+    def no_medics(state):
+        _configure_baseline(state)
+        state.task_force.composition.support = 0
+
+    with_medics = make_state(seed=31, apply=with_extra_medics)
+    without_medics = make_state(seed=31, apply=no_medics)
 
     with_medics.raid(OperationTarget.FOUNDRY)
     without_medics.raid(OperationTarget.FOUNDRY)
@@ -60,10 +65,8 @@ def test_medics_improve_readiness_recovery() -> None:
 
 
 def test_unified_raid_operation_deterministic() -> None:
-    first = GameState.new(seed=99)
-    second = GameState.new(seed=99)
-    _configure_baseline(first)
-    _configure_baseline(second)
+    first = make_state(seed=99, apply=_configure_baseline)
+    second = make_state(seed=99, apply=_configure_baseline)
 
     report1 = first.raid(OperationTarget.FOUNDRY)
     report2 = second.raid(OperationTarget.FOUNDRY)
@@ -72,4 +75,4 @@ def test_unified_raid_operation_deterministic() -> None:
     assert report1.days == report2.days
     assert report1.losses == report2.losses
     assert report1.enemy_losses == report2.enemy_losses
-    assert [factor.name for factor in report1.top_factors] == [factor.name for factor in report2.top_factors]
+    assert [f.name for f in report1.top_factors] == [f.name for f in report2.top_factors]

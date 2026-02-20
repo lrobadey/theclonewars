@@ -16,6 +16,7 @@ class BattleDayResult:
     readiness_delta: float
     cohesion_delta: float
     enemy_cohesion_delta: float
+    defender_readiness_delta: float
     attacker_collapsed: bool
     defender_collapsed: bool
 
@@ -263,6 +264,8 @@ class BattleSimulator:
             * defender_engagement_ratio
         )
 
+        your_cas_mean *= max(0.5, 1.0 + modifiers["loss_mod"])
+
         shortage_flags: list[str] = []
         your_cas_mean = _apply_shortage_effect(
             your_cas_mean,
@@ -385,6 +388,12 @@ class BattleSimulator:
 
         attacker.readiness = _clamp(attacker.readiness + readiness_delta, 0.0, 1.0)
 
+        defender_casualty_ratio = 0.0
+        if defender_size_before > 0:
+            defender_casualty_ratio = sum(enemy_losses.values()) / defender_size_before
+        defender_readiness_delta = -((0.015 * intensity) + (defender_casualty_ratio * 0.20))
+        defender.readiness = _clamp(defender.readiness + defender_readiness_delta, 0.0, 1.0)
+
         cohesion_delta = attacker.cohesion - attacker_cohesion_before
         enemy_cohesion_delta = defender.cohesion - defender_cohesion_before
 
@@ -467,9 +476,11 @@ class BattleSimulator:
         log("terrain_defender_power_mult", defender_power_mult, "combat", "Terrain defender power modifier")
         log("terrain_attacker_progress_mult", attacker_progress_mult, "progress", "Terrain attacker progress modifier")
         log("terrain_attacker_loss_mult", attacker_loss_mult, "casualties", "Terrain attacker casualty pressure")
+        log("decision_loss_mod", modifiers["loss_mod"], "casualties", "Decision-driven casualty modifier")
         log("advantage", your_advantage, "progress", "Power ratio advantage")
         log("progress", progress_delta, "progress", "Daily progress contribution")
         log("readiness", readiness_delta, "readiness", "Daily readiness change")
+        log("defender_readiness", defender_readiness_delta, "readiness", "Daily defender readiness change")
         log("cohesion", cohesion_delta, "cohesion", "Daily attacker cohesion change")
         log("enemy_cohesion", enemy_cohesion_delta, "enemy_cohesion", "Daily defender cohesion change")
 
@@ -481,6 +492,7 @@ class BattleSimulator:
             readiness_delta=readiness_delta,
             cohesion_delta=cohesion_delta,
             enemy_cohesion_delta=enemy_cohesion_delta,
+            defender_readiness_delta=defender_readiness_delta,
             attacker_collapsed=attacker_collapsed,
             defender_collapsed=defender_collapsed,
         )

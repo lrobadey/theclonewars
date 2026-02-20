@@ -58,6 +58,17 @@ def test_non_foundry_operation_rejected() -> None:
         raise AssertionError("Expected non-foundry target to be rejected")
 
 
+def test_non_campaign_operation_rejected() -> None:
+    state = make_state()
+    intent = OperationIntent(target=OperationTarget.FOUNDRY, op_type=OperationTypeId.RAID)
+    try:
+        state.start_operation_phased(intent)
+    except RuntimeError as exc:
+        assert "Campaign operations only" in str(exc)
+    else:
+        raise AssertionError("Expected non-campaign operation type to be rejected")
+
+
 def test_phased_operation_flow_and_aar_integrity() -> None:
     state = make_state()
     intent = OperationIntent(target=OperationTarget.FOUNDRY, op_type=OperationTypeId.CAMPAIGN)

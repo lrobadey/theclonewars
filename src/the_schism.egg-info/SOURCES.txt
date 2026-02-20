@@ -4,6 +4,7 @@ src/clone_wars/__init__.py
 src/clone_wars/__main__.py
 src/clone_wars/dev.py
 src/clone_wars/data/__init__.py
+src/clone_wars/data/battle.json
 src/clone_wars/data/globals.json
 src/clone_wars/data/objectives.json
 src/clone_wars/data/operation_types.json
@@ -70,6 +71,7 @@ src/the_schism.egg-info/top_level.txt
 src/war_sim/__init__.py
 src/war_sim/domain/__init__.py
 src/war_sim/domain/actions.py
+src/war_sim/domain/battle_models.py
 src/war_sim/domain/events.py
 src/war_sim/domain/ops_models.py
 src/war_sim/domain/reports.py
@@ -84,6 +86,7 @@ src/war_sim/sim/rng.py
 src/war_sim/sim/state.py
 src/war_sim/systems/__init__.py
 src/war_sim/systems/barracks.py
+src/war_sim/systems/battle_sim.py
 src/war_sim/systems/combat.py
 src/war_sim/systems/enemy.py
 src/war_sim/systems/logistics.py

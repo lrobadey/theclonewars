@@ -44,9 +44,9 @@ def test_catalog_contract_smoke():
     data = res.json()
 
     assert isinstance(data.get("operationTargets"), list)
-    assert [item["id"] for item in data["operationTargets"]] == ["foundry"]
-    assert data["operationTargets"][0]["label"] == "Droid Foundry"
+    assert [item["id"] for item in data["operationTargets"]] == ["foundry", "comms", "power"]
     assert isinstance(data.get("operationTypes"), list)
+    assert [item["id"] for item in data["operationTypes"]] == ["raid", "campaign", "siege"]
     assert isinstance(data.get("decisions"), dict)
 
 
@@ -120,17 +120,21 @@ def test_production_quantity_validation():
     assert res.status_code == 422
 
 
-def test_foundry_only_operation_lock():
+def test_non_foundry_operation_allowed():
     app = create_app()
     client = TestClient(app)
 
-    denied = client.post("/api/actions/operation/start", json={"target": "comms", "opType": "campaign"})
-    assert denied.status_code == 200
-    denied_payload = denied.json()
-    assert denied_payload["ok"] is False
-    assert "Droid Foundry" in (denied_payload.get("message") or "")
+    allowed = client.post("/api/actions/operation/start", json={"target": "comms", "opType": "campaign"})
+    assert allowed.status_code == 200
+    allowed_payload = allowed.json()
+    assert allowed_payload["ok"] is True
 
-    allowed = client.post("/api/actions/operation/start", json={"target": "foundry", "opType": "campaign"})
+
+def test_non_campaign_operation_allowed():
+    app = create_app()
+    client = TestClient(app)
+
+    allowed = client.post("/api/actions/operation/start", json={"target": "foundry", "opType": "raid"})
     assert allowed.status_code == 200
     allowed_payload = allowed.json()
     assert allowed_payload["ok"] is True
