@@ -36,6 +36,8 @@ class TransportOrder:
     in_transit_leg: tuple[LocationId, LocationId] | None = None
     # Carrier ID (ship_id or shipment_id) for tracking
     carrier_id: str | None = None
+    # Last known dispatch block reason, if order cannot launch.
+    blocked_reason: str | None = None
 
 
 class ShipState(str, Enum):
@@ -168,7 +170,7 @@ class TransitLogEntry:
 
     day: int
     message: str
-    event_type: str  # "departed", "arrived", "interdicted", "loaded"
+    event_type: str  # "departed", "arrived", "interdicted", "loaded", "blocked"
 
 
 @dataclass()
@@ -185,6 +187,7 @@ class LogisticsState:
     # Ground/Legacy Shipments
     shipments: list[Shipment]
     next_shipment_id: int
+    next_order_id: int
 
     # All active orders in the system (waiting or moving)
     active_orders: list[TransportOrder] = field(default_factory=list)
@@ -247,6 +250,7 @@ class LogisticsState:
             ships=fleet,
             shipments=[],
             next_shipment_id=1,
+            next_order_id=1,
             active_orders=[],
         )
 
@@ -446,8 +450,16 @@ class LogisticsService:
                         existing_order=order,
                         current_day=current_day,
                     )
-                except ValueError:
-                    pass
+                except ValueError as exc:
+                    reason = str(exc)
+                    if order.blocked_reason != reason:
+                        order.blocked_reason = reason
+                        self._log_event(
+                            state,
+                            current_day,
+                            f"Order {order.order_id} blocked at {order.current_location.value}: {reason}",
+                            "blocked",
+                        )
 
     def create_shipment(
         self,
@@ -499,9 +511,10 @@ class LogisticsService:
 
         if existing_order:
             order = existing_order
+            order.blocked_reason = None
         else:
             order = TransportOrder(
-                order_id=str(len(state.active_orders) + 1),
+                order_id=str(state.next_order_id),
                 origin=origin,
                 final_destination=final_destination,
                 supplies=supplies,
@@ -509,6 +522,7 @@ class LogisticsService:
                 current_location=origin,
                 status="pending",
             )
+            state.next_order_id += 1
             state.active_orders.append(order)
 
         state.depot_stocks[origin] = Supplies(
@@ -547,6 +561,7 @@ class LogisticsService:
         order.in_transit_leg = (origin, destination)
         order.status = "transit"
         order.carrier_id = ship.ship_id
+        order.blocked_reason = None
         self._log_event(state, current_day, f"{ship.name} departed {origin.value}", "departed")
 
     def _launch_ground_convoy(
@@ -573,6 +588,7 @@ class LogisticsService:
         order.in_transit_leg = (origin, destination)
         order.status = "transit"
         order.carrier_id = str(shipment.shipment_id)
+        order.blocked_reason = None
         self._log_event(state, current_day, f"Convoy {shipment.shipment_id} departed {origin.value}", "departed")
 
     def _find_route(self, state: LogisticsState, origin: LocationId, destination: LocationId) -> Route | None:

@@ -1,0 +1,4 @@
+# file: /Users/lucarobadey/Desktop/Projects/Coding/The Clone Wars/sim-v2/server/api/mappers.py
+# hypothesis_version: 6.151.4
+
+[0.0, 0.5, 1.0, 'Comms', 'Contested Front', 'Core Hub', 'Deep Space', 'Foundry', 'Mid Depot', 'Power', 'Spaceport', '_', 'aggregatedTravelDays', 'approach_axis', 'comms', 'connections', 'contested_', 'core', 'deep', 'destination', 'end_state', 'engagement_posture', 'exploit_vs_secure', 'fire_support_prep', 'foundry', 'from', 'id', 'interdictionRisk', 'isLabeled', 'label', 'new_system_', 'nodes', 'operation', 'origin', 'power', 'risk', 'risk_tolerance', 'severity', 'size', 'status', 'subtitle1', 'subtitle2', 'tactical', 'to', 'travelDays', 'type', 'underlyingLegs', 'x', 'y']

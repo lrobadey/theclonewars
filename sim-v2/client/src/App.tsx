@@ -116,14 +116,18 @@ function App() {
         <AnimatePresence>
           {toasts.map(toast => {
             const tone =
-              toast.kind === 'error' ? 'border-contested text-contested' : toast.kind === 'accent' ? 'border-deep text-deep' : 'border-core text-core';
+              toast.kind === 'error'
+                ? 'glass-tone-contested text-contested'
+                : toast.kind === 'accent'
+                  ? 'glass-tone-deep text-deep'
+                  : 'glass-tone-core text-core';
             return (
             <motion.div
               key={toast.id}
               initial={{ x: 100, opacity: 0 }}
               animate={{ x: 0, opacity: 1 }}
               exit={{ x: 100, opacity: 0 }}
-              className={`toast ${tone}`}
+              className={`toast glass-surface glass-blur glass-strong glass-elev-high glass-highlight ${tone}`}
             >
               <div className="w-2 h-2 bg-current rounded-full animate-pulse" />
               {toast.message}

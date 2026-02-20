@@ -5,6 +5,7 @@ import { Chip } from './ui/Chip';
 import { InlineProgress } from './ui/InlineProgress';
 import { KpiTile } from './ui/KpiTile';
 import { SectionHeader } from './ui/SectionHeader';
+import { GlassSurface } from '../ui/GlassSurface';
 
 interface DeepSpaceBarProps {
   state: GameStateResponse;
@@ -22,6 +23,35 @@ function statusFromRisk(risk: number) {
   if (risk > 0.6) return 'blocked';
   if (risk > 0.3) return 'disrupted';
   return 'active';
+}
+
+function getReachableDestinations(
+  origin: string,
+  routes: GameStateResponse['logistics']['routes']
+): string[] {
+  const graph = new Map<string, string[]>();
+  for (const route of routes) {
+    const next = graph.get(route.origin) ?? [];
+    next.push(route.destination);
+    graph.set(route.origin, next);
+  }
+
+  const queue: string[] = [origin];
+  const visited = new Set<string>([origin]);
+  const reachable: string[] = [];
+
+  while (queue.length > 0) {
+    const node = queue.shift();
+    if (!node) break;
+    for (const next of graph.get(node) ?? []) {
+      if (visited.has(next)) continue;
+      visited.add(next);
+      reachable.push(next);
+      queue.push(next);
+    }
+  }
+
+  return reachable;
 }
 
 export function DeepSpaceBar({ state, onActionResult }: DeepSpaceBarProps) {
@@ -54,13 +84,7 @@ export function DeepSpaceBar({ state, onActionResult }: DeepSpaceBarProps) {
   const origins = state.logistics.depots.map(depot => depot.id);
   const destinations = useMemo(() => {
     if (!payload.origin) return [];
-    return Array.from(
-      new Set(
-        state.logistics.routes
-          .filter(route => route.origin === payload.origin)
-          .map(route => route.destination)
-      )
-    );
+    return getReachableDestinations(payload.origin, state.logistics.routes);
   }, [payload.origin, state.logistics.routes]);
 
   const canDispatch =
@@ -110,7 +134,7 @@ export function DeepSpaceBar({ state, onActionResult }: DeepSpaceBarProps) {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div className="nodebar-table space-y-2">
+        <div className="nodebar-table space-y-2 glass-surface glass-strong glass-tone-deep glass-elev-low p-3">
           <div className="text-[10px] uppercase tracking-[0.2em] text-text-secondary font-mono">
             Shipments
           </div>
@@ -153,7 +177,7 @@ export function DeepSpaceBar({ state, onActionResult }: DeepSpaceBarProps) {
           </div>
         </div>
 
-        <div className="nodebar-table space-y-2">
+        <div className="nodebar-table space-y-2 glass-surface glass-strong glass-tone-deep glass-elev-low p-3">
           <div className="text-[10px] uppercase tracking-[0.2em] text-text-secondary font-mono">
             Cargo Ships
           </div>
@@ -179,17 +203,18 @@ export function DeepSpaceBar({ state, onActionResult }: DeepSpaceBarProps) {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div className="nodebar-table space-y-2">
+        <div className="nodebar-table space-y-2 glass-surface glass-strong glass-tone-deep glass-elev-low p-3">
           <div className="text-[10px] uppercase tracking-[0.2em] text-text-secondary font-mono">
             Active Orders
           </div>
-          <div className="table-compact table-cols-5">
+          <div className="table-compact">
             <div className="table-header">
               <span>Order</span>
               <span>Route</span>
               <span>Status</span>
               <span>Carrier</span>
               <span>Leg</span>
+              <span>Blocked Reason</span>
             </div>
             {state.logistics.activeOrders.map(order => (
               <div className="table-row" key={order.orderId}>
@@ -200,12 +225,13 @@ export function DeepSpaceBar({ state, onActionResult }: DeepSpaceBarProps) {
                 <span>{order.status}</span>
                 <span>{order.carrierId ?? '—'}</span>
                 <span>{order.inTransitLeg ? `${order.inTransitLeg[0]}→${order.inTransitLeg[1]}` : '—'}</span>
+                <span>{order.blockedReason ?? '—'}</span>
               </div>
             ))}
           </div>
         </div>
 
-        <div className="nodebar-table space-y-2">
+        <div className="nodebar-table space-y-2 glass-surface glass-strong glass-tone-deep glass-elev-low p-3">
           <div className="text-[10px] uppercase tracking-[0.2em] text-text-secondary font-mono">
             Transit Log (Last 8)
           </div>
@@ -263,8 +289,14 @@ function DispatchModal({
 }) {
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center">
-      <div className="modal-overlay absolute inset-0 bg-space/60 backdrop-blur-sm" onClick={onClose} />
-      <div className="modal-content relative w-full max-w-lg border border-deep/40 bg-space shadow-[0_0_40px_rgba(255,184,0,0.15)]">
+      <div className="modal-overlay absolute inset-0 bg-space/70" onClick={onClose} />
+      <GlassSurface
+        tone="deep"
+        elevation="high"
+        blur
+        highlight
+        className="modal-content relative w-full max-w-lg glass-strong"
+      >
         <div className="flex items-center justify-between px-5 py-3 border-b border-deep/20">
           <div className="text-deep font-bold tracking-[0.3em] text-xs uppercase">Dispatch Shipment</div>
           <button onClick={onClose} className="text-deep/70 hover:text-deep">
@@ -279,7 +311,7 @@ function DispatchModal({
             <label className="text-[10px] uppercase tracking-[0.2em] text-text-secondary font-mono">
               Origin
               <select
-                className="mt-2 w-full bg-space border border-deep/30 p-2 text-text-primary font-mono"
+                className="mt-2 w-full glass-surface glass-strong glass-tone-deep p-2 text-text-primary font-mono"
                 value={payload.origin}
                 onChange={e =>
                   onChange({
@@ -300,7 +332,7 @@ function DispatchModal({
             <label className="text-[10px] uppercase tracking-[0.2em] text-text-secondary font-mono">
               Destination
               <select
-                className="mt-2 w-full bg-space border border-deep/30 p-2 text-text-primary font-mono"
+                className="mt-2 w-full glass-surface glass-strong glass-tone-deep p-2 text-text-primary font-mono"
                 value={payload.destination}
                 onChange={e => onChange({ ...payload, destination: e.target.value })}
                 disabled={!payload.origin}
@@ -329,7 +361,7 @@ function DispatchModal({
                       supplies: { ...payload.supplies, [key]: Number(e.target.value) },
                     })
                   }
-                  className="mt-2 w-full bg-space border border-deep/30 p-2 text-text-primary font-mono"
+                  className="mt-2 w-full glass-surface glass-strong glass-tone-deep p-2 text-text-primary font-mono"
                 />
               </label>
             ))}
@@ -349,7 +381,7 @@ function DispatchModal({
                       units: { ...payload.units, [key]: Number(e.target.value) },
                     })
                   }
-                  className="mt-2 w-full bg-space border border-deep/30 p-2 text-text-primary font-mono"
+                  className="mt-2 w-full glass-surface glass-strong glass-tone-deep p-2 text-text-primary font-mono"
                 />
               </label>
             ))}
@@ -364,7 +396,7 @@ function DispatchModal({
             DISPATCH
           </button>
         </div>
-      </div>
+      </GlassSurface>
     </div>
   );
 }

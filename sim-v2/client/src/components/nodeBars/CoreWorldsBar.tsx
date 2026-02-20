@@ -5,6 +5,7 @@ import { Chip } from './ui/Chip';
 import { MetricBar } from './ui/MetricBar';
 import { KpiTile } from './ui/KpiTile';
 import { SectionHeader } from './ui/SectionHeader';
+import { GlassSurface } from '../ui/GlassSurface';
 
 interface CoreWorldsBarProps {
   state: GameStateResponse;
@@ -69,7 +70,7 @@ export function CoreWorldsBar({ state, onActionResult }: CoreWorldsBarProps) {
 
   return (
     <div className="nodebar-grid grid grid-cols-1 md:grid-cols-3 gap-6 p-6">
-      <div className="space-y-4">
+      <div className="space-y-4 glass-surface glass-strong glass-tone-core glass-elev-low p-4">
         <SectionHeader title="Logistics: Stockpiles" tone="core" />
         <div className="space-y-4">
           <MetricBar label="Fuel" value={supplies.fuel} max={5000} tone="core" />
@@ -78,7 +79,7 @@ export function CoreWorldsBar({ state, onActionResult }: CoreWorldsBarProps) {
         </div>
       </div>
 
-      <div className="space-y-4">
+      <div className="space-y-4 glass-surface glass-strong glass-tone-core glass-elev-low p-4">
         <SectionHeader title="Production: Industry" tone="core" />
         <div className="space-y-3">
           <div className="flex items-center justify-between">
@@ -142,7 +143,7 @@ export function CoreWorldsBar({ state, onActionResult }: CoreWorldsBarProps) {
           </div>
         </div>
 
-        <div className="rounded border border-core/10 bg-space/40 p-3 h-48 overflow-y-auto">
+        <div className="glass-surface glass-strong glass-tone-core glass-elev-low p-3 h-48 overflow-y-auto">
           <div className="flex items-center justify-between mb-2">
             <div className="text-[10px] font-bold text-core/70 uppercase tracking-[0.2em]">Active Queue</div>
             <Chip label="Production" tone="core" size="sm" />
@@ -171,7 +172,7 @@ export function CoreWorldsBar({ state, onActionResult }: CoreWorldsBarProps) {
         </div>
       </div>
 
-      <div className="space-y-4">
+      <div className="space-y-4 glass-surface glass-strong glass-tone-core glass-elev-low p-4">
         <SectionHeader title="Strategic Reserve: Garrison" tone="core" />
         <div className="grid grid-cols-1 gap-3">
           <KpiTile
@@ -249,8 +250,14 @@ function ModalShell({
 }) {
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center">
-      <div className="modal-overlay absolute inset-0 bg-space/60 backdrop-blur-sm" onClick={onClose} />
-      <div className="modal-content relative w-full max-w-md border border-core/40 bg-space shadow-[0_0_40px_rgba(0,212,255,0.15)]">
+      <div className="modal-overlay absolute inset-0 bg-space/70" onClick={onClose} />
+      <GlassSurface
+        tone="core"
+        elevation="high"
+        blur
+        highlight
+        className="modal-content relative w-full max-w-md glass-strong"
+      >
         <div className="flex items-center justify-between px-5 py-3 border-b border-core/20">
           <div className="text-core font-bold tracking-[0.3em] text-xs uppercase">{title}</div>
           <button onClick={onClose} className="text-core/70 hover:text-core">
@@ -261,7 +268,7 @@ function ModalShell({
           </button>
         </div>
         <div className="p-5">{children}</div>
-      </div>
+      </GlassSurface>
     </div>
   );
 }
@@ -311,7 +318,7 @@ function JobForm({
           min={1}
           value={quantity}
           onChange={e => onChangeQuantity(Number(e.target.value))}
-          className="mt-2 w-full bg-space border border-core/30 p-2 text-text-primary font-mono focus:border-core outline-none"
+          className="mt-2 w-full glass-surface glass-strong glass-tone-core p-2 text-text-primary font-mono focus:border-core"
         />
       </div>
       <button

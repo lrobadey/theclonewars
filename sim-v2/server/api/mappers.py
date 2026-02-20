@@ -273,6 +273,7 @@ def _order(order: TransportOrder) -> schemas.TransportOrder:
         units=_units(order.units),
         in_transit_leg=((order.in_transit_leg[0].value, order.in_transit_leg[1].value) if order.in_transit_leg else None),
         carrier_id=order.carrier_id,
+        blocked_reason=order.blocked_reason,
     )
 
 
@@ -437,30 +438,34 @@ def _battle_day(day: BattleDayTick) -> schemas.BattleDayTick:
 
 
 def _production_jobs(jobs: Iterable[ProductionJob], eta_summary: list[tuple[str, int, int, str]]):
+    job_list = list(jobs)
     results = []
-    for job, eta in zip(jobs, eta_summary):
+    for i, job in enumerate(job_list):
+        eta_days = eta_summary[i][2] if i < len(eta_summary) else -1
         results.append(
             schemas.ProductionJob(
                 type=job.job_type.value,
                 quantity=job.quantity,
                 remaining=job.remaining,
                 stop_at=job.stop_at.value,
-                eta_days=eta[2],
+                eta_days=eta_days,
             )
         )
     return results
 
 
 def _barracks_jobs(jobs: Iterable[BarracksJob], eta_summary: list[tuple[str, int, int, str]]):
+    job_list = list(jobs)
     results = []
-    for job, eta in zip(jobs, eta_summary):
+    for i, job in enumerate(job_list):
+        eta_days = eta_summary[i][2] if i < len(eta_summary) else -1
         results.append(
             schemas.ProductionJob(
                 type=job.job_type.value,
                 quantity=job.quantity,
                 remaining=job.remaining,
                 stop_at=job.stop_at.value,
-                eta_days=eta[2],
+                eta_days=eta_days,
             )
         )
     return results

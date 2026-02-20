@@ -433,7 +433,12 @@ def _load_battle(path: Path) -> BattleConfig:
 
 def _load_production_config(path: Path) -> tuple[ProductionConfig, BarracksConfig]:
     data = _load_json(path)
-    production_data = data.get("production", data)
+    if isinstance(data.get("production"), dict):
+        production_data = data["production"]
+    elif isinstance(data.get("factory"), dict):
+        production_data = data["factory"]
+    else:
+        production_data = data
     barracks_data = data.get("barracks", data)
 
     production = ProductionConfig(

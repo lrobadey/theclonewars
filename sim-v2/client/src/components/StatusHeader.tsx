@@ -15,7 +15,7 @@ export function StatusHeader({ state }: StatusHeaderProps) {
   const globalStatus = getGlobalStatus(state);
   
   return (
-    <header className="status-header fixed top-0 left-0 right-0 z-50 px-6 py-3">
+    <header className="status-header glass-surface glass-blur glass-tone-deep glass-elev-mid glass-highlight fixed top-0 left-0 right-0 z-50 px-6 py-3">
       <div className="flex items-center justify-center gap-2 font-sans text-sm tracking-widest">
         <span className="text-text-primary font-bold">
           THE SCHISM

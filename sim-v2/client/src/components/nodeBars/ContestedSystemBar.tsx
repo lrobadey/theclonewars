@@ -131,7 +131,7 @@ export function ContestedSystemBar({ state, catalog, onActionResult }: Contested
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="space-y-6">
           <SectionHeader title="Planet Control" tone="contested" />
-          <div className="rounded border border-white/10 bg-space/40 p-4 space-y-3">
+          <div className="glass-surface glass-strong glass-tone-contested glass-elev-low p-4 space-y-3">
             <div className="flex items-center justify-between">
               <div className="text-[10px] uppercase tracking-[0.2em] text-text-secondary font-mono">Control</div>
               <div className="text-xl font-mono font-bold">{controlPct}%</div>
@@ -146,7 +146,7 @@ export function ContestedSystemBar({ state, catalog, onActionResult }: Contested
           </div>
 
           <SectionHeader title="Objectives" tone="contested" />
-          <div className="rounded border border-white/10 bg-space/40 p-4 space-y-2">
+          <div className="glass-surface glass-strong glass-tone-contested glass-elev-low p-4 space-y-2">
             {objectives.map(obj => (
               <div key={obj.id} className="flex items-center justify-between text-sm">
                 <div className="font-mono text-text-primary uppercase tracking-[0.12em]">{obj.label}</div>
@@ -159,7 +159,7 @@ export function ContestedSystemBar({ state, catalog, onActionResult }: Contested
           </div>
 
           <SectionHeader title="Enemy Intel" tone="contested" />
-          <div className="rounded border border-white/10 bg-space/40 p-4 space-y-3">
+          <div className="glass-surface glass-strong glass-tone-contested glass-elev-low p-4 space-y-3">
             {(['infantry', 'walkers', 'support'] as const).map(key => (
               <div key={key} className="flex items-center justify-between text-sm font-mono">
                 <span className="uppercase">{key}</span>
@@ -190,7 +190,7 @@ export function ContestedSystemBar({ state, catalog, onActionResult }: Contested
 
         <div className="space-y-6">
           <SectionHeader title="Task Force" tone="contested" />
-          <div className="rounded border border-white/10 bg-space/40 p-4 space-y-3">
+          <div className="glass-surface glass-strong glass-tone-contested glass-elev-low p-4 space-y-3">
             <div className="text-[10px] uppercase tracking-[0.2em] text-text-secondary font-mono">
               Location: {state.taskForce.location}
             </div>
@@ -219,7 +219,7 @@ export function ContestedSystemBar({ state, catalog, onActionResult }: Contested
           </div>
 
           <SectionHeader title="Operations" tone="contested" />
-          <div className="rounded border border-white/10 bg-space/40 p-4 space-y-4">
+          <div className="glass-surface glass-strong glass-tone-contested glass-elev-low p-4 space-y-4">
             {!state.operation ? (
               <div className="space-y-3">
                 <div className="text-[10px] uppercase tracking-[0.2em] text-text-secondary font-mono">
@@ -274,7 +274,7 @@ export function ContestedSystemBar({ state, catalog, onActionResult }: Contested
                   <div>Day {state.operation.dayInOperation} / {state.operation.estimatedTotalDays}</div>
                 </div>
                 {state.operation.latestBattleDay && (
-                  <div className="space-y-2 rounded border border-contested/20 bg-space/20 p-3">
+                  <div className="space-y-2 glass-surface glass-strong glass-tone-contested glass-elev-low p-3">
                     <div className="text-[10px] uppercase tracking-[0.2em] text-text-secondary font-mono">
                       Latest Battle Day
                     </div>
@@ -295,7 +295,7 @@ export function ContestedSystemBar({ state, catalog, onActionResult }: Contested
                   </div>
                 )}
                 {state.operation.currentPhaseDays.length > 0 && (
-                  <div className="space-y-1 rounded border border-white/10 p-2 max-h-28 overflow-y-auto">
+                  <div className="space-y-1 glass-surface glass-strong glass-tone-neutral glass-elev-low p-2 max-h-28 overflow-y-auto">
                     <div className="text-[10px] uppercase tracking-[0.2em] text-text-secondary font-mono">
                       Current Phase Days
                     </div>
@@ -322,7 +322,7 @@ export function ContestedSystemBar({ state, catalog, onActionResult }: Contested
                 </div>
 
                 {pendingPhase ? (
-                  <div className="rounded border border-contested/30 bg-contested/5 p-3 space-y-2">
+                  <div className="glass-surface glass-strong glass-tone-contested glass-elev-low p-3 space-y-2">
                     <div className="text-[10px] uppercase tracking-[0.2em] text-text-secondary font-mono">
                       Phase Report
                     </div>
@@ -437,7 +437,7 @@ export function ContestedSystemBar({ state, catalog, onActionResult }: Contested
           </div>
 
           {state.lastAar && (
-            <div className="rounded border border-white/10 bg-space/40 p-4 space-y-3">
+            <div className="glass-surface glass-strong glass-tone-contested glass-elev-low p-4 space-y-3">
               <SectionHeader title="After Action Report" tone="contested" />
               <div className="space-y-2 text-xs font-mono">
                 <div>Outcome: {state.lastAar.outcome}</div>
@@ -514,8 +514,8 @@ function RadioGroup({
             key={option.id}
             type="button"
             onClick={() => onChange(option.id)}
-            className={`px-2 py-1 text-[10px] uppercase tracking-[0.2em] border ${
-              value === option.id ? 'bg-contested text-space border-contested' : 'border-contested/30 text-contested'
+            className={`glass-surface glass-strong glass-tone-contested px-2 py-1 text-[10px] uppercase tracking-[0.2em] ${
+              value === option.id ? 'bg-contested text-space border-contested' : 'text-contested'
             }`}
           >
             {option.label}

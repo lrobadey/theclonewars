@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { GlassCard } from '../../ui/GlassCard';
 
 interface KpiTileProps {
   label: string;
@@ -9,15 +10,15 @@ interface KpiTileProps {
 }
 
 const toneClass: Record<NonNullable<KpiTileProps['tone']>, string> = {
-  core: 'border-core/30 bg-core/5 text-core',
-  deep: 'border-deep/30 bg-deep/5 text-deep',
-  contested: 'border-contested/30 bg-contested/5 text-contested',
-  neutral: 'border-white/10 bg-white/5 text-text-primary',
+  core: 'text-core',
+  deep: 'text-deep',
+  contested: 'text-contested',
+  neutral: 'text-text-primary',
 };
 
 export function KpiTile({ label, value, tone = 'neutral', icon, subLabel }: KpiTileProps) {
   return (
-    <div className={`rounded border px-3 py-2 ${toneClass[tone]}`}>
+    <GlassCard tone={tone} elevation="low" className={`px-3 py-2 glass-strong ${toneClass[tone]}`}>
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           {icon && <div className="text-text-secondary">{icon}</div>}
@@ -32,6 +33,6 @@ export function KpiTile({ label, value, tone = 'neutral', icon, subLabel }: KpiT
           {subLabel}
         </div>
       )}
-    </div>
+    </GlassCard>
   );
 }

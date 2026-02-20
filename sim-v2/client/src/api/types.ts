@@ -131,6 +131,7 @@ export type TransportOrder = {
   units: UnitStock;
   inTransitLeg: [string, string] | null;
   carrierId: string | null;
+  blockedReason?: string | null;
 };
 
 export type LogisticsState = {

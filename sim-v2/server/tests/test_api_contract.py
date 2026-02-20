@@ -3,6 +3,7 @@ from __future__ import annotations
 from fastapi.testclient import TestClient
 
 from server.main import create_app
+from server.session import get_session
 
 
 def test_get_state_contract_smoke():
@@ -57,3 +58,61 @@ def test_action_advance_day_smoke():
     payload = res.json()
     assert payload["ok"] is True
     assert payload["state"]["day"] == before + 1
+
+
+def test_invalid_operation_target_returns_structured_error():
+    app = create_app()
+    client = TestClient(app)
+
+    res = client.post("/api/actions/operation/start", json={"target": "bad_target", "opType": "campaign"})
+    assert res.status_code == 200
+    payload = res.json()
+    assert payload["ok"] is False
+    assert "Unknown target" in (payload.get("message") or "")
+
+
+def test_invalid_dispatch_location_returns_structured_error():
+    app = create_app()
+    client = TestClient(app)
+
+    res = client.post(
+        "/api/actions/dispatch",
+        json={
+            "origin": "bad_location",
+            "destination": "deep_space",
+            "supplies": {"ammo": 1, "fuel": 0, "medSpares": 0},
+            "units": {"infantry": 0, "walkers": 0, "support": 0},
+        },
+    )
+    assert res.status_code == 200
+    payload = res.json()
+    assert payload["ok"] is False
+    assert "Unknown location" in (payload.get("message") or "")
+
+
+def test_queue_job_visible_when_eta_unknown_capacity_zero():
+    app = create_app()
+    client = TestClient(app)
+
+    client.get("/api/state")
+    session_id = client.cookies.get("session_id")
+    assert session_id is not None
+    session = get_session(session_id)
+    assert session is not None
+    session.state.production.factories = 0
+
+    res = client.post("/api/actions/production", json={"jobType": "ammo", "quantity": 5})
+    assert res.status_code == 200
+    payload = res.json()
+    assert payload["ok"] is True
+    jobs = payload["state"]["production"]["jobs"]
+    assert len(jobs) == 1
+    assert jobs[0]["etaDays"] == -1
+
+
+def test_production_quantity_validation():
+    app = create_app()
+    client = TestClient(app)
+
+    res = client.post("/api/actions/production", json={"jobType": "ammo", "quantity": 0})
+    assert res.status_code == 422

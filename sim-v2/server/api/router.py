@@ -111,23 +111,26 @@ async def dispatch_shipment(payload: schemas.DispatchRequest, request: Request, 
     session_id, session = get_or_create_session(request.cookies.get("session_id"))
     response.set_cookie("session_id", session_id, httponly=True)
     async with session.lock:
-        origin = _parse_location(payload.origin)
-        destination = _parse_location(payload.destination)
-        supplies = Supplies(
-            ammo=payload.supplies.ammo,
-            fuel=payload.supplies.fuel,
-            med_spares=payload.supplies.med_spares,
-        )
-        units = UnitStock(
-            infantry=payload.units.infantry,
-            walkers=payload.units.walkers,
-            support=payload.units.support,
-        )
-        result = apply_action(
-            session.state,
-            DispatchShipment(origin=origin, destination=destination, supplies=supplies, units=units),
-        )
-        return _from_result(result)
+        try:
+            origin = _parse_location(payload.origin)
+            destination = _parse_location(payload.destination)
+            supplies = Supplies(
+                ammo=payload.supplies.ammo,
+                fuel=payload.supplies.fuel,
+                med_spares=payload.supplies.med_spares,
+            )
+            units = UnitStock(
+                infantry=payload.units.infantry,
+                walkers=payload.units.walkers,
+                support=payload.units.support,
+            )
+            result = apply_action(
+                session.state,
+                DispatchShipment(origin=origin, destination=destination, supplies=supplies, units=units),
+            )
+            return _from_result(result)
+        except ValueError as exc:
+            return _build_response(session.state, ok=False, message=str(exc), kind="error")
 
 
 @router.post("/actions/production", response_model=schemas.ApiResponse)
@@ -186,11 +189,14 @@ async def start_operation(payload: schemas.OperationStartRequest, request: Reque
     session_id, session = get_or_create_session(request.cookies.get("session_id"))
     response.set_cookie("session_id", session_id, httponly=True)
     async with session.lock:
-        target = _parse_target(payload.target)
-        op_type = _parse_op_type(payload.op_type)
-        intent = OperationIntent(target=target, op_type=op_type)
-        result = apply_action(session.state, StartOperation(intent=intent))
-        return _from_result(result)
+        try:
+            target = _parse_target(payload.target)
+            op_type = _parse_op_type(payload.op_type)
+            intent = OperationIntent(target=target, op_type=op_type)
+            result = apply_action(session.state, StartOperation(intent=intent))
+            return _from_result(result)
+        except ValueError as exc:
+            return _build_response(session.state, ok=False, message=str(exc), kind="error")
 
 
 @router.post("/actions/operation/decisions", response_model=schemas.ApiResponse)

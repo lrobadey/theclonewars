@@ -95,8 +95,14 @@ def _apply_production_output(state: GameState, output: ProductionOutput, rng) ->
                 rng,
                 current_day=state.day,
             )
-        except ValueError:
-            pass
+        except ValueError as exc:
+            _log_auto_dispatch_blocked(
+                state,
+                current_day=state.day,
+                destination=output.stop_at,
+                reason=str(exc),
+                source="production",
+            )
 
 
 def _apply_barracks_output(state: GameState, output: BarracksOutput, rng) -> None:
@@ -133,8 +139,14 @@ def _apply_barracks_output(state: GameState, output: BarracksOutput, rng) -> Non
                 rng,
                 current_day=state.day,
             )
-        except ValueError:
-            pass
+        except ValueError as exc:
+            _log_auto_dispatch_blocked(
+                state,
+                current_day=state.day,
+                destination=output.stop_at,
+                reason=str(exc),
+                source="barracks",
+            )
 
 
 def _build_production_payload(
@@ -163,3 +175,23 @@ def _build_barracks_payload(
 
 def _sync_task_force_supplies(state: GameState) -> None:
     state.task_force.supplies = state.logistics.depot_stocks[LocationId.CONTESTED_FRONT]
+
+
+def _log_auto_dispatch_blocked(
+    state: GameState,
+    *,
+    current_day: int,
+    destination: LocationId,
+    reason: str,
+    source: str,
+) -> None:
+    state.logistics.transit_log.insert(
+        0,
+        logistics_module.TransitLogEntry(
+            day=current_day,
+            message=f"Auto-dispatch ({source}) to {destination.value} blocked: {reason}",
+            event_type="blocked",
+        ),
+    )
+    if len(state.logistics.transit_log) > 20:
+        state.logistics.transit_log = state.logistics.transit_log[:20]

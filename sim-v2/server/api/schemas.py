@@ -15,15 +15,15 @@ class Position(CamelModel):
 
 
 class Supplies(CamelModel):
-    ammo: int
-    fuel: int
-    med_spares: int = Field(..., alias="medSpares")
+    ammo: int = Field(..., ge=0)
+    fuel: int = Field(..., ge=0)
+    med_spares: int = Field(..., alias="medSpares", ge=0)
 
 
 class UnitStock(CamelModel):
-    infantry: int
-    walkers: int
-    support: int
+    infantry: int = Field(..., ge=0)
+    walkers: int = Field(..., ge=0)
+    support: int = Field(..., ge=0)
 
 
 class IntelRange(CamelModel):
@@ -151,6 +151,7 @@ class TransportOrder(CamelModel):
     units: UnitStock
     in_transit_leg: Optional[Tuple[str, str]] = Field(None, alias="inTransitLeg")
     carrier_id: Optional[str] = Field(None, alias="carrierId")
+    blocked_reason: Optional[str] = Field(None, alias="blockedReason")
 
 
 class LogisticsState(CamelModel):
@@ -346,7 +347,7 @@ class DispatchRequest(CamelModel):
 
 class ProductionRequest(CamelModel):
     job_type: str = Field(..., alias="jobType")
-    quantity: int
+    quantity: int = Field(..., ge=1)
 
 
 class OperationStartRequest(CamelModel):

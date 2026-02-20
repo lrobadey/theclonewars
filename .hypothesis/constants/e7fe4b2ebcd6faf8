@@ -1,0 +1,4 @@
+# file: /Users/lucarobadey/Desktop/Projects/Coding/The Clone Wars/src/war_sim/sim/day_stepper.py
+# hypothesis_version: 6.151.4
+
+['barracks', 'blocked', 'enemy', 'logistics', 'loss', 'ops', 'passive', 'production', 'progress', 'storage', 'tick']

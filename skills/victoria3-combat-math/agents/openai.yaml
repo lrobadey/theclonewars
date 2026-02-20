@@ -1,0 +1,4 @@
+interface:
+  display_name: "Victoria 3 Combat Math"
+  short_description: "Analyze battle math, logistics, and war outcomes"
+  default_prompt: "Use $victoria3-combat-math to estimate this Victoria 3 battle and war-support trajectory."

@@ -150,6 +150,7 @@ def load_game_state(path: Path) -> "GameState":
         _apply_production_overrides(state, data["production"])
     if "barracks" in data:
         _apply_barracks_overrides(state, data["barracks"])
+    _sync_front_supplies(state)
 
     return state
 
@@ -194,6 +195,10 @@ def _apply_barracks_overrides(state: GameState, barracks_data: dict) -> None:
         return
     if "barracks" in barracks_data:
         state.barracks.barracks = int(barracks_data["barracks"])
+
+
+def _sync_front_supplies(state: GameState) -> None:
+    state.task_force.supplies = state.logistics.depot_stocks[LocationId.CONTESTED_FRONT]
 
 
 def _load_json(path: Path) -> dict:

@@ -71,6 +71,14 @@ export function NodeBarDrawer({
     : selectedNodeId
       ? NODE_META[selectedNodeId]
       : null;
+  const glassToneClass =
+    meta?.tone === 'core'
+      ? 'glass-tone-core'
+      : meta?.tone === 'deep'
+        ? 'glass-tone-deep'
+        : meta?.tone === 'contested'
+          ? 'glass-tone-contested'
+          : 'glass-tone-neutral';
 
   const routeHealth = useMemo(() => {
     const counts = { active: 0, disrupted: 0, blocked: 0, severity: 'good' as 'good' | 'warn' | 'danger' };
@@ -106,9 +114,9 @@ export function NodeBarDrawer({
           animate={{ y: 0 }}
           exit={{ y: '100%' }}
           transition={{ type: 'spring', damping: 26, stiffness: 220, mass: 0.9 }}
-          className={`nodebar-shell fixed bottom-0 left-0 right-0 z-40 overflow-hidden ${meta.tone}`}
+          className={`nodebar-shell glass-surface glass-blur glass-strong glass-elev-high ${glassToneClass} fixed bottom-0 left-0 right-0 z-40 overflow-hidden ${meta.tone}`}
         >
-          <div className="nodebar-header relative px-6 py-4 border-b border-white/10">
+          <div className={`nodebar-header glass-surface glass-strong glass-elev-low ${glassToneClass} relative m-2 px-6 py-4 border-b border-white/10`}>
             <button
               type="button"
               onClick={onClose}

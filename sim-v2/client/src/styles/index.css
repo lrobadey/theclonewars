@@ -28,6 +28,19 @@
   --text-primary: #E8F4F8;
   --text-secondary: #8BA4B4;
   --text-accent: #FFB800;
+
+  /* Glass control plane */
+  --glass-bg: rgba(13, 19, 28, 0.52);
+  --glass-bg-strong: rgba(13, 19, 28, 0.82);
+  --glass-border: rgba(232, 244, 248, 0.14);
+  --glass-shadow: 0 14px 36px rgba(0, 0, 0, 0.46);
+  --glass-blur: 14px;
+  --glass-sat: 130%;
+  --glass-radius: 12px;
+  --focus-ring: #7de6ff;
+  --glass-accent-core: rgba(0, 212, 255, 0.36);
+  --glass-accent-deep: rgba(255, 184, 0, 0.36);
+  --glass-accent-contested: rgba(255, 59, 59, 0.36);
 }
 
 * {
@@ -46,6 +59,20 @@ body {
   min-height: 100vh;
   overflow-x: hidden;
   position: relative;
+}
+
+:where(
+  button,
+  [href],
+  input,
+  select,
+  textarea,
+  [role="button"],
+  [tabindex]:not([tabindex="-1"])
+):focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 3px rgba(125, 230, 255, 0.22);
 }
 
 /* Nebula clouds drifting in background */
@@ -273,16 +300,81 @@ h1, h2, h3, h4 {
 }
 
 /* ================================
+   Glass Surface Primitives
+   ================================ */
+.glass-surface {
+  background: var(--glass-bg-strong);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--glass-radius);
+  box-shadow: var(--glass-shadow);
+}
+
+.glass-surface.glass-blur {
+  background: var(--glass-bg-strong);
+}
+
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass-surface.glass-blur {
+    background: var(--glass-bg);
+    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+  }
+}
+
+.glass-strong {
+  background: var(--glass-bg-strong);
+}
+
+.glass-elev-low {
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+}
+
+.glass-elev-mid {
+  box-shadow: var(--glass-shadow);
+}
+
+.glass-elev-high {
+  box-shadow: 0 24px 52px rgba(0, 0, 0, 0.56);
+}
+
+.glass-tone-neutral {
+  border-color: var(--glass-border);
+}
+
+.glass-tone-core {
+  border-color: color-mix(in srgb, var(--glass-accent-core) 64%, transparent);
+}
+
+.glass-tone-deep {
+  border-color: color-mix(in srgb, var(--glass-accent-deep) 64%, transparent);
+}
+
+.glass-tone-contested {
+  border-color: color-mix(in srgb, var(--glass-accent-contested) 64%, transparent);
+}
+
+.glass-highlight {
+  position: relative;
+}
+
+.glass-highlight::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.1) 0%, transparent 35%);
+  opacity: 0.56;
+}
+
+/* ================================
    Status Header Styles
    ================================ */
 .status-header {
-  background: 
-    linear-gradient(180deg, rgba(10, 14, 20, 0.95) 0%, rgba(10, 14, 20, 0.8) 100%);
-  border-bottom: 1px solid rgba(255, 184, 0, 0.3);
-  box-shadow: 
-    0 0 20px rgba(255, 184, 0, 0.1),
-    0 4px 20px rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(10px);
+  border-radius: 0;
+  border-left: 0;
+  border-right: 0;
+  border-top: 0;
 }
 
 .status-divider {
@@ -396,7 +488,7 @@ h1, h2, h3, h4 {
    System Drawer & Modals
    ================================ */
 .system-drawer {
-  box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.6);
+  box-shadow: none;
 }
 
 .drawer-section h3 {
@@ -442,7 +534,7 @@ h1, h2, h3, h4 {
   font-family: "Space Mono", monospace;
   position: relative;
   overflow: hidden;
-  transition: all 0.2s ease;
+  transition: transform 0.2s ease, border-color 0.2s ease, opacity 0.2s ease, color 0.2s ease;
 }
 
 .btn-action::after {
@@ -477,13 +569,10 @@ h1, h2, h3, h4 {
 }
 
 .toast {
-  background: rgba(10, 14, 20, 0.9);
-  border: 1px solid currentColor;
   color: currentColor;
   padding: 1rem 1.5rem;
   font-family: "Space Mono", monospace;
   font-size: 0.8rem;
-  box-shadow: 0 0 20px rgba(0, 212, 255, 0.2);
   display: flex;
   align-items: center;
   gap: 1rem;
@@ -499,23 +588,23 @@ h1, h2, h3, h4 {
    Node Bars
    ================================ */
 .nodebar-shell {
-  background: rgba(10, 14, 20, 0.9);
-  backdrop-filter: blur(14px);
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.6);
   max-height: 52vh;
+  border-radius: 14px 14px 0 0;
+  border-left: 0;
+  border-right: 0;
+  border-bottom: 0;
 }
 
 .nodebar-shell.core {
-  box-shadow: 0 -10px 40px rgba(0, 212, 255, 0.15);
+  border-top-color: rgba(0, 212, 255, 0.3);
 }
 
 .nodebar-shell.deep {
-  box-shadow: 0 -10px 40px rgba(255, 184, 0, 0.15);
+  border-top-color: rgba(255, 184, 0, 0.3);
 }
 
 .nodebar-shell.contested {
-  box-shadow: 0 -10px 40px rgba(255, 59, 59, 0.15);
+  border-top-color: rgba(255, 59, 59, 0.3);
 }
 
 .nodebar-header {
@@ -541,9 +630,10 @@ h1, h2, h3, h4 {
 .table-compact {
   display: grid;
   gap: 0;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
   overflow: hidden;
+  background: rgba(8, 12, 18, 0.56);
 }
 
 .table-header,
@@ -561,11 +651,11 @@ h1, h2, h3, h4 {
   text-transform: uppercase;
   letter-spacing: 0.2em;
   color: var(--text-secondary);
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .table-row {
-  border-top: 1px solid rgba(255, 255, 255, 0.04);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .table-cols-5 .table-header,
@@ -615,6 +705,28 @@ h1, h2, h3, h4 {
   );
   background-size: 200% 100%;
   animation: barShimmer 2.6s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .crt-overlay,
+  .chip-pulse,
+  .bar-shimmer,
+  .flow-particle,
+  .status-critical {
+    animation: none !important;
+  }
+
+  body::before {
+    animation: none;
+    opacity: 0.04;
+  }
 }
 
 @media (max-width: 768px) {
