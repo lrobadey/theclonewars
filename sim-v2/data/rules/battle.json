@@ -14,6 +14,24 @@
   "fortification_power_factor": 0.6,
   "objective_difficulty_power_factor": 0.5,
   "progress_ratio_scale": 1.1,
+  "manpower_per_walker": 40,
+  "manpower_per_support": 1,
+  "manpower_per_battalion": 1000,
+  "eligibility_min_manpower": 100,
+  "eligibility_min_morale": 0.2,
+  "numeric_advantage_expansion_cap": 0.3,
+  "numeric_advantage_expansion_scale": 0.15,
+  "numeric_advantage_expansion_random_max": 0.05,
+  "attacker_participation_stats": {
+    "infantry": 1.0,
+    "walkers": 1.25,
+    "support": 0.85
+  },
+  "defender_participation_stats": {
+    "infantry": 1.1,
+    "walkers": 1.35,
+    "support": 0.95
+  },
   "supply_rates": {
     "ammo_per_infantry_per_intensity": 0.12,
     "ammo_per_walker_per_intensity": 0.8,

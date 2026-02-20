@@ -5,6 +5,17 @@
       "name": "Foundry",
       "type": "industrial",
       "base_difficulty": 1.0,
+      "battlefield": {
+        "terrain_id": "foundry_industrial_complex",
+        "infrastructure": 18,
+        "combat_width_multiplier": 0.35,
+        "attacker_power_mult": 0.93,
+        "defender_power_mult": 1.08,
+        "attacker_progress_mult": 0.9,
+        "attacker_loss_mult": 1.06,
+        "walker_power_mult_attacker": 0.82,
+        "walker_power_mult_defender": 0.92
+      },
       "description": "Sector Overview\n- Primary function: rapid assembly, parts casting, and final-line calibration.\n- Footprint: multi-block factory lattice anchored into basalt bedrock; enclosed causeways connect sub-halls.\n\nFacilities (observed)\n- Smelter stacks and slag pits: continuous melt cycle; waste heat vents create persistent thermal haze.\n- Casting hall: modular mold racks for limb/torso frames; coolant trenches run the length of the floor.\n- Assembly lines: conveyor gantries with robotic arms; quality-control alcoves every 40–60 meters.\n- Storage yards: sealed containers of actuators, optics, and power cells; marked lots for finished units.\n\nInfrastructure Notes\n- Power draw is high and steady; shutting down sections causes cascading line stoppages and calibration drift.\n- Internal rail carts move heavy loads; rails double as cover lines and chokepoints.\n- Dense overhead structure (cranes/catwalks) favors defenders with pre-sited firing angles.\n\nThreat & Security Posture (typical)\n- Automated sentry nodes at bay doors; interior checkpoints at line junctions.\n- Reinforced blast shutters isolate halls during sabotage or fire.\n- Expect rapid local reinforcement if alarms propagate along the conveyor control network.\n\nOperational Relevance (MVP)\n- Capturing this objective is required for victory and reduces planet-wide enemy sustainment pressure."
     },
     {

@@ -1,0 +1,4 @@
+# file: /Users/lucarobadey/Desktop/Projects/Coding/The Clone Wars/src/war_sim/rules/scenario.py
+# hypothesis_version: 6.151.4
+
+[0.0, 0.3, 0.5, 0.92, 1.0, 1.35, 120, 180, 1200, 12000, ', ', 'CORE', 'DEEP', 'FRONT', 'GameState', 'MID', 'MID_DEPOT', 'SPACEPORT', 'TaskForceStartConfig', '_', 'ammo', 'barracks', 'capacity', 'cohesion', 'comms', 'contested', 'control', 'depot_stocks', 'description', 'enemy', 'enemy_force', 'factories', 'fortification', 'foundry', 'foundry_mvp', 'fuel', 'id', 'infantry', 'intel_confidence', 'kind', 'label', 'logistics', 'map', 'med_spares', 'nodeIds', 'nodes', 'objectives', 'planet', 'position', 'power', 'production', 'r', 'readiness', 'reinforcement_rate', 'rules', 'seed', 'strategicGroups', 'support', 'tactical', 'task_force_start', 'utf-8', 'walkers', 'x', 'y']

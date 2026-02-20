@@ -32,6 +32,32 @@ def test_phase_duration_sums_to_estimate() -> None:
     assert total == op.estimated_total_days
 
 
+def test_foundry_operation_seeds_fixed_enemy_force() -> None:
+    state = make_state()
+    state.start_operation_phased(OperationIntent(target=OperationTarget.FOUNDRY, op_type=OperationTypeId.CAMPAIGN))
+
+    op = state.operation
+    assert op is not None
+    assert op.fixed_enemy_seeded is True
+    assert op.battle_defender is not None
+    assert op.battle_defender.infantry == 12000
+    assert op.battle_defender.walkers == 180
+    assert op.battle_defender.support == 1200
+    assert op.battle_defender.cohesion == 0.92
+    assert op.enemy_fortification_current == 1.35
+
+
+def test_non_foundry_operation_rejected() -> None:
+    state = make_state()
+    intent = OperationIntent(target=OperationTarget.COMMS, op_type=OperationTypeId.CAMPAIGN)
+    try:
+        state.start_operation_phased(intent)
+    except RuntimeError as exc:
+        assert "Droid Foundry" in str(exc)
+    else:
+        raise AssertionError("Expected non-foundry target to be rejected")
+
+
 def test_phased_operation_flow_and_aar_integrity() -> None:
     state = make_state()
     intent = OperationIntent(target=OperationTarget.FOUNDRY, op_type=OperationTypeId.CAMPAIGN)

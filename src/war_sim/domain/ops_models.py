@@ -4,7 +4,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Union
+from typing import TYPE_CHECKING, Union
+
+if TYPE_CHECKING:
+    from war_sim.rules.ruleset import ObjectiveBattlefield
 
 
 class OperationTarget(str, Enum):
@@ -128,6 +131,8 @@ class ActiveOperation:
     battle_defender: "BattleSideState | None" = None
     battle_phase_acc: "BattlePhaseAccumulator" = field(default_factory=lambda: BattlePhaseAccumulator())
     battle_log: list["BattleDayTick"] = field(default_factory=list)
+    battlefield: "ObjectiveBattlefield | None" = None
+    fixed_enemy_seeded: bool = False
     enemy_fortification_start: float = 1.0
     enemy_fortification_current: float = 1.0
     op_id: str = ""

@@ -44,6 +44,8 @@ def test_catalog_contract_smoke():
     data = res.json()
 
     assert isinstance(data.get("operationTargets"), list)
+    assert [item["id"] for item in data["operationTargets"]] == ["foundry"]
+    assert data["operationTargets"][0]["label"] == "Droid Foundry"
     assert isinstance(data.get("operationTypes"), list)
     assert isinstance(data.get("decisions"), dict)
 
@@ -116,3 +118,50 @@ def test_production_quantity_validation():
 
     res = client.post("/api/actions/production", json={"jobType": "ammo", "quantity": 0})
     assert res.status_code == 422
+
+
+def test_foundry_only_operation_lock():
+    app = create_app()
+    client = TestClient(app)
+
+    denied = client.post("/api/actions/operation/start", json={"target": "comms", "opType": "campaign"})
+    assert denied.status_code == 200
+    denied_payload = denied.json()
+    assert denied_payload["ok"] is False
+    assert "Droid Foundry" in (denied_payload.get("message") or "")
+
+    allowed = client.post("/api/actions/operation/start", json={"target": "foundry", "opType": "campaign"})
+    assert allowed.status_code == 200
+    allowed_payload = allowed.json()
+    assert allowed_payload["ok"] is True
+
+
+def test_latest_battle_day_contains_vic3_fields():
+    app = create_app()
+    client = TestClient(app)
+
+    start = client.post("/api/actions/operation/start", json={"target": "foundry", "opType": "campaign"})
+    assert start.status_code == 200
+    assert start.json()["ok"] is True
+
+    decisions = client.post("/api/actions/operation/decisions", json={"axis": "direct", "fire": "preparatory"})
+    assert decisions.status_code == 200
+    assert decisions.json()["ok"] is True
+
+    tick = client.post("/api/actions/advance-day")
+    assert tick.status_code == 200
+    payload = tick.json()
+    assert payload["ok"] is True
+
+    battle_day = payload["state"]["operation"]["latestBattleDay"]
+    assert isinstance(battle_day["terrainId"], str)
+    assert isinstance(battle_day["forceLimitBattalions"], int)
+    assert isinstance(battle_day["engagementCapManpower"], int)
+    assert isinstance(battle_day["attackerEligibleManpower"], int)
+    assert isinstance(battle_day["defenderEligibleManpower"], int)
+    assert isinstance(battle_day["attackerEngagedManpower"], int)
+    assert isinstance(battle_day["defenderEngagedManpower"], int)
+    assert isinstance(battle_day["attackerEngagementRatio"], float)
+    assert isinstance(battle_day["defenderEngagementRatio"], float)
+    assert isinstance(battle_day["attackerAdvantageExpansion"], float)
+    assert isinstance(battle_day["defenderAdvantageExpansion"], float)

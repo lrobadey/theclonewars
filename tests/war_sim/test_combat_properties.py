@@ -1,10 +1,18 @@
 from __future__ import annotations
 
+from dataclasses import replace
+
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from tests.helpers.factories import make_state
-from war_sim.domain.ops_models import OperationTarget
+from war_sim.domain.ops_models import (
+    OperationIntent,
+    OperationTarget,
+    OperationTypeId,
+    Phase1Decisions,
+)
+from war_sim.rules.ruleset import ObjectiveBattlefield
 from war_sim.systems.combat import calculate_power
 
 
@@ -40,6 +48,8 @@ def test_raid_bounds_and_conservation(seed: int, your_inf: int, enemy_inf: int) 
     state = make_state(seed=seed, apply=apply)
     initial_you = state.task_force.composition.infantry
     initial_enemy = state.contested_planet.enemy.infantry
+    if state.scenario.foundry_mvp is not None:
+        initial_enemy = max(initial_enemy, state.scenario.foundry_mvp.enemy_force.infantry)
     report = state.raid(OperationTarget.FOUNDRY)
 
     assert report.days >= 1
@@ -70,3 +80,69 @@ def test_raid_determinism_same_seed() -> None:
     assert r1.days == r2.days
     assert r1.losses == r2.losses
     assert r1.enemy_losses == r2.enemy_losses
+
+
+def test_participation_is_bounded_by_vic3_engagement_cap() -> None:
+    state = make_state(seed=11)
+    state.start_operation_phased(OperationIntent(target=OperationTarget.FOUNDRY, op_type=OperationTypeId.CAMPAIGN))
+    state.submit_phase_decisions(Phase1Decisions(approach_axis="direct", fire_support_prep="preparatory"))
+    state.advance_day()
+
+    op = state.operation
+    assert op is not None
+    day = op.battle_log[-1]
+    cap = state.rules.battle.numeric_advantage_expansion_cap
+    allowed_max = int(day.engagement_cap_manpower * (1.0 + cap))
+
+    assert day.attacker_engaged_manpower <= allowed_max
+    assert day.defender_engaged_manpower <= allowed_max
+
+
+def test_low_morale_makes_side_ineligible() -> None:
+    def apply(state):
+        state.task_force.readiness = 1.0
+        state.task_force.cohesion = 0.0
+
+    state = make_state(seed=12, apply=apply)
+    state.start_operation_phased(OperationIntent(target=OperationTarget.FOUNDRY, op_type=OperationTypeId.CAMPAIGN))
+    state.submit_phase_decisions(Phase1Decisions(approach_axis="direct", fire_support_prep="preparatory"))
+    state.advance_day()
+
+    op = state.operation
+    assert op is not None
+    day = op.battle_log[-1]
+    assert day.attacker_eligible_manpower == 0
+    assert day.attacker_engaged_manpower == 0
+
+
+def test_foundry_terrain_reduces_progress_and_increases_losses() -> None:
+    baseline = make_state(seed=21)
+    terrain_off = make_state(seed=21)
+
+    foundry = terrain_off.rules.objectives["foundry"]
+    assert foundry.battlefield is not None
+    flat_battlefield = ObjectiveBattlefield(
+        terrain_id="flat_control",
+        infrastructure=foundry.battlefield.infrastructure,
+        combat_width_multiplier=foundry.battlefield.combat_width_multiplier,
+        attacker_power_mult=1.0,
+        defender_power_mult=1.0,
+        attacker_progress_mult=1.0,
+        attacker_loss_mult=1.0,
+        walker_power_mult_attacker=1.0,
+        walker_power_mult_defender=1.0,
+    )
+    terrain_off_objectives = dict(terrain_off.rules.objectives)
+    terrain_off_objectives["foundry"] = replace(foundry, battlefield=flat_battlefield)
+    terrain_off.rules = replace(terrain_off.rules, objectives=terrain_off_objectives)
+
+    for state in (baseline, terrain_off):
+        state.start_operation_phased(OperationIntent(target=OperationTarget.FOUNDRY, op_type=OperationTypeId.CAMPAIGN))
+        state.submit_phase_decisions(Phase1Decisions(approach_axis="direct", fire_support_prep="preparatory"))
+        state.advance_day()
+
+    b_day = baseline.operation.battle_log[-1]  # type: ignore[union-attr]
+    f_day = terrain_off.operation.battle_log[-1]  # type: ignore[union-attr]
+
+    assert b_day.progress_delta <= f_day.progress_delta
+    assert sum(b_day.your_losses.values()) >= sum(f_day.your_losses.values())

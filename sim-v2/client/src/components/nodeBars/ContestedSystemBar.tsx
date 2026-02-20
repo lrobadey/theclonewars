@@ -312,13 +312,20 @@ export function ContestedSystemBar({ state, catalog, onActionResult }: Contested
                 {state.operation.latestBattleDay && (
                   <div className="space-y-2 glass-surface glass-strong glass-tone-contested glass-elev-low p-3">
                     <div className="text-[10px] uppercase tracking-[0.2em] text-text-secondary font-mono">Latest Battle Day</div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs font-mono">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs font-mono">
+                      <div>Terrain: {state.operation.latestBattleDay.terrainId}</div>
+                      <div>Force Limit: {state.operation.latestBattleDay.forceLimitBattalions} battalions</div>
+                      <div>Engagement Cap: {state.operation.latestBattleDay.engagementCapManpower.toLocaleString()} MP</div>
                       <div>Power: {state.operation.latestBattleDay.yourPower.toFixed(1)} / {state.operation.latestBattleDay.enemyPower.toFixed(1)}</div>
                       <div>Advantage: {state.operation.latestBattleDay.yourAdvantage.toFixed(2)}</div>
                       <div>Initiative: {state.operation.latestBattleDay.initiative ? 'Yes' : 'No'}</div>
                       <div>Progress Δ: {state.operation.latestBattleDay.progressDelta.toFixed(3)}</div>
                       <div>Losses: {Object.values(state.operation.latestBattleDay.yourLosses).reduce((a, b) => a + b, 0)}</div>
                       <div>Enemy Losses: {Object.values(state.operation.latestBattleDay.enemyLosses).reduce((a, b) => a + b, 0)}</div>
+                      <div>Eligible MP (You/Enemy): {state.operation.latestBattleDay.attackerEligibleManpower.toLocaleString()} / {state.operation.latestBattleDay.defenderEligibleManpower.toLocaleString()}</div>
+                      <div>Engaged MP (You/Enemy): {state.operation.latestBattleDay.attackerEngagedManpower.toLocaleString()} / {state.operation.latestBattleDay.defenderEngagedManpower.toLocaleString()}</div>
+                      <div>Engagement Ratio (You/Enemy): {state.operation.latestBattleDay.attackerEngagementRatio.toFixed(3)} / {state.operation.latestBattleDay.defenderEngagementRatio.toFixed(3)}</div>
+                      <div>Adv Expansion (You/Enemy): {state.operation.latestBattleDay.attackerAdvantageExpansion.toFixed(3)} / {state.operation.latestBattleDay.defenderAdvantageExpansion.toFixed(3)}</div>
                     </div>
                     <div className="text-xs font-mono text-text-secondary">
                       Supply Ratios A/F/M: {state.operation.latestBattleDay.supplies.ammoRatio.toFixed(2)} / {state.operation.latestBattleDay.supplies.fuelRatio.toFixed(2)} / {state.operation.latestBattleDay.supplies.medRatio.toFixed(2)}
@@ -333,7 +340,7 @@ export function ContestedSystemBar({ state, catalog, onActionResult }: Contested
                     <div className="text-[10px] uppercase tracking-[0.2em] text-text-secondary font-mono">Current Phase Days</div>
                     {state.operation.currentPhaseDays.slice(-8).map(day => (
                       <div key={`${day.dayIndex}-${day.phase}`} className="text-xs font-mono text-text-secondary">
-                        D{day.dayIndex}: Δ{day.progressDelta.toFixed(3)} | You {Object.values(day.yourLosses).reduce((a, b) => a + b, 0)} / Enemy {Object.values(day.enemyLosses).reduce((a, b) => a + b, 0)}
+                        D{day.dayIndex}: Δ{day.progressDelta.toFixed(3)} | You {Object.values(day.yourLosses).reduce((a, b) => a + b, 0)} / Enemy {Object.values(day.enemyLosses).reduce((a, b) => a + b, 0)} | FL {day.forceLimitBattalions} | Eng {day.attackerEngagedManpower}/{day.defenderEngagedManpower}
                       </div>
                     ))}
                   </div>

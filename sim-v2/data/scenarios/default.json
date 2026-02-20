@@ -26,6 +26,31 @@
       "intel_confidence": 0.7
     }
   },
+  "task_force_start": {
+    "infantry": 15000,
+    "walkers": 220,
+    "support": 1400,
+    "readiness": 1.0,
+    "cohesion": 1.0
+  },
+  "foundry_mvp": {
+    "enemy_force": {
+      "infantry": 12000,
+      "walkers": 180,
+      "support": 1200,
+      "cohesion": 0.92,
+      "fortification": 1.35
+    }
+  },
+  "logistics": {
+    "depot_stocks": {
+      "front": {
+        "ammo": 65000,
+        "fuel": 28000,
+        "med_spares": 22000
+      }
+    }
+  },
   "map": {
     "nodes": [
       {

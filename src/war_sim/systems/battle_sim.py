@@ -96,24 +96,102 @@ class BattleSimulator:
         fuel_ratio = 1.0 if fuel_req <= 0 else min(1.0, fuel_before / max(1, fuel_req))
         med_ratio = 1.0 if med_req_maint <= 0 else min(1.0, med_before / max(1, med_req_maint))
 
+        attacker_morale = math.sqrt(_clamp(attacker.readiness, 0.0, 1.0) * _clamp(attacker.cohesion, 0.0, 1.0))
+        defender_morale = math.sqrt(_clamp(defender.readiness, 0.0, 1.0) * _clamp(defender.cohesion, 0.0, 1.0))
+
+        battlefield = operation.battlefield
+        terrain_id = battlefield.terrain_id if battlefield is not None else "default_battleground"
+        infrastructure = battlefield.infrastructure if battlefield is not None else 10
+        combat_width_multiplier = battlefield.combat_width_multiplier if battlefield is not None else 1.0
+        attacker_power_mult = battlefield.attacker_power_mult if battlefield is not None else 1.0
+        defender_power_mult = battlefield.defender_power_mult if battlefield is not None else 1.0
+        attacker_progress_mult = battlefield.attacker_progress_mult if battlefield is not None else 1.0
+        attacker_loss_mult = battlefield.attacker_loss_mult if battlefield is not None else 1.0
+        walker_power_mult_attacker = battlefield.walker_power_mult_attacker if battlefield is not None else 1.0
+        walker_power_mult_defender = battlefield.walker_power_mult_defender if battlefield is not None else 1.0
+
+        force_limit_battalions = compute_force_limit(infrastructure, combat_width_multiplier)
+        engagement_cap_manpower = max(0, force_limit_battalions * battle_rules.manpower_per_battalion)
+
+        attacker_role_manpower = _side_role_manpower(attacker, battle_rules)
+        defender_role_manpower = _side_role_manpower(defender, battle_rules)
+        attacker_total_manpower = sum(attacker_role_manpower.values())
+        defender_total_manpower = sum(defender_role_manpower.values())
+
+        attacker_eligible_manpower = _eligible_manpower(
+            total_manpower=attacker_total_manpower,
+            morale=attacker_morale,
+            rules=battle_rules,
+        )
+        defender_eligible_manpower = _eligible_manpower(
+            total_manpower=defender_total_manpower,
+            morale=defender_morale,
+            rules=battle_rules,
+        )
+
+        attacker_advantage_expansion = _advantage_expansion(
+            eligible_side=attacker_eligible_manpower,
+            eligible_other=defender_eligible_manpower,
+            battle_rules=battle_rules,
+            rng=rng,
+        )
+        defender_advantage_expansion = _advantage_expansion(
+            eligible_side=defender_eligible_manpower,
+            eligible_other=attacker_eligible_manpower,
+            battle_rules=battle_rules,
+            rng=rng,
+        )
+
+        attacker_engagement_cap = int(engagement_cap_manpower * (1.0 + attacker_advantage_expansion))
+        defender_engagement_cap = int(engagement_cap_manpower * (1.0 + defender_advantage_expansion))
+
+        attacker_weights = _role_participation_weights(
+            role_manpower=attacker_role_manpower,
+            morale=attacker_morale,
+            role_stats=battle_rules.attacker_participation_stats,
+            eligible_manpower=attacker_eligible_manpower,
+        )
+        defender_weights = _role_participation_weights(
+            role_manpower=defender_role_manpower,
+            morale=defender_morale,
+            role_stats=battle_rules.defender_participation_stats,
+            eligible_manpower=defender_eligible_manpower,
+        )
+
+        attacker_engaged_role_manpower = _allocate_engaged_manpower(
+            role_manpower=attacker_role_manpower,
+            role_weights=attacker_weights,
+            engagement_cap=min(attacker_engagement_cap, attacker_eligible_manpower),
+        )
+        defender_engaged_role_manpower = _allocate_engaged_manpower(
+            role_manpower=defender_role_manpower,
+            role_weights=defender_weights,
+            engagement_cap=min(defender_engagement_cap, defender_eligible_manpower),
+        )
+
+        attacker_engaged_manpower = int(round(sum(attacker_engaged_role_manpower.values())))
+        defender_engaged_manpower = int(round(sum(defender_engaged_role_manpower.values())))
+
+        attacker_engagement_ratio = attacker_engaged_manpower / max(1.0, attacker_total_manpower)
+        defender_engagement_ratio = defender_engaged_manpower / max(1.0, defender_total_manpower)
+        attacker_role_engagement_ratio = _role_engagement_ratio(attacker_role_manpower, attacker_engaged_role_manpower)
+        defender_role_engagement_ratio = _role_engagement_ratio(defender_role_manpower, defender_engaged_role_manpower)
+
         role_power = {name: role.base_power for name, role in state.rules.unit_roles.items()}
         infantry_power = role_power.get("infantry", 1.0)
         walker_power = role_power.get("walkers", 12.0)
         support_power = role_power.get("support", 4.0)
 
         attacker_base_power = (
-            attacker.infantry * infantry_power
-            + attacker.walkers * walker_power
-            + attacker.support * support_power
-        )
+            attacker.infantry * infantry_power * attacker_role_engagement_ratio["infantry"]
+            + attacker.walkers * walker_power * attacker_role_engagement_ratio["walkers"] * walker_power_mult_attacker
+            + attacker.support * support_power * attacker_role_engagement_ratio["support"]
+        ) * attacker_power_mult
         defender_base_power = (
-            defender.infantry * infantry_power
-            + defender.walkers * walker_power
-            + defender.support * support_power
-        )
-
-        attacker_morale = math.sqrt(_clamp(attacker.readiness, 0.0, 1.0) * _clamp(attacker.cohesion, 0.0, 1.0))
-        defender_morale = math.sqrt(_clamp(defender.readiness, 0.0, 1.0) * _clamp(defender.cohesion, 0.0, 1.0))
+            defender.infantry * infantry_power * defender_role_engagement_ratio["infantry"]
+            + defender.walkers * walker_power * defender_role_engagement_ratio["walkers"] * walker_power_mult_defender
+            + defender.support * support_power * defender_role_engagement_ratio["support"]
+        ) * defender_power_mult
 
         supply_power_mod = (0.4 + 0.6 * ammo_ratio) * (0.7 + 0.3 * fuel_ratio) * (0.85 + 0.15 * med_ratio)
         defense_mult = 1.0 + (
@@ -169,8 +247,21 @@ class BattleSimulator:
         attacker_size_before = attacker.total_units()
         defender_size_before = defender.total_units()
 
-        your_cas_mean = battle_rules.base_casualty_rate * intensity * your_damage * attacker_size_before
-        enemy_cas_mean = battle_rules.base_casualty_rate * intensity * enemy_damage * defender_size_before
+        your_cas_mean = (
+            battle_rules.base_casualty_rate
+            * intensity
+            * your_damage
+            * attacker_size_before
+            * attacker_engagement_ratio
+            * attacker_loss_mult
+        )
+        enemy_cas_mean = (
+            battle_rules.base_casualty_rate
+            * intensity
+            * enemy_damage
+            * defender_size_before
+            * defender_engagement_ratio
+        )
 
         shortage_flags: list[str] = []
         your_cas_mean = _apply_shortage_effect(
@@ -251,7 +342,7 @@ class BattleSimulator:
 
         progress_base = 1.0 / max(1, operation.estimated_total_days)
         ratio_term = 1.0 / (1.0 + math.exp(-battle_rules.progress_ratio_scale * math.log(max(your_advantage, 0.05))))
-        progress_delta = progress_base * ratio_term * modifiers["progress_mult"]
+        progress_delta = progress_base * ratio_term * modifiers["progress_mult"] * attacker_progress_mult
         progress_delta += modifiers["progress_mod"] * 0.1
         progress_delta += _shortage_progress_penalty(shortage_flags, state, log)
 
@@ -302,6 +393,14 @@ class BattleSimulator:
             tags.append("INITIATIVE")
         if screen_transfer > 0:
             tags.append("WALKER_SCREEN")
+        if terrain_id == "foundry_industrial_complex":
+            tags.append("TERRAIN_FOUNDRY")
+        if (attacker_engaged_manpower < attacker_eligible_manpower) or (
+            defender_engaged_manpower < defender_eligible_manpower
+        ):
+            tags.append("WIDTH_LIMITED")
+        if attacker_advantage_expansion > 0.0 or defender_advantage_expansion > 0.0:
+            tags.append("ADV_EXPANSION")
         tags.extend(sorted(set(shortage_flags)))
 
         supply_snapshot = BattleSupplySnapshot(
@@ -321,6 +420,19 @@ class BattleSimulator:
             day_index=day_index,
             global_day=global_day,
             phase=phase.value,
+            terrain_id=terrain_id,
+            infrastructure=infrastructure,
+            combat_width_multiplier=combat_width_multiplier,
+            force_limit_battalions=force_limit_battalions,
+            engagement_cap_manpower=engagement_cap_manpower,
+            attacker_eligible_manpower=int(round(attacker_eligible_manpower)),
+            defender_eligible_manpower=int(round(defender_eligible_manpower)),
+            attacker_engaged_manpower=attacker_engaged_manpower,
+            defender_engaged_manpower=defender_engaged_manpower,
+            attacker_engagement_ratio=attacker_engagement_ratio,
+            defender_engagement_ratio=defender_engagement_ratio,
+            attacker_advantage_expansion=attacker_advantage_expansion,
+            defender_advantage_expansion=defender_advantage_expansion,
             your_power=your_power,
             enemy_power=enemy_power,
             your_advantage=your_advantage,
@@ -347,6 +459,14 @@ class BattleSimulator:
         log("intensity", intensity, "combat", "Engagement intensity from selected decisions")
         log("your_power", your_power, "combat", "Attacker effective power")
         log("enemy_power", enemy_power, "combat", "Defender effective power")
+        log("force_limit_battalions", float(force_limit_battalions), "combat", "Terrain-constrained force limit")
+        log("engagement_cap_manpower", float(engagement_cap_manpower), "combat", "Base engagement cap")
+        log("attacker_engagement_ratio", attacker_engagement_ratio, "combat", "Attacker engaged manpower share")
+        log("defender_engagement_ratio", defender_engagement_ratio, "combat", "Defender engaged manpower share")
+        log("terrain_attacker_power_mult", attacker_power_mult, "combat", "Terrain attacker power modifier")
+        log("terrain_defender_power_mult", defender_power_mult, "combat", "Terrain defender power modifier")
+        log("terrain_attacker_progress_mult", attacker_progress_mult, "progress", "Terrain attacker progress modifier")
+        log("terrain_attacker_loss_mult", attacker_loss_mult, "casualties", "Terrain attacker casualty pressure")
         log("advantage", your_advantage, "progress", "Power ratio advantage")
         log("progress", progress_delta, "progress", "Daily progress contribution")
         log("readiness", readiness_delta, "readiness", "Daily readiness change")
@@ -366,8 +486,102 @@ class BattleSimulator:
         )
 
 
+def compute_force_limit(infrastructure: int, combat_width_multiplier: float) -> int:
+    return int(math.ceil((5.0 + infrastructure / 2.0) * combat_width_multiplier))
+
+
 def _decision_value(decisions, key: str, default: str) -> str:
     return str(getattr(decisions, key, default))
+
+
+def _side_role_manpower(side: BattleSideState, battle_rules) -> dict[str, float]:
+    return {
+        "infantry": max(0.0, float(side.infantry)),
+        "walkers": max(0.0, float(side.walkers) * battle_rules.manpower_per_walker),
+        "support": max(0.0, float(side.support) * battle_rules.manpower_per_support),
+    }
+
+
+def _eligible_manpower(*, total_manpower: float, morale: float, rules) -> float:
+    if morale < rules.eligibility_min_morale:
+        return 0.0
+    if total_manpower < rules.eligibility_min_manpower:
+        return 0.0
+    return max(0.0, total_manpower)
+
+
+def _advantage_expansion(*, eligible_side: float, eligible_other: float, battle_rules, rng) -> float:
+    if eligible_side <= 0.0:
+        return 0.0
+    ratio = eligible_side / max(1.0, eligible_other)
+    expansion_base = max(0.0, (ratio - 1.0) * battle_rules.numeric_advantage_expansion_scale)
+    jitter = rng.uniform(0.0, battle_rules.numeric_advantage_expansion_random_max)
+    return min(battle_rules.numeric_advantage_expansion_cap, expansion_base + jitter)
+
+
+def _role_participation_weights(
+    *,
+    role_manpower: dict[str, float],
+    morale: float,
+    role_stats: dict[str, float],
+    eligible_manpower: float,
+) -> dict[str, float]:
+    if eligible_manpower <= 0.0:
+        return {key: 0.0 for key in role_manpower.keys()}
+    return {
+        key: max(0.0, role_manpower[key] * morale * 1.0 * role_stats.get(key, 1.0))
+        for key in role_manpower.keys()
+    }
+
+
+def _allocate_engaged_manpower(
+    *,
+    role_manpower: dict[str, float],
+    role_weights: dict[str, float],
+    engagement_cap: float,
+) -> dict[str, float]:
+    allocation = {key: 0.0 for key in role_manpower.keys()}
+    if engagement_cap <= 0.0:
+        return allocation
+    total_weight = sum(max(0.0, weight) for weight in role_weights.values())
+    if total_weight <= 0.0:
+        return allocation
+
+    for role, weight in role_weights.items():
+        share = engagement_cap * max(0.0, weight) / total_weight
+        allocation[role] = min(role_manpower.get(role, 0.0), share)
+
+    remaining = max(0.0, engagement_cap - sum(allocation.values()))
+    if remaining <= 0.0:
+        return allocation
+
+    candidates = [role for role in allocation.keys() if role_manpower.get(role, 0.0) > allocation[role]]
+    while remaining > 0.5 and candidates:
+        candidate_weight_sum = sum(max(0.0, role_weights.get(role, 0.0)) for role in candidates)
+        if candidate_weight_sum <= 0.0:
+            break
+        spent = 0.0
+        for role in list(candidates):
+            proportional = remaining * max(0.0, role_weights.get(role, 0.0)) / candidate_weight_sum
+            room = max(0.0, role_manpower.get(role, 0.0) - allocation[role])
+            grant = min(room, proportional)
+            allocation[role] += grant
+            spent += grant
+        if spent <= 0.0:
+            break
+        remaining = max(0.0, remaining - spent)
+        candidates = [role for role in allocation.keys() if role_manpower.get(role, 0.0) > allocation[role]]
+    return allocation
+
+
+def _role_engagement_ratio(
+    role_manpower: dict[str, float],
+    engaged_role_manpower: dict[str, float],
+) -> dict[str, float]:
+    ratios: dict[str, float] = {}
+    for role, total in role_manpower.items():
+        ratios[role] = _clamp(engaged_role_manpower.get(role, 0.0) / max(1.0, total), 0.0, 1.0)
+    return ratios
 
 
 def _decision_modifiers(

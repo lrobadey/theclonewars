@@ -57,6 +57,20 @@ class ObjectiveDef:
     type: str
     base_difficulty: float
     description: str = ""
+    battlefield: "ObjectiveBattlefield | None" = None
+
+
+@dataclass(frozen=True)
+class ObjectiveBattlefield:
+    terrain_id: str
+    infrastructure: int
+    combat_width_multiplier: float
+    attacker_power_mult: float
+    defender_power_mult: float
+    attacker_progress_mult: float
+    attacker_loss_mult: float
+    walker_power_mult_attacker: float
+    walker_power_mult_defender: float
 
 
 @dataclass(frozen=True)
@@ -117,6 +131,16 @@ class BattleConfig:
     fortification_power_factor: float
     objective_difficulty_power_factor: float
     progress_ratio_scale: float
+    manpower_per_walker: float
+    manpower_per_support: float
+    manpower_per_battalion: int
+    eligibility_min_manpower: int
+    eligibility_min_morale: float
+    numeric_advantage_expansion_cap: float
+    numeric_advantage_expansion_scale: float
+    numeric_advantage_expansion_random_max: float
+    attacker_participation_stats: dict[str, float]
+    defender_participation_stats: dict[str, float]
     supply_rates: BattleSupplyRates
     walker_screen: BattleWalkerScreen
     cohesion_model: BattleCohesionModel
@@ -305,14 +329,34 @@ def _load_objectives(path: Path) -> dict[str, ObjectiveDef]:
             description = ""
         if not isinstance(description, str):
             raise RulesError(f"{path}: objective.description must be string")
+        battlefield = _load_objective_battlefield(path, item.get("battlefield"))
         objectives[obj_id] = ObjectiveDef(
             id=obj_id,
             name=str(name),
             type=str(obj_type),
             base_difficulty=base_difficulty,
             description=str(description),
+            battlefield=battlefield,
         )
     return objectives
+
+
+def _load_objective_battlefield(path: Path, data: Any) -> ObjectiveBattlefield | None:
+    if data is None:
+        return None
+    if not isinstance(data, dict):
+        raise RulesError(f"{path}: objective.battlefield must be object when present")
+    return ObjectiveBattlefield(
+        terrain_id=str(data.get("terrain_id", "unknown")),
+        infrastructure=int(data.get("infrastructure", 10)),
+        combat_width_multiplier=float(data.get("combat_width_multiplier", 1.0)),
+        attacker_power_mult=float(data.get("attacker_power_mult", 1.0)),
+        defender_power_mult=float(data.get("defender_power_mult", 1.0)),
+        attacker_progress_mult=float(data.get("attacker_progress_mult", 1.0)),
+        attacker_loss_mult=float(data.get("attacker_loss_mult", 1.0)),
+        walker_power_mult_attacker=float(data.get("walker_power_mult_attacker", 1.0)),
+        walker_power_mult_defender=float(data.get("walker_power_mult_defender", 1.0)),
+    )
 
 
 def _load_operation_rules(path: Path) -> dict[str, Any]:
@@ -394,6 +438,20 @@ def _load_battle(path: Path) -> BattleConfig:
         fortification_power_factor=float(data.get("fortification_power_factor", 0.6)),
         objective_difficulty_power_factor=float(data.get("objective_difficulty_power_factor", 0.5)),
         progress_ratio_scale=float(data.get("progress_ratio_scale", 1.1)),
+        manpower_per_walker=float(data.get("manpower_per_walker", 40.0)),
+        manpower_per_support=float(data.get("manpower_per_support", 1.0)),
+        manpower_per_battalion=int(data.get("manpower_per_battalion", 1000)),
+        eligibility_min_manpower=int(data.get("eligibility_min_manpower", 100)),
+        eligibility_min_morale=float(data.get("eligibility_min_morale", 0.20)),
+        numeric_advantage_expansion_cap=float(data.get("numeric_advantage_expansion_cap", 0.30)),
+        numeric_advantage_expansion_scale=float(data.get("numeric_advantage_expansion_scale", 0.15)),
+        numeric_advantage_expansion_random_max=float(data.get("numeric_advantage_expansion_random_max", 0.05)),
+        attacker_participation_stats={
+            str(k): float(v) for k, v in dict(data.get("attacker_participation_stats", {})).items()
+        },
+        defender_participation_stats={
+            str(k): float(v) for k, v in dict(data.get("defender_participation_stats", {})).items()
+        },
         supply_rates=BattleSupplyRates(
             ammo_per_infantry_per_intensity=float(
                 supply_rates_data.get("ammo_per_infantry_per_intensity", 0.12)

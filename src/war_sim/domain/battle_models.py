@@ -43,6 +43,19 @@ class BattleDayTick:
     day_index: int
     global_day: int
     phase: str
+    terrain_id: str
+    infrastructure: int
+    combat_width_multiplier: float
+    force_limit_battalions: int
+    engagement_cap_manpower: int
+    attacker_eligible_manpower: int
+    defender_eligible_manpower: int
+    attacker_engaged_manpower: int
+    defender_engaged_manpower: int
+    attacker_engagement_ratio: float
+    defender_engagement_ratio: float
+    attacker_advantage_expansion: float
+    defender_advantage_expansion: float
     your_power: float
     enemy_power: float
     your_advantage: float

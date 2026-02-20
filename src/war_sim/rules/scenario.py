@@ -62,6 +62,31 @@ class ScenarioData:
     intel_confidence: float
     control: float | None
     map: ScenarioMap | None
+    task_force_start: "TaskForceStartConfig"
+    foundry_mvp: "FoundryMvpConfig | None"
+
+
+@dataclass(frozen=True)
+class TaskForceStartConfig:
+    infantry: int
+    walkers: int
+    support: int
+    readiness: float
+    cohesion: float
+
+
+@dataclass(frozen=True)
+class FoundryMvpEnemyForce:
+    infantry: int
+    walkers: int
+    support: int
+    cohesion: float
+    fortification: float
+
+
+@dataclass(frozen=True)
+class FoundryMvpConfig:
+    enemy_force: FoundryMvpEnemyForce
 
 
 class ScenarioError(ValueError):
@@ -126,9 +151,13 @@ def load_game_state(path: Path) -> "GameState":
         ),
         logistics=logistics,
         task_force=TaskForceState(
-            composition=UnitComposition(infantry=120, walkers=2, support=1),
-            readiness=1.00,
-            cohesion=1.00,
+            composition=UnitComposition(
+                infantry=scenario.task_force_start.infantry,
+                walkers=scenario.task_force_start.walkers,
+                support=scenario.task_force_start.support,
+            ),
+            readiness=scenario.task_force_start.readiness,
+            cohesion=scenario.task_force_start.cohesion,
             supplies=front_supplies,
             location=LocationId.CONTESTED_SPACEPORT,
         ),
@@ -243,6 +272,8 @@ def _parse_scenario(data: dict) -> ScenarioData:
             control = None
 
     scenario_map = _parse_map(data.get("map"))
+    task_force_start = _parse_task_force_start(data.get("task_force_start"))
+    foundry_mvp = _parse_foundry_mvp(data.get("foundry_mvp"))
 
     return ScenarioData(
         seed=seed,
@@ -255,6 +286,53 @@ def _parse_scenario(data: dict) -> ScenarioData:
         intel_confidence=float(confidence),
         control=control,
         map=scenario_map,
+        task_force_start=task_force_start,
+        foundry_mvp=foundry_mvp,
+    )
+
+
+def _parse_task_force_start(data: object) -> TaskForceStartConfig:
+    if not isinstance(data, dict):
+        return TaskForceStartConfig(
+            infantry=120,
+            walkers=2,
+            support=1,
+            readiness=1.0,
+            cohesion=1.0,
+        )
+    infantry = int(data.get("infantry", 120))
+    walkers = int(data.get("walkers", 2))
+    support = int(data.get("support", 1))
+    readiness = float(data.get("readiness", 1.0))
+    cohesion = float(data.get("cohesion", 1.0))
+    return TaskForceStartConfig(
+        infantry=max(0, infantry),
+        walkers=max(0, walkers),
+        support=max(0, support),
+        readiness=max(0.0, min(1.0, readiness)),
+        cohesion=max(0.0, min(1.0, cohesion)),
+    )
+
+
+def _parse_foundry_mvp(data: object) -> FoundryMvpConfig | None:
+    if not isinstance(data, dict):
+        return None
+    enemy_force_data = data.get("enemy_force")
+    if not isinstance(enemy_force_data, dict):
+        return None
+    infantry = int(enemy_force_data.get("infantry", 12000))
+    walkers = int(enemy_force_data.get("walkers", 180))
+    support = int(enemy_force_data.get("support", 1200))
+    cohesion = float(enemy_force_data.get("cohesion", 0.92))
+    fortification = float(enemy_force_data.get("fortification", 1.35))
+    return FoundryMvpConfig(
+        enemy_force=FoundryMvpEnemyForce(
+            infantry=max(0, infantry),
+            walkers=max(0, walkers),
+            support=max(0, support),
+            cohesion=max(0.0, min(1.0, cohesion)),
+            fortification=max(0.5, fortification),
+        )
     )
 
 

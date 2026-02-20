@@ -10,8 +10,6 @@ def build_catalog(rules: Ruleset, scenario: ScenarioData) -> dict:
 
     operation_targets = [
         {"id": "foundry", "label": "Droid Foundry"},
-        {"id": "comms", "label": "Communications Array"},
-        {"id": "power", "label": "Power Plant"},
     ]
 
     operation_types = [

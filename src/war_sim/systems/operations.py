@@ -61,6 +61,8 @@ def start_operation(state: GameState, plan: OperationPlan, rng) -> None:
 def start_operation_phased(state: GameState, intent: OperationIntent, rng) -> None:
     if state.operation is not None:
         raise RuntimeError("Only one active operation allowed")
+    if intent.target != OperationTarget.FOUNDRY:
+        raise RuntimeError("MVP currently supports Droid Foundry operations only.")
     if _get_objective_status(state, intent.target) == ObjectiveStatus.SECURED:
         raise RuntimeError(f"Cannot operate against {intent.target.value}; objective already secured")
 
@@ -82,6 +84,19 @@ def start_operation_phased(state: GameState, intent: OperationIntent, rng) -> No
     phase_durations = _calculate_phase_durations(intent.op_type, estimated_days)
 
     enemy = state.contested_planet.enemy
+    objective = state.rules.objectives.get(_objective_id(intent.target))
+    battlefield = objective.battlefield if objective is not None else None
+
+    fixed_enemy_seeded = False
+    foundry_cfg = getattr(state.scenario, "foundry_mvp", None)
+    if intent.target == OperationTarget.FOUNDRY and foundry_cfg is not None:
+        fixed_enemy_seeded = True
+        enemy.infantry = foundry_cfg.enemy_force.infantry
+        enemy.walkers = foundry_cfg.enemy_force.walkers
+        enemy.support = foundry_cfg.enemy_force.support
+        enemy.cohesion = foundry_cfg.enemy_force.cohesion
+        enemy.fortification = foundry_cfg.enemy_force.fortification
+
     attacker = state.task_force
 
     enemy_power = _power_from_counts(
@@ -126,6 +141,8 @@ def start_operation_phased(state: GameState, intent: OperationIntent, rng) -> No
         ),
         battle_phase_acc=BattlePhaseAccumulator(),
         battle_log=[],
+        battlefield=battlefield,
+        fixed_enemy_seeded=fixed_enemy_seeded,
         enemy_fortification_start=enemy.fortification,
         enemy_fortification_current=enemy.fortification,
         op_id=str(uuid.uuid4()),

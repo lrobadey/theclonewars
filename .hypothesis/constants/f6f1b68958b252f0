@@ -1,0 +1,4 @@
+# file: /Users/lucarobadey/Desktop/Projects/Coding/The Clone Wars/src/war_sim/domain/battle_models.py
+# hypothesis_version: 6.151.4
+
+[0.0, 1.0, 'ammo', 'fuel', 'med_spares']
