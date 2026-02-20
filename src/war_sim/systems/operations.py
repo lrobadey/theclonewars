@@ -63,6 +63,8 @@ def start_operation_phased(state: GameState, intent: OperationIntent, rng) -> No
         raise RuntimeError("Only one active operation allowed")
     if _get_objective_status(state, intent.target) == ObjectiveStatus.SECURED:
         raise RuntimeError(f"Cannot operate against {intent.target.value}; objective already secured")
+    if intent.op_type != OperationTypeId.CAMPAIGN:
+        raise RuntimeError("MVP currently supports Campaign operations only.")
 
     op_config = state.rules.operation_types.get(intent.op_type.value)
     if op_config is None:

@@ -19,9 +19,9 @@ export type PlanetObjective = {
 };
 
 export type EnemyIntel = {
-  infantry: { min: number; max: number; actual: number };
-  walkers: { min: number; max: number; actual: number };
-  support: { min: number; max: number; actual: number };
+  infantry: { min: number; max: number };
+  walkers: { min: number; max: number };
+  support: { min: number; max: number };
   fortification: number;
   reinforcementRate: number;
   cohesion: number;
@@ -278,6 +278,43 @@ export type AfterActionReport = {
   events: { name: string; value: number; delta: string; why: string; phase: string }[];
 };
 
+export type CampaignView = {
+  stage: "preparation" | "active_operation" | "phase_report" | "aar_review" | "campaign_complete";
+  nextAction: {
+    id: string;
+    label: string;
+    reason: string;
+    blockingReason?: string | null;
+  };
+  blockers: string[];
+  readiness: {
+    forceScore: number;
+    supplyScore: number;
+    routeScore: number;
+    intelScore: number;
+    overallScore: number;
+  };
+  supplyForecast: {
+    ammoDays: number;
+    fuelDays: number;
+    medDays: number;
+    bottleneck: string;
+  };
+  objectiveProgress: {
+    secured: number;
+    total: number;
+    objectives: Array<{ id: string; label: string; status: ObjectiveStatus }>;
+  };
+  operationSnapshot: {
+    etaDays: number;
+    currentPhase: string;
+    dayInPhase: number;
+    dayInOperation: number;
+    requiredProgressHint: number;
+  } | null;
+  campaignLog: Array<{ day: number; kind: string; message: string }>;
+};
+
 export type GameStateResponse = {
   day: number;
   actionPoints: number;
@@ -297,6 +334,7 @@ export type GameStateResponse = {
   operation: OperationState | null;
   lastAar: AfterActionReport | null;
   mapView?: MapView;
+  campaignView: CampaignView;
 };
 
 export type ApiResponse = {
@@ -319,6 +357,17 @@ export type CatalogOption = {
   id: string;
   label: string;
   description?: string;
+  impact?: {
+    progress?: number;
+    losses?: number;
+    variance?: number;
+    supplies?: number;
+    fortification?: number;
+  };
+  availability?: {
+    enabled: boolean;
+    reason?: string;
+  };
 };
 
 export type CatalogResponse = {

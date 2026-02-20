@@ -22,6 +22,7 @@ def test_get_state_contract_smoke():
     assert isinstance(data.get("contestedPlanet"), dict)
     assert isinstance(data.get("logistics"), dict)
     assert isinstance(data.get("mapView"), dict)
+    assert isinstance(data.get("campaignView"), dict)
 
     # Map needs these IDs to exist
     ids = {n["id"] for n in data["systemNodes"]}
@@ -33,6 +34,26 @@ def test_get_state_contract_smoke():
     assert "new_system_core" in map_ids
     assert "deep_space" in map_ids
     assert "contested_front" in map_ids
+
+    # Intel model should be range + confidence only (no ground-truth leakage).
+    intel = data["contestedPlanet"]["enemy"]["infantry"]
+    assert "min" in intel and "max" in intel
+    assert "actual" not in intel
+
+    campaign = data["campaignView"]
+    assert campaign["stage"] in {
+        "preparation",
+        "active_operation",
+        "phase_report",
+        "aar_review",
+        "campaign_complete",
+    }
+    assert isinstance(campaign["nextAction"]["id"], str)
+    assert isinstance(campaign["blockers"], list)
+    assert isinstance(campaign["readiness"]["overallScore"], float)
+    assert isinstance(campaign["supplyForecast"]["bottleneck"], str)
+    assert isinstance(campaign["objectiveProgress"]["secured"], int)
+    assert isinstance(campaign["campaignLog"], list)
 
 
 def test_catalog_contract_smoke():
@@ -48,6 +69,16 @@ def test_catalog_contract_smoke():
     assert isinstance(data.get("operationTypes"), list)
     assert [item["id"] for item in data["operationTypes"]] == ["raid", "campaign", "siege"]
     assert isinstance(data.get("decisions"), dict)
+    for operation_type in data["operationTypes"]:
+        assert "availability" in operation_type
+        assert isinstance(operation_type["availability"]["enabled"], bool)
+    assert data["operationTypes"][0]["availability"]["enabled"] is False
+    assert data["operationTypes"][1]["availability"]["enabled"] is True
+
+    phase1 = data["decisions"]["phase1"]["approachAxis"]
+    assert phase1, "expected phase1 options"
+    assert "impact" in phase1[0]
+    assert "description" in phase1[0]
 
 
 def test_action_advance_day_smoke():
@@ -130,14 +161,15 @@ def test_non_foundry_operation_allowed():
     assert allowed_payload["ok"] is True
 
 
-def test_non_campaign_operation_allowed():
+def test_campaign_only_operation_lock():
     app = create_app()
     client = TestClient(app)
 
-    allowed = client.post("/api/actions/operation/start", json={"target": "foundry", "opType": "raid"})
-    assert allowed.status_code == 200
-    allowed_payload = allowed.json()
-    assert allowed_payload["ok"] is True
+    denied = client.post("/api/actions/operation/start", json={"target": "foundry", "opType": "raid"})
+    assert denied.status_code == 200
+    denied_payload = denied.json()
+    assert denied_payload["ok"] is False
+    assert "Campaign operations only" in (denied_payload.get("message") or "")
 
 
 def test_latest_battle_day_contains_vic3_fields():
@@ -169,3 +201,24 @@ def test_latest_battle_day_contains_vic3_fields():
     assert isinstance(battle_day["defenderEngagementRatio"], float)
     assert isinstance(battle_day["attackerAdvantageExpansion"], float)
     assert isinstance(battle_day["defenderAdvantageExpansion"], float)
+
+
+def test_campaign_view_stage_transitions():
+    app = create_app()
+    client = TestClient(app)
+
+    pre = client.get("/api/state").json()
+    assert pre["campaignView"]["stage"] == "preparation"
+    assert pre["campaignView"]["nextAction"]["id"] in {"start_operation", "advance_day"}
+
+    started = client.post("/api/actions/operation/start", json={"target": "foundry", "opType": "campaign"}).json()
+    assert started["ok"] is True
+    assert started["state"]["campaignView"]["stage"] == "active_operation"
+    assert started["state"]["campaignView"]["nextAction"]["id"] == "submit_phase_decisions"
+
+    submitted = client.post(
+        "/api/actions/operation/decisions",
+        json={"axis": "direct", "fire": "preparatory"},
+    ).json()
+    assert submitted["ok"] is True
+    assert submitted["state"]["campaignView"]["nextAction"]["id"] in {"advance_day", "submit_phase_decisions"}

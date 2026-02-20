@@ -29,7 +29,6 @@ class UnitStock(CamelModel):
 class IntelRange(CamelModel):
     min: int
     max: int
-    actual: int
 
 
 class EnemyIntel(CamelModel):
@@ -329,6 +328,65 @@ class TaskForce(CamelModel):
     supplies: Supplies
 
 
+class CampaignNextAction(CamelModel):
+    id: str
+    label: str
+    reason: str
+    blocking_reason: Optional[str] = Field(None, alias="blockingReason")
+
+
+class CampaignReadiness(CamelModel):
+    force_score: float = Field(..., alias="forceScore")
+    supply_score: float = Field(..., alias="supplyScore")
+    route_score: float = Field(..., alias="routeScore")
+    intel_score: float = Field(..., alias="intelScore")
+    overall_score: float = Field(..., alias="overallScore")
+
+
+class CampaignSupplyForecast(CamelModel):
+    ammo_days: float = Field(..., alias="ammoDays")
+    fuel_days: float = Field(..., alias="fuelDays")
+    med_days: float = Field(..., alias="medDays")
+    bottleneck: str
+
+
+class CampaignObjectiveStatus(CamelModel):
+    id: str
+    label: str
+    status: str
+
+
+class CampaignObjectiveProgress(CamelModel):
+    secured: int
+    total: int
+    objectives: List[CampaignObjectiveStatus]
+
+
+class CampaignOperationSnapshot(CamelModel):
+    eta_days: int = Field(..., alias="etaDays")
+    current_phase: str = Field(..., alias="currentPhase")
+    day_in_phase: int = Field(..., alias="dayInPhase")
+    day_in_operation: int = Field(..., alias="dayInOperation")
+    required_progress_hint: float = Field(..., alias="requiredProgressHint")
+
+
+class CampaignLogEntry(CamelModel):
+    day: int
+    kind: str
+    message: str
+
+
+class CampaignView(CamelModel):
+    stage: str
+    next_action: CampaignNextAction = Field(..., alias="nextAction")
+    blockers: List[str]
+    readiness: CampaignReadiness
+    supply_forecast: CampaignSupplyForecast = Field(..., alias="supplyForecast")
+    objective_progress: CampaignObjectiveProgress = Field(..., alias="objectiveProgress")
+    operation_snapshot: Optional[CampaignOperationSnapshot] = Field(None, alias="operationSnapshot")
+    campaign_log: List[CampaignLogEntry] = Field(..., alias="campaignLog")
+
+
 class GameStateResponse(CamelModel):
     day: int
     action_points: int = Field(..., alias="actionPoints")
@@ -342,6 +400,7 @@ class GameStateResponse(CamelModel):
     operation: Optional[OperationState]
     last_aar: Optional[AfterActionReport] = Field(None, alias="lastAar")
     map_view: Optional[MapView] = Field(None, alias="mapView")
+    campaign_view: CampaignView = Field(..., alias="campaignView")
 
 
 class ApiResponse(CamelModel):
@@ -383,19 +442,37 @@ class CatalogOption(CamelModel):
     description: Optional[str] = None
 
 
+class CatalogImpact(CamelModel):
+    progress: Optional[float] = None
+    losses: Optional[float] = None
+    variance: Optional[float] = None
+    supplies: Optional[float] = None
+    fortification: Optional[float] = None
+
+
+class CatalogAvailability(CamelModel):
+    enabled: bool
+    reason: Optional[str] = None
+
+
+class CatalogOptionWithMeta(CatalogOption):
+    impact: Optional[CatalogImpact] = None
+    availability: Optional[CatalogAvailability] = None
+
+
 class CatalogPhase1(CamelModel):
-    approach_axis: List[CatalogOption] = Field(..., alias="approachAxis")
-    fire_support_prep: List[CatalogOption] = Field(..., alias="fireSupportPrep")
+    approach_axis: List[CatalogOptionWithMeta] = Field(..., alias="approachAxis")
+    fire_support_prep: List[CatalogOptionWithMeta] = Field(..., alias="fireSupportPrep")
 
 
 class CatalogPhase2(CamelModel):
-    engagement_posture: List[CatalogOption] = Field(..., alias="engagementPosture")
-    risk_tolerance: List[CatalogOption] = Field(..., alias="riskTolerance")
+    engagement_posture: List[CatalogOptionWithMeta] = Field(..., alias="engagementPosture")
+    risk_tolerance: List[CatalogOptionWithMeta] = Field(..., alias="riskTolerance")
 
 
 class CatalogPhase3(CamelModel):
-    exploit_vs_secure: List[CatalogOption] = Field(..., alias="exploitVsSecure")
-    end_state: List[CatalogOption] = Field(..., alias="endState")
+    exploit_vs_secure: List[CatalogOptionWithMeta] = Field(..., alias="exploitVsSecure")
+    end_state: List[CatalogOptionWithMeta] = Field(..., alias="endState")
 
 
 class CatalogDecisions(CamelModel):
@@ -406,6 +483,6 @@ class CatalogDecisions(CamelModel):
 
 class CatalogResponse(CamelModel):
     operation_targets: List[CatalogOption] = Field(..., alias="operationTargets")
-    operation_types: List[CatalogOption] = Field(..., alias="operationTypes")
+    operation_types: List[CatalogOptionWithMeta] = Field(..., alias="operationTypes")
     decisions: CatalogDecisions
     objectives: List[CatalogOption]

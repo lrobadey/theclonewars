@@ -47,15 +47,12 @@ def test_foundry_operation_seeds_fixed_enemy_force() -> None:
     assert op.enemy_fortification_current == 1.35
 
 
-def test_non_foundry_operation_rejected() -> None:
+def test_non_foundry_operation_accepted() -> None:
     state = make_state()
     intent = OperationIntent(target=OperationTarget.COMMS, op_type=OperationTypeId.CAMPAIGN)
-    try:
-        state.start_operation_phased(intent)
-    except RuntimeError as exc:
-        assert "Droid Foundry" in str(exc)
-    else:
-        raise AssertionError("Expected non-foundry target to be rejected")
+    state.start_operation_phased(intent)
+    assert state.operation is not None
+    assert state.operation.target == OperationTarget.COMMS
 
 
 def test_non_campaign_operation_rejected() -> None:

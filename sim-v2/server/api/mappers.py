@@ -45,6 +45,7 @@ def build_state_response(state: GameState) -> schemas.GameStateResponse:
         operation=_operation_state(state),
         last_aar=_last_aar(state),
         map_view=_map_view(state),
+        campaign_view=_campaign_view(state),
     )
 
 
@@ -83,7 +84,7 @@ def _estimate_range(actual: int, confidence: float) -> schemas.IntelRange:
     variance = int(round(actual * (1.0 - confidence) * 0.5))
     low = max(0, actual - variance)
     high = actual + variance
-    return schemas.IntelRange(min=low, max=high, actual=actual)
+    return schemas.IntelRange(min=low, max=high)
 
 
 def _contested_planet(state: GameState) -> schemas.ContestedPlanet:
@@ -232,6 +233,278 @@ def _map_view(state: GameState) -> schemas.MapView | None:
             for conn in view.get("connections", [])
         ],
     )
+
+
+def _campaign_view(state: GameState) -> schemas.CampaignView:
+    stage = _campaign_stage(state)
+    blockers = _campaign_blockers(state, stage)
+    next_action = _campaign_next_action(state, stage, blockers)
+    objective_progress = _objective_progress(state)
+
+    return schemas.CampaignView(
+        stage=stage,
+        next_action=next_action,
+        blockers=blockers,
+        readiness=_campaign_readiness(state),
+        supply_forecast=_supply_forecast(state),
+        objective_progress=objective_progress,
+        operation_snapshot=_operation_snapshot(state),
+        campaign_log=_campaign_log(state),
+    )
+
+
+def _campaign_stage(state: GameState) -> str:
+    all_secured = _all_objectives_secured(state)
+    if state.last_aar is not None:
+        return "aar_review"
+    if state.operation is not None and state.operation.pending_phase_record is not None:
+        return "phase_report"
+    if state.operation is not None:
+        return "active_operation"
+    if all_secured:
+        return "campaign_complete"
+    return "preparation"
+
+
+def _campaign_blockers(state: GameState, stage: str) -> list[str]:
+    blockers: list[str] = []
+    if stage == "preparation":
+        if state.action_points < 1:
+            blockers.append("No action points available to launch an operation.")
+        if state.task_force.composition.infantry <= 0:
+            blockers.append("Task force has no infantry and cannot prosecute objectives.")
+        if state.task_force.supplies.ammo <= 0:
+            blockers.append("Ammo reserves at front are depleted.")
+    if stage == "active_operation":
+        if state.operation is not None and state.operation.awaiting_player_decision:
+            blockers.append("Awaiting phase decisions before day advancement.")
+    if stage == "phase_report":
+        blockers.append("Acknowledge current phase report to continue.")
+    if stage == "aar_review":
+        blockers.append("Acknowledge the after-action report to continue campaign.")
+    return blockers
+
+
+def _campaign_next_action(state: GameState, stage: str, blockers: list[str]) -> schemas.CampaignNextAction:
+    primary_blocker = blockers[0] if blockers else None
+    if stage == "preparation":
+        if primary_blocker is not None:
+            return schemas.CampaignNextAction(
+                id="advance_day",
+                label="Advance Day",
+                reason="Recover action points or replenish strategic posture before launch.",
+                blocking_reason=primary_blocker,
+            )
+        return schemas.CampaignNextAction(
+            id="start_operation",
+            label="Launch Campaign Operation",
+            reason="Select objective and operation profile, then begin phase-one shaping.",
+        )
+    if stage == "active_operation":
+        if state.operation is not None and state.operation.awaiting_player_decision:
+            return schemas.CampaignNextAction(
+                id="submit_phase_decisions",
+                label="Submit Phase Orders",
+                reason="Current phase requires command decisions before simulation can proceed.",
+                blocking_reason=primary_blocker,
+            )
+        return schemas.CampaignNextAction(
+            id="advance_day",
+            label="Advance Operational Day",
+            reason="Execute one more operational tick; pauses automatically on decisions/reports.",
+        )
+    if stage == "phase_report":
+        return schemas.CampaignNextAction(
+            id="ack_phase_report",
+            label="Acknowledge Phase Report",
+            reason="Confirm phase outcome and move to the next operation phase.",
+            blocking_reason=primary_blocker,
+        )
+    if stage == "aar_review":
+        return schemas.CampaignNextAction(
+            id="ack_aar",
+            label="Acknowledge AAR",
+            reason="Close operation debrief and return to campaign planning.",
+            blocking_reason=primary_blocker,
+        )
+    return schemas.CampaignNextAction(
+        id="campaign_secured",
+        label="Campaign Secured",
+        reason="All objectives are secured. Maintain force readiness and supply posture.",
+    )
+
+
+def _campaign_readiness(state: GameState) -> schemas.CampaignReadiness:
+    tf = state.task_force
+    enemy = state.contested_planet.enemy
+
+    your_power = _power_from_counts(state, tf.composition.infantry, tf.composition.walkers, tf.composition.support)
+    enemy_power = _power_from_counts(state, enemy.infantry, enemy.walkers, enemy.support) * max(0.8, enemy.fortification)
+    force_ratio = your_power / max(enemy_power, 1.0)
+    force_score = _clamp(force_ratio * tf.readiness * tf.cohesion)
+
+    forecast = _supply_forecast(state)
+    supply_score = _clamp(min(forecast.ammo_days, forecast.fuel_days, forecast.med_days) / 7.0)
+
+    route_risks = [route.interdiction_risk for route in state.logistics.routes]
+    route_score = _clamp(1.0 - (sum(route_risks) / max(1, len(route_risks))))
+
+    intel_score = _clamp(enemy.intel_confidence)
+    overall = _clamp((force_score * 0.4) + (supply_score * 0.25) + (route_score * 0.2) + (intel_score * 0.15))
+    return schemas.CampaignReadiness(
+        force_score=force_score,
+        supply_score=supply_score,
+        route_score=route_score,
+        intel_score=intel_score,
+        overall_score=overall,
+    )
+
+
+def _supply_forecast(state: GameState) -> schemas.CampaignSupplyForecast:
+    tf = state.task_force
+    rates = state.rules.battle.supply_rates
+    intensity = 1.0
+
+    ammo_daily = max(
+        1.0,
+        (tf.composition.infantry * rates.ammo_per_infantry_per_intensity * intensity)
+        + (tf.composition.walkers * rates.ammo_per_walker_per_intensity * intensity)
+        + (tf.composition.support * rates.ammo_per_support_per_intensity * intensity),
+    )
+    fuel_daily = max(1.0, tf.composition.walkers * rates.fuel_per_walker_per_intensity * intensity)
+    med_daily = max(
+        1.0,
+        (
+            tf.composition.infantry
+            + tf.composition.walkers
+            + tf.composition.support
+        )
+        * rates.med_per_unit_per_day,
+    )
+
+    ammo_days = state.task_force.supplies.ammo / ammo_daily
+    fuel_days = state.task_force.supplies.fuel / fuel_daily
+    med_days = state.task_force.supplies.med_spares / med_daily
+
+    bottleneck = "ammo"
+    min_days = ammo_days
+    if fuel_days < min_days:
+        bottleneck = "fuel"
+        min_days = fuel_days
+    if med_days < min_days:
+        bottleneck = "med_spares"
+
+    return schemas.CampaignSupplyForecast(
+        ammo_days=round(ammo_days, 2),
+        fuel_days=round(fuel_days, 2),
+        med_days=round(med_days, 2),
+        bottleneck=bottleneck,
+    )
+
+
+def _objective_progress(state: GameState) -> schemas.CampaignObjectiveProgress:
+    objective_defs = state.rules.objectives
+    objectives = [
+        schemas.CampaignObjectiveStatus(
+            id="foundry",
+            label=objective_defs.get("foundry").name if objective_defs.get("foundry") else "Foundry",
+            status=state.contested_planet.objectives.foundry.value,
+        ),
+        schemas.CampaignObjectiveStatus(
+            id="comms",
+            label=objective_defs.get("comms").name if objective_defs.get("comms") else "Communications Array",
+            status=state.contested_planet.objectives.comms.value,
+        ),
+        schemas.CampaignObjectiveStatus(
+            id="power",
+            label=objective_defs.get("power").name if objective_defs.get("power") else "Power Plant",
+            status=state.contested_planet.objectives.power.value,
+        ),
+    ]
+    secured = sum(1 for objective in objectives if objective.status == "secured")
+    return schemas.CampaignObjectiveProgress(secured=secured, total=len(objectives), objectives=objectives)
+
+
+def _operation_snapshot(state: GameState) -> schemas.CampaignOperationSnapshot | None:
+    operation = state.operation
+    if operation is None:
+        return None
+    required_progress = 0.75
+    phase3 = operation.decisions.phase3
+    if phase3 is not None:
+        rule = state.rules.end_states.get(phase3.end_state, {})
+        required_progress = float(rule.get("required_progress", 0.75))
+
+    return schemas.CampaignOperationSnapshot(
+        eta_days=max(0, operation.estimated_total_days - operation.day_in_operation),
+        current_phase=operation.current_phase.value,
+        day_in_phase=operation.day_in_phase,
+        day_in_operation=operation.day_in_operation,
+        required_progress_hint=required_progress,
+    )
+
+
+def _campaign_log(state: GameState) -> list[schemas.CampaignLogEntry]:
+    entries: list[schemas.CampaignLogEntry] = []
+    for item in state.logistics.transit_log[:6]:
+        entries.append(schemas.CampaignLogEntry(day=item.day, kind="logistics", message=item.message))
+
+    if state.operation is not None:
+        op = state.operation
+        entries.append(
+            schemas.CampaignLogEntry(
+                day=state.day,
+                kind="operation",
+                message=f"{op.target.value}: {op.current_phase.value} day {op.day_in_operation}/{op.estimated_total_days}",
+            )
+        )
+        for record in op.phase_history[-3:]:
+            entries.append(
+                schemas.CampaignLogEntry(
+                    day=record.end_day,
+                    kind="phase",
+                    message=(
+                        f"{record.phase.value} resolved: "
+                        f"progress {record.summary.progress_delta:.3f}, "
+                        f"losses {record.summary.losses}, enemy losses {record.summary.enemy_losses}"
+                    ),
+                )
+            )
+    if state.last_aar is not None:
+        report = state.last_aar
+        entries.append(
+            schemas.CampaignLogEntry(
+                day=state.day,
+                kind="aar",
+                message=(
+                    f"{report.outcome} at {report.target.value}: "
+                    f"{report.days} days, losses {report.losses}, enemy losses {report.enemy_losses}"
+                ),
+            )
+        )
+
+    entries.sort(key=lambda entry: entry.day, reverse=True)
+    return entries[:10]
+
+
+def _all_objectives_secured(state: GameState) -> bool:
+    objectives = state.contested_planet.objectives
+    return (
+        objectives.foundry.value == "secured"
+        and objectives.comms.value == "secured"
+        and objectives.power.value == "secured"
+    )
+
+
+def _power_from_counts(state: GameState, infantry: float, walkers: float, support: float) -> float:
+    infantry_power = state.rules.unit_roles.get("infantry").base_power if state.rules.unit_roles.get("infantry") else 1.0
+    walker_power = state.rules.unit_roles.get("walkers").base_power if state.rules.unit_roles.get("walkers") else 12.0
+    support_power = state.rules.unit_roles.get("support").base_power if state.rules.unit_roles.get("support") else 4.0
+    return (infantry * infantry_power) + (walkers * walker_power) + (support * support_power)
+
+
+def _clamp(value: float, low: float = 0.0, high: float = 1.0) -> float:
+    return max(low, min(high, value))
 
 
 def _shipment(shipment: Shipment) -> schemas.Shipment:

@@ -1,11 +1,10 @@
 import { useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import type { ApiResponse, CatalogResponse, GameStateResponse } from '../../api/types';
+import type { ApiResponse, GameStateResponse } from '../../api/types';
 import { postAdvanceDay } from '../../api/client';
 import { Chip } from './ui/Chip';
 import { CoreWorldsBar } from './CoreWorldsBar';
 import { DeepSpaceBar } from './DeepSpaceBar';
-import { ContestedSystemBar } from './ContestedSystemBar';
 
 type NodeId = 'new_system_core' | 'deep_space' | 'contested_front';
 
@@ -13,7 +12,6 @@ interface NodeBarDrawerProps {
   isOpen: boolean;
   selectedNodeId: NodeId | null;
   state: GameStateResponse;
-  catalog: CatalogResponse | null;
   onClose: () => void;
   onActionResult: (resp: ApiResponse) => void;
   onRefresh: () => void;
@@ -53,7 +51,6 @@ export function NodeBarDrawer({
   isOpen,
   selectedNodeId,
   state,
-  catalog,
   onClose,
   onActionResult,
   onRefresh,
@@ -194,7 +191,14 @@ export function NodeBarDrawer({
                   animate={{ opacity: 1, y: 0, transition: { duration: 0.22, ease: 'easeOut' } }}
                   exit={{ opacity: 0, y: 12, transition: { duration: 0.16, ease: 'easeIn' } }}
                 >
-                  <ContestedSystemBar state={state} catalog={catalog} onActionResult={onActionResult} />
+                  <div className="glass-surface glass-strong glass-tone-contested glass-elev-low p-4 m-4 space-y-2">
+                    <div className="text-xs uppercase tracking-[0.2em] text-text-secondary font-mono">
+                      Contested command has moved
+                    </div>
+                    <div className="text-sm text-text-primary">
+                      Use the strategic map and select CONTESTED SYSTEM to open the dedicated campaign command surface.
+                    </div>
+                  </div>
                 </motion.div>
               )}
             </AnimatePresence>

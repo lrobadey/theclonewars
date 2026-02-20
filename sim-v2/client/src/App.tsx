@@ -6,6 +6,7 @@ import { useGameState } from './hooks/useGameState';
 import { useCatalog } from './hooks/useCatalog';
 import { AnimatePresence, motion } from 'framer-motion';
 import type { ApiResponse } from './api/types';
+import { CampaignCommandSurface } from './features/campaign/CampaignCommandSurface';
 
 interface Toast {
   id: number;
@@ -36,6 +37,15 @@ function App() {
   };
 
   const handleNodeClick = (nodeId: string) => {
+    if (nodeId === 'contested_front') {
+      if (selectedNodeId === 'contested_front') {
+        setSelectedNodeId(null);
+      } else {
+        setSelectedNodeId('contested_front');
+      }
+      setIsDrawerOpen(false);
+      return;
+    }
     if (isDrawerOpen && selectedNodeId === nodeId) {
       handleDrawerClose();
       return;
@@ -101,15 +111,25 @@ function App() {
       </main>
 
       {/* System Drawer */}
-      <NodeBarDrawer 
-        isOpen={isDrawerOpen}
-        onClose={handleDrawerClose}
-        selectedNodeId={selectedNodeId}
-        state={state}
-        catalog={catalog}
-        onActionResult={handleActionResult}
-        onRefresh={refresh}
-      />
+      {selectedNodeId !== 'contested_front' && (
+        <NodeBarDrawer 
+          isOpen={isDrawerOpen}
+          onClose={handleDrawerClose}
+          selectedNodeId={selectedNodeId}
+          state={state}
+          onActionResult={handleActionResult}
+          onRefresh={refresh}
+        />
+      )}
+
+      {selectedNodeId === 'contested_front' && (
+        <CampaignCommandSurface
+          state={state}
+          catalog={catalog}
+          onActionResult={handleActionResult}
+          onClose={() => setSelectedNodeId(null)}
+        />
+      )}
 
       {/* Toasts */}
       <div className="toast-container">
