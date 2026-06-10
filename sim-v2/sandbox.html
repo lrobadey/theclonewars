@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>The Schism — Sim Sandbox</title>
+<style>
+  body { font-family: ui-monospace, Menlo, monospace; background: #0b0e14; color: #cdd6f4; margin: 0; display: flex; height: 100vh; }
+  #controls { width: 420px; padding: 16px; overflow-y: auto; border-right: 1px solid #2a2f3a; }
+  #stateView { flex: 1; padding: 16px; overflow: auto; font-size: 12px; white-space: pre; }
+  fieldset { border: 1px solid #2a2f3a; margin-bottom: 12px; padding: 8px; }
+  legend { color: #89b4fa; font-size: 12px; }
+  button { background: #1e2533; color: #cdd6f4; border: 1px solid #3a4456; padding: 4px 10px; cursor: pointer; margin: 2px; }
+  button:hover { background: #2a3447; }
+  button.primary { border-color: #89b4fa; color: #89b4fa; }
+  input, select { background: #11151f; color: #cdd6f4; border: 1px solid #3a4456; width: 60px; padding: 3px; }
+  select { width: auto; }
+  label { font-size: 12px; }
+  #log { font-size: 12px; max-height: 160px; overflow-y: auto; }
+  #log .err { color: #f38ba8; }
+  #log .ok { color: #a6e3a1; }
+  #summary { font-size: 13px; margin-bottom: 12px; line-height: 1.5; }
+  h1 { font-size: 16px; }
+</style>
+</head>
+<body>
+<div id="controls">
+  <h1>SCHISM SANDBOX</h1>
+  <div id="summary">loading…</div>
+
+  <fieldset>
+    <legend>turn</legend>
+    <button class="primary" onclick="post('/api/actions/advance-day')">Advance Day</button>
+    <button onclick="refresh()">Refresh State</button>
+  </fieldset>
+
+  <fieldset>
+    <legend>production / barracks (queued at core)</legend>
+    <select id="prodType">
+      <option>ammo</option><option>fuel</option><option>med_spares</option><option>walkers</option>
+    </select>
+    <input id="prodQty" type="number" value="50">
+    <button onclick="post('/api/actions/production', {job_type: el('prodType').value, quantity: +el('prodQty').value})">Queue Factory</button>
+    <br>
+    <select id="barType"><option>infantry</option><option>support</option></select>
+    <input id="barQty" type="number" value="100">
+    <button onclick="post('/api/actions/barracks', {job_type: el('barType').value, quantity: +el('barQty').value})">Queue Barracks</button>
+    <br>
+    <button onclick="post('/api/actions/upgrade-factory')">Upgrade Factory (1 AP)</button>
+    <button onclick="post('/api/actions/upgrade-barracks')">Upgrade Barracks (1 AP)</button>
+  </fieldset>
+
+  <fieldset>
+    <legend>dispatch shipment (1 AP)</legend>
+    <label>from <select id="origin">
+      <option>new_system_core</option><option>deep_space</option><option>contested_spaceport</option>
+      <option>contested_mid_depot</option><option>contested_front</option>
+    </select></label>
+    <label>to <select id="dest">
+      <option>deep_space</option><option>new_system_core</option><option>contested_spaceport</option>
+      <option>contested_mid_depot</option><option selected>contested_front</option>
+    </select></label><br>
+    <label>ammo <input id="shipAmmo" type="number" value="0"></label>
+    <label>fuel <input id="shipFuel" type="number" value="0"></label>
+    <label>med <input id="shipMed" type="number" value="0"></label><br>
+    <label>inf <input id="shipInf" type="number" value="0"></label>
+    <label>walk <input id="shipWalk" type="number" value="0"></label>
+    <label>sup <input id="shipSup" type="number" value="0"></label>
+    <button onclick="dispatch()">Dispatch</button>
+  </fieldset>
+
+  <fieldset>
+    <legend>operation</legend>
+    <select id="opTarget">
+      <option value="Droid Foundry">Droid Foundry</option>
+      <option value="Communications Array">Communications Array</option>
+      <option value="Power Plant">Power Plant</option>
+    </select>
+    <button class="primary" onclick="post('/api/actions/operation/start', {target: el('opTarget').value, op_type: 'campaign'})">Start Op (1 AP)</button>
+    <div id="phaseControls"></div>
+    <button onclick="post('/api/actions/operation/ack-phase')">Ack Phase Report</button>
+    <button onclick="post('/api/actions/ack-aar')">Ack AAR</button>
+  </fieldset>
+
+  <fieldset>
+    <legend>session</legend>
+    <button onclick="document.cookie='session_id=; Max-Age=0; path=/'; location.reload()">New Session (reset)</button>
+  </fieldset>
+
+  <fieldset><legend>log</legend><div id="log"></div></fieldset>
+</div>
+<pre id="stateView">…</pre>
+
+<script>
+const el = id => document.getElementById(id);
+let lastState = null;
+
+const PHASE_OPTIONS = {
+  contact_shaping: [
+    ['axis', ['direct', 'flank', 'dispersed', 'stealth']],
+    ['fire', ['conserve', 'preparatory']],
+  ],
+  engagement: [
+    ['posture', ['shock', 'methodical', 'siege', 'feint']],
+    ['risk', ['low', 'med', 'high']],
+  ],
+  exploit_consolidate: [
+    ['focus', ['push', 'secure']],
+    ['end_state', ['capture', 'raid', 'destroy', 'withdraw']],
+  ],
+};
+
+function log(msg, cls) {
+  const div = document.createElement('div');
+  div.className = cls;
+  div.textContent = msg;
+  el('log').prepend(div);
+}
+
+function render(state) {
+  lastState = state;
+  el('stateView').textContent = JSON.stringify(state, null, 2);
+  const op = state.operation;
+  el('summary').innerHTML =
+    `day <b>${state.day}</b> · AP <b>${state.actionPoints ?? state.action_points ?? '?'}</b>` +
+    (op ? ` · op: <b>${op.opType ?? op.op_type ?? ''}</b> phase <b>${op.currentPhase ?? op.current_phase ?? ''}</b>` : ' · no active op');
+
+  // Phase decision controls, built from whatever phase the op is in
+  const pc = el('phaseControls');
+  pc.innerHTML = '';
+  const phase = op && (op.currentPhase ?? op.current_phase);
+  const fields = PHASE_OPTIONS[phase];
+  if (fields) {
+    const selects = fields.map(([name, opts]) => {
+      const s = document.createElement('select');
+      s.id = 'ph_' + name;
+      opts.forEach(o => s.add(new Option(o, o)));
+      const lbl = document.createElement('label');
+      lbl.append(' ' + name + ' ', s);
+      pc.append(lbl);
+      return [name, s];
+    });
+    const btn = document.createElement('button');
+    btn.className = 'primary';
+    btn.textContent = 'Submit ' + phase + ' orders';
+    btn.onclick = () => {
+      const payload = {};
+      selects.forEach(([name, s]) => payload[name] = s.value);
+      post('/api/actions/operation/decisions', payload);
+    };
+    pc.append(document.createElement('br'), btn);
+  }
+}
+
+async function refresh() {
+  const res = await fetch('/api/state');
+  render(await res.json());
+}
+
+async function post(url, body) {
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body ?? {}),
+  });
+  const data = await res.json();
+  log((data.ok ? '✓ ' : '✗ ') + (data.message ?? url), data.ok ? 'ok' : 'err');
+  if (data.state) render(data.state); else refresh();
+}
+
+function dispatch() {
+  post('/api/actions/dispatch', {
+    origin: el('origin').value,
+    destination: el('dest').value,
+    supplies: { ammo: +el('shipAmmo').value, fuel: +el('shipFuel').value, med_spares: +el('shipMed').value },
+    units: { infantry: +el('shipInf').value, walkers: +el('shipWalk').value, support: +el('shipSup').value },
+  });
+}
+
+refresh();
+</script>
+</body>
+</html>

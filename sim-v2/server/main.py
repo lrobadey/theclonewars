@@ -29,6 +29,10 @@ def create_app() -> FastAPI:
     if ASSETS_DIR.exists():
         app.mount("/assets", StaticFiles(directory=ASSETS_DIR), name="assets")
 
+    @app.get("/sandbox")
+    async def serve_sandbox():
+        return FileResponse(SIM_V2_ROOT / "sandbox.html")
+
     @app.get("/{path:path}")
     async def serve_spa(path: str):
         if path == "api" or path.startswith("api/"):
