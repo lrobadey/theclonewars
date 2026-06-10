@@ -1,3 +1,0 @@
-fastapi
-uvicorn[standard]
-hypothesis>=6.0.0

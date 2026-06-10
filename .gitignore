@@ -18,3 +18,10 @@ node_modules/
 
 # sim-v2 client build (track source only)
 sim-v2/client/dist/
+
+# Build / tooling artifacts
+*.egg-info/
+.hypothesis/
+
+# Editor artifacts
+.cursor/

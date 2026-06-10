@@ -1,4 +1,0 @@
-# file: /Users/lucarobadey/Desktop/Projects/Coding/The Clone Wars/src/clone_wars/engine/scenario.py
-# hypothesis_version: 6.151.4
-
-['GameState', 'ScenarioError', 'load_game_state']

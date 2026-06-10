@@ -68,7 +68,9 @@ class GameState:
         from pathlib import Path
         from war_sim.rules.scenario import load_game_state
 
-        data_path = Path(__file__).resolve().parents[2] / "clone_wars" / "data" / "scenario.json"
+        data_path = (
+            Path(__file__).resolve().parents[3] / "sim-v2" / "data" / "scenarios" / "default.json"
+        )
         state = load_game_state(data_path)
         state.rng_seed = seed
         return state

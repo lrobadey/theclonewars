@@ -1,6 +1,6 @@
-# The Clone Wars: Grand Strategy Design & MVP Plan
+# The Schism: Grand Strategy Design & MVP Plan
 
-**Vision:** A systems-driven simulated war campaign rooted in the *Star Wars* archetypes.
+**Vision:** A systems-driven simulated war campaign set in an original sci-fi conflict.
 **Platform:** Textual UI / Terminal-first (Rich/Textual).
 **Genre:** Grand Strategy / Simulation / Narrative Generator.
 
@@ -17,7 +17,7 @@ A 4-year bounded campaign simulating a solar-system-wide conflict between two as
 *   **The Human Collective (Biopunk/Socialist):**
     *   **Ideology:** Human-centric, collective spirit.
     *   **Governance:** *The Senate* (Values lives/populism, highly volatile).
-    *   **Forces:** Clone troopers, Human officers. High variance (heroism/panic), morale-driven.
+    *   **Forces:** Collective troopers, human officers. High variance (heroism/panic), morale-driven.
 
 ---
 
@@ -69,8 +69,8 @@ War is moving matter through space.
     *   **Phase 1: Setup & Contact:**
         *   *Choices:* **Artillery** (Spend Ammo -> Reduce Fortification) OR **Scout** (Risk Detection -> Reveal Enemy Strength).
     *   **Phase 2: The Engagement:**
-        *   *Asymmetry:* Clones check Morale (Heroism/Panic). Droids check Stability (Consistent grind).
-        *   *Storyteller:* Narrates specific tactical vignettes (e.g., "501st pinned by snipers").
+        *   *Asymmetry:* Collective troopers check Morale (Heroism/Panic). Droids check Stability (Consistent grind).
+        *   *Storyteller:* Narrates specific tactical vignettes (e.g., "3rd Battalion pinned by snipers").
     *   **Phase 3: Resolution:**
         *   *Winning:* **Chase** (High kills, high fatigue) OR **Secure** (Safe, high control gain).
         *   *Losing:* **Retreat** (Save units, lose ground) OR **Second Wind** (Risk total wipeout for rally).
@@ -103,7 +103,7 @@ We will build the system in 4 vertical slices to ensure playability at each step
 ### Phase 2: The Front (Ground Combat)
 *Goal: Give the supplies a purpose (consumption/fighting).*
 1.  **Operation Logic:** Deepen `ActiveOperation` to use the new 3-Phase designs.
-2.  **Unit Traits:** Implement Clone Morale vs Droid Stability.
+2.  **Unit Traits:** Implement Trooper Morale vs Droid Stability.
 3.  **UI:** Dedicated `BattleScreen` for the 3-phase interactive flow.
 4.  **Integration:** Operations consume supplies delivered in Phase 1.
 

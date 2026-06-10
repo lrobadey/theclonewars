@@ -1,2 +1,2 @@
-"""Tests for Clone Wars War Sim."""
+"""Tests for The Schism war sim."""
 

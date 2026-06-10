@@ -19,11 +19,6 @@ dev = [
   "httpx>=0.24.0",
   "watchfiles>=0.21.0",
 ]
-legacy = [
-  "jinja2>=3.0.0",
-  "python-multipart>=0.0.6",
-  "textual>=0.50.0",
-]
 
 [tool.setuptools]
 package-dir = {"" = "src"}
@@ -33,3 +28,7 @@ where = ["src"]
 include = ["war_sim", "war_sim.*"]
 
 [tool.setuptools.package-data]
+
+[tool.pytest.ini_options]
+testpaths = ["tests", "sim-v2/server/tests"]
+pythonpath = ["src", "sim-v2"]

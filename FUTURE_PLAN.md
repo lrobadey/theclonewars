@@ -1,7 +1,7 @@
-# Clone Wars War Sim — Future Plan
+# The Schism — Future Plan
 
 This document captures the **high-level gaps** and a **forward plan** to align the current MVP implementation
-with the intended experience described in `CLONE_WARS_WAR_SIM_MVP.md`.
+with the intended experience described in `THE_SCHISM_WAR_SIM_MVP.md`.
 
 ## Current Gaps (What’s Not Working Yet)
 

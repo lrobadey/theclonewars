@@ -10,7 +10,7 @@ from war_sim.rules.scenario import load_game_state
 
 
 def test_ruleset_contracts() -> None:
-    data_dir = Path(__file__).resolve().parents[2] / "src" / "clone_wars" / "data"
+    data_dir = Path(__file__).resolve().parents[2] / "sim-v2" / "data" / "rules"
     rules = Ruleset.load(data_dir)
 
     assert rules.supply_classes

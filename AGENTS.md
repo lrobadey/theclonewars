@@ -1,4 +1,4 @@
-# AGENTS.md - Execution Contract for The Clone Wars
+# AGENTS.md - Execution Contract for The Schism
 
 This is the single canonical agent-instructions file for this repository. Do not maintain a second instruction file.
 
@@ -12,7 +12,7 @@ Hard rule:
 
 ## 2) Source of Truth and Spec Traceability
 
-`CLONE_WARS_WAR_SIM_MVP.md` is the source of truth for gameplay constraints and MVP behavior.
+`THE_SCHISM_WAR_SIM_MVP.md` is the source of truth for gameplay constraints and MVP behavior.
 
 For every gameplay-affecting change, the final report must include:
 - The exact MVP section(s) used as requirements.
@@ -26,12 +26,9 @@ Primary implementation paths:
 - `sim-v2/` (primary server + web UI surface)
 - `src/war_sim/` (shared simulation engine/domain)
 
-Supporting legacy paths:
-- `src/clone_wars/` (legacy engine/web/TUI/frontend)
-
 Web-first hard rule:
 - New feature development must target the web experience first.
-- TUI/legacy-only feature work is not allowed unless explicitly requested for parity or bugfix reasons.
+- All feature work targets the web experience.
 
 Cross-layer synchronization rule:
 - Engine/domain/state changes are incomplete until corresponding API and web UI layers are updated.
@@ -39,10 +36,6 @@ Cross-layer synchronization rule:
   - `src/war_sim/...`
   - `sim-v2/server/api/{schemas.py,mappers.py,router.py}` (as needed)
   - `sim-v2/client/src/{api,hooks,features,components}` (as needed)
-- For touched legacy flows, apply the same rule across:
-  - `src/clone_wars/engine/...`
-  - `src/clone_wars/web/api/...` and render/viewmodel layers
-  - `src/clone_wars/frontend/src/...`
 
 ## 4) Todo Discipline (Mandatory)
 
@@ -106,7 +99,7 @@ Required minimum:
 Examples of expected coverage:
 - Engine/domain: relevant tests under `tests/war_sim/` and/or targeted `tests/` modules.
 - API/server: `sim-v2/server/tests/test_api_contract.py` plus affected server tests.
-- Frontend: `npm run build` in the touched client (`sim-v2/client` or `src/clone_wars/frontend`) plus matching backend/API contract checks.
+- Frontend: `npm run build` in the touched client (`sim-v2/client`) plus matching backend/API contract checks.
 
 ## 9) Verification Evidence Format (Mandatory)
 
@@ -126,13 +119,11 @@ Core run flow:
 - `python sim-v2/run_server.py`
 
 Python tests:
-- `pytest sim-v2/server/tests`
-- `pytest tests/war_sim`
-- `pytest tests` (broader regression when appropriate)
+- `pytest` (runs engine + server suites)
+- `pytest tests/war_sim` or `pytest sim-v2/server/tests` for targeted subsets
 
 Frontend verification:
 - `cd sim-v2/client && npm install && npm run build`
-- `cd src/clone_wars/frontend && npm install && npm run build` (only when that client is touched)
 
 Use targeted subsets first, then broaden when risk warrants it.
 

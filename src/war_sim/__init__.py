@@ -1,1 +1,1 @@
-"""Shared simulation engine for The Clone Wars / Schism sims."""
+"""Shared simulation engine for The Schism."""
