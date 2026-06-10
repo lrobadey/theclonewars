@@ -75,12 +75,6 @@ class ObjectiveBattlefield:
 
 @dataclass(frozen=True)
 class GlobalConfig:
-    raid_max_ticks: int
-    raid_ammo_cost: int
-    raid_fuel_cost: int
-    raid_med_cost: int
-    raid_base_damage_rate: float
-    raid_casualty_rate: float
     ammo_pinch_threshold: float
     walker_screen_infantry_protect: float
     storage_risk_per_day: dict[LocationId, float]
@@ -403,12 +397,6 @@ def _load_globals(path: Path) -> GlobalConfig:
     storage_risk_raw = data.get("storage_risk_per_day", {})
     storage_loss_raw = data.get("storage_loss_pct_range", {})
     return GlobalConfig(
-        raid_max_ticks=int(data.get("raid_max_ticks", 12)),
-        raid_ammo_cost=int(data.get("raid_ammo_cost", 2)),
-        raid_fuel_cost=int(data.get("raid_fuel_cost", 2)),
-        raid_med_cost=int(data.get("raid_med_cost", 1)),
-        raid_base_damage_rate=float(data.get("raid_base_damage_rate", 0.12)),
-        raid_casualty_rate=float(data.get("raid_casualty_rate", 0.02)),
         ammo_pinch_threshold=float(data.get("ammo_pinch_threshold", 0.35)),
         walker_screen_infantry_protect=float(data.get("walker_screen_infantry_protect", 0.65)),
         storage_risk_per_day={LocationId(k): float(v) for k, v in storage_risk_raw.items()},

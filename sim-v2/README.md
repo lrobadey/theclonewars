@@ -2,6 +2,14 @@
 
 Turn-based strategic sim for the Schism setting (New System vs Human Collective). Uses the shared engine in `src/war_sim`, with v2 data and the map UI as the core interface.
 
+The v2 app is intentionally scoped around one playable loop:
+
+```text
+produce resources -> ship them forward -> run one operation -> read the AAR
+```
+
+The active screen is organized around three command zones: Core Worlds, Deep Space, and Contested System.
+
 ## Prerequisites
 
 - Python (same as main project; use repo venv)
@@ -62,7 +70,8 @@ From the repo root with the project venv activated:
 
 ```bash
 python -m pip install -e ".[dev]"
-pytest sim-v2/server/tests
+PYTHONPATH=src:sim-v2 python -m pytest sim-v2/server/tests tests/war_sim -q
+cd sim-v2/client && npm run build
 ```
 
 ## Running without the run script

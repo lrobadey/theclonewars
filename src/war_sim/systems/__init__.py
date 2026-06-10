@@ -1,1 +1,1 @@
-"""Subsystem implementations (production, logistics, ops, raid, etc.)."""
+"""Subsystem implementations (production, logistics, ops, etc.)."""

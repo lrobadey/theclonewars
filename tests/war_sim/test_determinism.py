@@ -36,12 +36,8 @@ def test_reducer_blocks_advance_during_active_operation():
     assert blocked.ok is False
 
 
-def test_non_campaign_operation_rejected():
-    s1 = _load_state()
-    intent = OperationIntent(target=OperationTarget.FOUNDRY, op_type=OperationTypeId.RAID)
-    result = apply_action(s1, StartOperation(intent=intent))
-    assert result.ok is False
-    assert "Campaign operations only" in (result.message or "")
+def test_campaign_is_the_only_supported_operation_type():
+    assert list(OperationTypeId) == [OperationTypeId.CAMPAIGN]
 
 
 def test_determinism_operation():

@@ -23,6 +23,7 @@ def test_get_state_contract_smoke():
     assert isinstance(data.get("logistics"), dict)
     assert isinstance(data.get("mapView"), dict)
     assert isinstance(data.get("campaignView"), dict)
+    assert set(data["logistics"].keys()) == {"depots", "routes", "shipments", "transitLog"}
 
     # Map needs these IDs to exist
     ids = {n["id"] for n in data["systemNodes"]}
@@ -41,6 +42,7 @@ def test_get_state_contract_smoke():
     assert "actual" not in intel
 
     campaign = data["campaignView"]
+    assert set(campaign.keys()) == {"stage", "blockers", "objectiveProgress", "operationSnapshot"}
     assert campaign["stage"] in {
         "preparation",
         "active_operation",
@@ -48,12 +50,12 @@ def test_get_state_contract_smoke():
         "aar_review",
         "campaign_complete",
     }
-    assert isinstance(campaign["nextAction"]["id"], str)
     assert isinstance(campaign["blockers"], list)
-    assert isinstance(campaign["readiness"]["overallScore"], float)
-    assert isinstance(campaign["supplyForecast"]["bottleneck"], str)
     assert isinstance(campaign["objectiveProgress"]["secured"], int)
-    assert isinstance(campaign["campaignLog"], list)
+    assert isinstance(campaign["objectiveProgress"]["total"], int)
+    if campaign["operationSnapshot"] is not None:
+        assert isinstance(campaign["operationSnapshot"]["currentPhase"], str)
+        assert isinstance(campaign["operationSnapshot"]["etaDays"], int)
 
 
 def test_catalog_contract_smoke():
@@ -67,13 +69,12 @@ def test_catalog_contract_smoke():
     assert isinstance(data.get("operationTargets"), list)
     assert [item["id"] for item in data["operationTargets"]] == ["foundry", "comms", "power"]
     assert isinstance(data.get("operationTypes"), list)
-    assert [item["id"] for item in data["operationTypes"]] == ["raid", "campaign", "siege"]
+    assert [item["id"] for item in data["operationTypes"]] == ["campaign"]
     assert isinstance(data.get("decisions"), dict)
     for operation_type in data["operationTypes"]:
         assert "availability" in operation_type
         assert isinstance(operation_type["availability"]["enabled"], bool)
-    assert data["operationTypes"][0]["availability"]["enabled"] is False
-    assert data["operationTypes"][1]["availability"]["enabled"] is True
+    assert data["operationTypes"][0]["availability"]["enabled"] is True
 
     phase1 = data["decisions"]["phase1"]["approachAxis"]
     assert phase1, "expected phase1 options"
@@ -161,7 +162,7 @@ def test_non_foundry_operation_allowed():
     assert allowed_payload["ok"] is True
 
 
-def test_campaign_only_operation_lock():
+def test_unsupported_operation_type_returns_structured_error():
     app = create_app()
     client = TestClient(app)
 
@@ -169,7 +170,7 @@ def test_campaign_only_operation_lock():
     assert denied.status_code == 200
     denied_payload = denied.json()
     assert denied_payload["ok"] is False
-    assert "Campaign operations only" in (denied_payload.get("message") or "")
+    assert "Unknown operation type" in (denied_payload.get("message") or "")
 
 
 def test_latest_battle_day_contains_vic3_fields():
@@ -209,16 +210,20 @@ def test_campaign_view_stage_transitions():
 
     pre = client.get("/api/state").json()
     assert pre["campaignView"]["stage"] == "preparation"
-    assert pre["campaignView"]["nextAction"]["id"] in {"start_operation", "advance_day"}
+    assert pre["campaignView"]["operationSnapshot"] is None
 
     started = client.post("/api/actions/operation/start", json={"target": "foundry", "opType": "campaign"}).json()
     assert started["ok"] is True
     assert started["state"]["campaignView"]["stage"] == "active_operation"
-    assert started["state"]["campaignView"]["nextAction"]["id"] == "submit_phase_decisions"
+    snapshot = started["state"]["campaignView"]["operationSnapshot"]
+    assert snapshot is not None
+    assert snapshot["currentPhase"] == "contact_shaping"
+    assert isinstance(snapshot["etaDays"], int)
 
     submitted = client.post(
         "/api/actions/operation/decisions",
         json={"axis": "direct", "fire": "preparatory"},
     ).json()
     assert submitted["ok"] is True
-    assert submitted["state"]["campaignView"]["nextAction"]["id"] in {"advance_day", "submit_phase_decisions"}
+    assert submitted["state"]["campaignView"]["stage"] == "active_operation"
+    assert submitted["state"]["operation"]["awaitingDecision"] is False

@@ -1,11 +1,16 @@
 Metadata-Version: 2.4
 Name: the-schism
 Version: 0.0.1
-Summary: The Schism — Strategic War Sim (terminal TUI)
+Summary: The Schism - Strategic War Sim v2 web app and shared engine
 Requires-Python: >=3.11
-Requires-Dist: textual>=0.50.0
+Requires-Dist: fastapi>=0.100.0
+Requires-Dist: uvicorn[standard]>=0.20.0
 Provides-Extra: dev
 Requires-Dist: pytest>=7.0.0; extra == "dev"
 Requires-Dist: hypothesis>=6.0.0; extra == "dev"
 Requires-Dist: httpx>=0.24.0; extra == "dev"
 Requires-Dist: watchfiles>=0.21.0; extra == "dev"
+Provides-Extra: legacy
+Requires-Dist: jinja2>=3.0.0; extra == "legacy"
+Requires-Dist: python-multipart>=0.0.6; extra == "legacy"
+Requires-Dist: textual>=0.50.0; extra == "legacy"

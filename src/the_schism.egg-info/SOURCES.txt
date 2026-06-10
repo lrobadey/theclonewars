@@ -92,14 +92,12 @@ src/war_sim/systems/enemy.py
 src/war_sim/systems/logistics.py
 src/war_sim/systems/operations.py
 src/war_sim/systems/production.py
-src/war_sim/systems/raid.py
 src/war_sim/systems/storage_loss.py
 src/war_sim/systems/upkeep.py
 src/war_sim/view/__init__.py
 src/war_sim/view/catalog.py
 src/war_sim/view/map_view.py
 tests/test_barracks.py
-tests/test_combat.py
 tests/test_console_flow.py
 tests/test_game_state_integration.py
 tests/test_logistics.py

@@ -82,8 +82,8 @@ def build_map_view(state: GameState) -> dict:
             "type": "deep",
             "size": "medium",
             "isLabeled": True,
-            "subtitle1": f"Transit orders: {len(state.logistics.active_orders)}",
-            "subtitle2": f"Shipments: {len(state.logistics.shipments)} | Ships: {len(state.logistics.ships)}",
+            "subtitle1": f"Shipments in transit: {len(state.logistics.shipments)}",
+            "subtitle2": f"Route legs: {len(state.logistics.routes)}",
             "severity": deep_severity,
         }
     )

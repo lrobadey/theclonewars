@@ -165,9 +165,6 @@ def load_game_state(path: Path) -> "GameState":
         scenario=scenario,
         action_points=3,
         faction_turn=FactionId.NEW_SYSTEM,
-        raid_session=None,
-        raid_target=None,
-        raid_id=None,
         operation=None,
         last_aar=None,
     )

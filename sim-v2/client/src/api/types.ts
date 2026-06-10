@@ -103,43 +103,16 @@ export type Shipment = {
   units: UnitStock;
 };
 
-export type CargoShip = {
-  id: string;
-  name: string;
-  location: string;
-  state: string;
-  destination: string | null;
-  daysRemaining: number;
-  totalDays: number;
-  supplies: Supplies;
-  units: UnitStock;
-};
-
 export type TransitLogEntry = {
   day: number;
   message: string;
   eventType: string;
 };
 
-export type TransportOrder = {
-  orderId: string;
-  origin: string;
-  finalDestination: string;
-  currentLocation: string;
-  status: string;
-  supplies: Supplies;
-  units: UnitStock;
-  inTransitLeg: [string, string] | null;
-  carrierId: string | null;
-  blockedReason?: string | null;
-};
-
 export type LogisticsState = {
   depots: Depot[];
   routes: Route[];
   shipments: Shipment[];
-  ships: CargoShip[];
-  activeOrders: TransportOrder[];
   transitLog: TransitLogEntry[];
 };
 
@@ -280,26 +253,7 @@ export type AfterActionReport = {
 
 export type CampaignView = {
   stage: "preparation" | "active_operation" | "phase_report" | "aar_review" | "campaign_complete";
-  nextAction: {
-    id: string;
-    label: string;
-    reason: string;
-    blockingReason?: string | null;
-  };
   blockers: string[];
-  readiness: {
-    forceScore: number;
-    supplyScore: number;
-    routeScore: number;
-    intelScore: number;
-    overallScore: number;
-  };
-  supplyForecast: {
-    ammoDays: number;
-    fuelDays: number;
-    medDays: number;
-    bottleneck: string;
-  };
   objectiveProgress: {
     secured: number;
     total: number;
@@ -310,9 +264,7 @@ export type CampaignView = {
     currentPhase: string;
     dayInPhase: number;
     dayInOperation: number;
-    requiredProgressHint: number;
   } | null;
-  campaignLog: Array<{ day: number; kind: string; message: string }>;
 };
 
 export type GameStateResponse = {

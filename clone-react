@@ -2,11 +2,7 @@
 from __future__ import annotations
 
 import os
-import argparse
-import signal
-import subprocess
 import sys
-import webbrowser
 
 
 MIN_PY = (3, 11)
@@ -29,107 +25,15 @@ def _ensure_supported_python() -> None:
     raise SystemExit(2)
 
 
-def _terminate(proc: subprocess.Popen[object] | None) -> None:
-    if proc is None or proc.poll() is not None:
-        return
-    try:
-        proc.send_signal(signal.SIGINT)
-        proc.wait(timeout=2)
-        return
-    except Exception:
-        pass
-    try:
-        proc.terminate()
-        proc.wait(timeout=2)
-        return
-    except Exception:
-        pass
-    try:
-        proc.kill()
-    except Exception:
-        pass
-
-
-def _build_server_cmd(host: str, port: int, reload: bool) -> list[str]:
-    cmd = [
-        sys.executable,
-        "-m",
-        "uvicorn",
-        "clone_wars.web.run_react:app",
-        "--host",
-        host,
-        "--port",
-        str(port),
-    ]
-    if reload:
-        cmd.append("--reload")
-        cmd.extend(
-            [
-                "--reload-exclude",
-                "__pycache__",
-                "--reload-exclude",
-                "*.pyc",
-                "--reload-exclude",
-                "*.pyo",
-                "--reload-exclude",
-                ".pytest_cache",
-            ]
-        )
-    return cmd
-
-
 def main(argv: list[str] | None = None) -> int:
     _ensure_supported_python()
 
-    parser = argparse.ArgumentParser(
-        prog="python3 clone-react",
-        description="Launch the React FastAPI dev server for The Schism.",
-    )
-    parser.add_argument(
-        "--host",
-        default="127.0.0.1",
-        help="Host to listen on (default: %(default)s).",
-    )
-    parser.add_argument(
-        "--port",
-        type=int,
-        default=8001,
-        help="Port for the FastAPI server (default: %(default)s).",
-    )
-    parser.add_argument(
-        "--no-reload",
-        action="store_true",
-        help="Disable uvicorn --reload for the FastAPI server.",
-    )
-    parser.add_argument(
-        "--no-browser",
-        action="store_true",
-        help="Skip opening the browser automatically.",
-    )
-    args = parser.parse_args(argv)
-
-    server_cmd = _build_server_cmd(args.host, args.port, not args.no_reload)
-    proc: subprocess.Popen[object] | None = None
-    try:
-        print(
-            f"Starting React FastAPI dev server on {args.host}:{args.port} "
-            f"(reload={'off' if args.no_reload else 'on'})."
-        )
-        env = os.environ.copy()
-        src_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "src")
-        env["PYTHONPATH"] = f"{src_dir}{os.pathsep}{env.get('PYTHONPATH', '')}"
-
-        proc = subprocess.Popen(server_cmd, env=env)
-        if not args.no_browser:
-            url = f"http://{args.host}:{args.port}"
-            print(f"Opening {url} in your browser.")
-            webbrowser.open(url)
-        return proc.wait() or 0
-    except KeyboardInterrupt:
-        print("Shutting down React FastAPI dev server.")
-        return 0
-    finally:
-        _terminate(proc)
+    repo_root = os.path.dirname(os.path.abspath(__file__))
+    launcher = os.path.join(repo_root, "sim-v2", "run_server.py")
+    args = argv if argv is not None else sys.argv[1:]
+    print("Delegating to the v2 web app launcher: python sim-v2/run_server.py")
+    os.execv(sys.executable, [sys.executable, launcher, *args])
+    return 0
 
 
 if __name__ == "__main__":

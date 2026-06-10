@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { StrategicMap } from './components/StrategicMap';
 import { StatusHeader } from './components/StatusHeader';
 import { NodeBarDrawer } from './components/nodeBars/NodeBarDrawer';
@@ -6,7 +6,6 @@ import { useGameState } from './hooks/useGameState';
 import { useCatalog } from './hooks/useCatalog';
 import { AnimatePresence, motion } from 'framer-motion';
 import type { ApiResponse } from './api/types';
-import { CampaignCommandSurface } from './features/campaign/CampaignCommandSurface';
 
 interface Toast {
   id: number;
@@ -19,7 +18,6 @@ function App() {
   const { state, loading, error, refresh, applyApiResponse } = useGameState();
   const { catalog } = useCatalog();
   const [selectedNodeId, setSelectedNodeId] = useState<NodeId | null>(null);
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
 
   const mapData = useMemo(() => {
@@ -37,25 +35,11 @@ function App() {
   };
 
   const handleNodeClick = (nodeId: string) => {
-    if (nodeId === 'contested_front') {
-      if (selectedNodeId === 'contested_front') {
-        setSelectedNodeId(null);
-      } else {
-        setSelectedNodeId('contested_front');
-      }
-      setIsDrawerOpen(false);
-      return;
-    }
-    if (isDrawerOpen && selectedNodeId === nodeId) {
-      handleDrawerClose();
-      return;
-    }
-    setSelectedNodeId(nodeId as NodeId);
-    setIsDrawerOpen(true);
+    const nextNodeId = nodeId as NodeId;
+    setSelectedNodeId(prev => (prev === nextNodeId ? null : nextNodeId));
   };
 
   const handleDrawerClose = () => {
-    setIsDrawerOpen(false);
     setSelectedNodeId(null);
   };
 
@@ -101,7 +85,7 @@ function App() {
       <StatusHeader state={state} />
       
       {/* Main Strategic Map */}
-      <main className="pt-16 px-4 md:px-8">
+      <main className="pt-16 px-4 md:px-8 pb-44">
         <StrategicMap 
           nodes={mapData.nodes} 
           connections={mapData.connections}
@@ -111,25 +95,15 @@ function App() {
       </main>
 
       {/* System Drawer */}
-      {selectedNodeId !== 'contested_front' && (
-        <NodeBarDrawer 
-          isOpen={isDrawerOpen}
-          onClose={handleDrawerClose}
-          selectedNodeId={selectedNodeId}
-          state={state}
-          onActionResult={handleActionResult}
-          onRefresh={refresh}
-        />
-      )}
-
-      {selectedNodeId === 'contested_front' && (
-        <CampaignCommandSurface
-          state={state}
-          catalog={catalog}
-          onActionResult={handleActionResult}
-          onClose={() => setSelectedNodeId(null)}
-        />
-      )}
+      <NodeBarDrawer
+        isOpen={selectedNodeId !== null}
+        onClose={handleDrawerClose}
+        selectedNodeId={selectedNodeId}
+        state={state}
+        catalog={catalog}
+        onActionResult={handleActionResult}
+        onRefresh={refresh}
+      />
 
       {/* Toasts */}
       <div className="toast-container">

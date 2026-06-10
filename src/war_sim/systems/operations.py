@@ -78,8 +78,6 @@ def start_operation_phased(state: GameState, intent: OperationIntent, rng) -> No
     control_mod = max(0, int((1.0 - state.contested_planet.control) * 2.0))
     estimated_days = base_days + fort_mod + control_mod
     estimated_days = max(duration_range[0], min(estimated_days, duration_range[1]))
-    if intent.op_type == OperationTypeId.RAID:
-        estimated_days = max(3, estimated_days)
 
     phase_durations = _calculate_phase_durations(intent.op_type, estimated_days)
 
@@ -320,25 +318,6 @@ def _close_phase(
 def _calculate_phase_durations(
     op_type: OperationTypeId, total_days: int
 ) -> dict[OperationPhase, int]:
-    if op_type == OperationTypeId.RAID:
-        phase_one = 1
-        phase_two = 1
-        phase_three = max(1, total_days - phase_one - phase_two)
-        return {
-            OperationPhase.CONTACT_SHAPING: phase_one,
-            OperationPhase.ENGAGEMENT: phase_two,
-            OperationPhase.EXPLOIT_CONSOLIDATE: phase_three,
-        }
-    if op_type == OperationTypeId.SIEGE:
-        phase_one = max(1, total_days // 3)
-        phase_two = max(1, total_days // 2)
-        phase_three = max(1, total_days - phase_one - phase_two)
-        return {
-            OperationPhase.CONTACT_SHAPING: phase_one,
-            OperationPhase.ENGAGEMENT: phase_two,
-            OperationPhase.EXPLOIT_CONSOLIDATE: phase_three,
-        }
-
     phase_one = max(1, total_days // 3)
     phase_two = max(1, total_days // 3)
     phase_three = max(1, total_days - phase_one - phase_two)

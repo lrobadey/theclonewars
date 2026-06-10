@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -122,43 +122,16 @@ class Shipment(CamelModel):
     units: UnitStock
 
 
-class CargoShip(CamelModel):
-    id: str
-    name: str
-    location: str
-    state: str
-    destination: Optional[str]
-    days_remaining: int = Field(..., alias="daysRemaining")
-    total_days: int = Field(..., alias="totalDays")
-    supplies: Supplies
-    units: UnitStock
-
-
 class TransitLogEntry(CamelModel):
     day: int
     message: str
     event_type: str = Field(..., alias="eventType")
 
 
-class TransportOrder(CamelModel):
-    order_id: str = Field(..., alias="orderId")
-    origin: str
-    final_destination: str = Field(..., alias="finalDestination")
-    current_location: str = Field(..., alias="currentLocation")
-    status: str
-    supplies: Supplies
-    units: UnitStock
-    in_transit_leg: Optional[Tuple[str, str]] = Field(None, alias="inTransitLeg")
-    carrier_id: Optional[str] = Field(None, alias="carrierId")
-    blocked_reason: Optional[str] = Field(None, alias="blockedReason")
-
-
 class LogisticsState(CamelModel):
     depots: List[Depot]
     routes: List[Route]
     shipments: List[Shipment]
-    ships: List[CargoShip]
-    active_orders: List[TransportOrder] = Field(..., alias="activeOrders")
     transit_log: List[TransitLogEntry] = Field(..., alias="transitLog")
 
 
@@ -328,28 +301,6 @@ class TaskForce(CamelModel):
     supplies: Supplies
 
 
-class CampaignNextAction(CamelModel):
-    id: str
-    label: str
-    reason: str
-    blocking_reason: Optional[str] = Field(None, alias="blockingReason")
-
-
-class CampaignReadiness(CamelModel):
-    force_score: float = Field(..., alias="forceScore")
-    supply_score: float = Field(..., alias="supplyScore")
-    route_score: float = Field(..., alias="routeScore")
-    intel_score: float = Field(..., alias="intelScore")
-    overall_score: float = Field(..., alias="overallScore")
-
-
-class CampaignSupplyForecast(CamelModel):
-    ammo_days: float = Field(..., alias="ammoDays")
-    fuel_days: float = Field(..., alias="fuelDays")
-    med_days: float = Field(..., alias="medDays")
-    bottleneck: str
-
-
 class CampaignObjectiveStatus(CamelModel):
     id: str
     label: str
@@ -367,24 +318,13 @@ class CampaignOperationSnapshot(CamelModel):
     current_phase: str = Field(..., alias="currentPhase")
     day_in_phase: int = Field(..., alias="dayInPhase")
     day_in_operation: int = Field(..., alias="dayInOperation")
-    required_progress_hint: float = Field(..., alias="requiredProgressHint")
-
-
-class CampaignLogEntry(CamelModel):
-    day: int
-    kind: str
-    message: str
 
 
 class CampaignView(CamelModel):
     stage: str
-    next_action: CampaignNextAction = Field(..., alias="nextAction")
     blockers: List[str]
-    readiness: CampaignReadiness
-    supply_forecast: CampaignSupplyForecast = Field(..., alias="supplyForecast")
     objective_progress: CampaignObjectiveProgress = Field(..., alias="objectiveProgress")
     operation_snapshot: Optional[CampaignOperationSnapshot] = Field(None, alias="operationSnapshot")
-    campaign_log: List[CampaignLogEntry] = Field(..., alias="campaignLog")
 
 
 class GameStateResponse(CamelModel):

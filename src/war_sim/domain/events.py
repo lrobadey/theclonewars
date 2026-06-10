@@ -8,7 +8,7 @@ from typing import Any
 
 @dataclass(frozen=True)
 class FactorScope:
-    kind: str  # "operation" | "raid" | "logistics" | ...
+    kind: str  # "operation" | "logistics" | ...
     id: str
 
 

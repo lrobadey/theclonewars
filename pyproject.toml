@@ -5,10 +5,11 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "the-schism"
 version = "0.0.1"
-description = "The Schism — Strategic War Sim (terminal TUI)"
+description = "The Schism - Strategic War Sim v2 web app and shared engine"
 requires-python = ">=3.11"
 dependencies = [
-  "textual>=0.50.0",
+  "fastapi>=0.100.0",
+  "uvicorn[standard]>=0.20.0",
 ]
 
 [project.optional-dependencies]
@@ -18,13 +19,17 @@ dev = [
   "httpx>=0.24.0",
   "watchfiles>=0.21.0",
 ]
+legacy = [
+  "jinja2>=3.0.0",
+  "python-multipart>=0.0.6",
+  "textual>=0.50.0",
+]
 
 [tool.setuptools]
 package-dir = {"" = "src"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
+include = ["war_sim", "war_sim.*"]
 
 [tool.setuptools.package-data]
-"clone_wars.data" = ["*.json"]
-"clone_wars.web" = ["templates/*.html", "templates/panels/*.html", "static/css/*.css"]

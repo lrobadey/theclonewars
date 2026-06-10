@@ -17,9 +17,7 @@ class OperationTarget(str, Enum):
 
 
 class OperationTypeId(str, Enum):
-    RAID = "raid"
     CAMPAIGN = "campaign"
-    SIEGE = "siege"
 
 
 class OperationPhase(str, Enum):

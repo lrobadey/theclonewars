@@ -78,6 +78,7 @@ def build_catalog(rules: Ruleset, scenario: ScenarioData) -> dict:
             "availability": availability_for_operation(op.id),
         }
         for op in rules.operation_types.values()
+        if op.id == "campaign"
     ]
 
     return {

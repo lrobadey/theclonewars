@@ -5,10 +5,43 @@ from pathlib import Path
 import pytest
 
 from clone_wars.engine.barracks import BarracksJobType
-from clone_wars.engine.ops import OperationTarget
+from clone_wars.engine.ops import (
+    OperationIntent,
+    OperationTarget,
+    OperationTypeId,
+    Phase1Decisions,
+    Phase2Decisions,
+    Phase3Decisions,
+)
 from clone_wars.engine.production import ProductionJobType
 from clone_wars.engine.scenario import load_game_state
 from clone_wars.engine.types import LocationId, ObjectiveStatus, Supplies, UnitStock
+
+
+def run_campaign(state, target: OperationTarget, *, end_state: str = "capture"):
+    state.start_operation_phased(OperationIntent(target=target, op_type=OperationTypeId.CAMPAIGN))
+    while state.operation is not None:
+        if state.operation.pending_phase_record is not None:
+            state.acknowledge_phase_result()
+            continue
+        if state.operation.awaiting_player_decision:
+            phase = state.operation.current_phase.value
+            if phase == "contact_shaping":
+                state.submit_phase_decisions(
+                    Phase1Decisions(approach_axis="direct", fire_support_prep="preparatory")
+                )
+            elif phase == "engagement":
+                state.submit_phase_decisions(
+                    Phase2Decisions(engagement_posture="methodical", risk_tolerance="med")
+                )
+            else:
+                state.submit_phase_decisions(
+                    Phase3Decisions(exploit_vs_secure="secure", end_state=end_state)
+                )
+            continue
+        state.advance_day()
+    assert state.last_aar is not None
+    return state.last_aar
 
 
 def test_gamestate_initialization() -> None:
@@ -124,8 +157,8 @@ def test_production_auto_dispatches_to_stop() -> None:
     assert order.final_destination == LocationId.CONTESTED_MID_DEPOT
 
 
-def test_raid_updates_state_and_sets_report() -> None:
-    """Test that raid applies casualties/supply use and creates a report."""
+def test_campaign_updates_state_and_sets_report() -> None:
+    """Test that a campaign operation applies casualties/supply use and creates a report."""
     data_dir = Path(__file__).resolve().parents[1] / "src" / "clone_wars" / "data"
     state = load_game_state(data_dir / "scenario.json")
 
@@ -141,7 +174,7 @@ def test_raid_updates_state_and_sets_report() -> None:
     initial_ammo = state.front_supplies.ammo
     initial_enemy_inf = state.contested_planet.enemy.infantry
 
-    report = state.raid(OperationTarget.FOUNDRY)
+    report = run_campaign(state, OperationTarget.FOUNDRY)
 
     assert state.last_aar is report
     assert report.target == OperationTarget.FOUNDRY
@@ -237,7 +270,7 @@ def test_win_condition_all_objectives() -> None:
     # Each objective requires 2 successful raids (ENEMY -> CONTESTED -> SECURED).
     for target in objectives:
         state.last_aar = None
-        report1 = state.raid(target)
+        report1 = run_campaign(state, target)
         assert report1.outcome != "FAILED"
 
     assert state.contested_planet.objectives.foundry == ObjectiveStatus.SECURED
@@ -245,8 +278,8 @@ def test_win_condition_all_objectives() -> None:
     assert state.contested_planet.objectives.power == ObjectiveStatus.SECURED
 
 
-def test_raid_fails_against_secured_objective() -> None:
-    """Ensure raiding a secured objective is blocked."""
+def test_campaign_fails_against_secured_objective() -> None:
+    """Ensure campaigning against a secured objective is blocked."""
     data_dir = Path(__file__).resolve().parents[1] / "src" / "clone_wars" / "data"
     state = load_game_state(data_dir / "scenario.json")
 
@@ -261,9 +294,9 @@ def test_raid_fails_against_secured_objective() -> None:
     state.contested_planet.enemy.cohesion = 1.0
 
     target = OperationTarget.FOUNDRY
-    report1 = state.raid(target)
+    report1 = run_campaign(state, target)
     assert report1.outcome != "FAILED"
     assert state.contested_planet.objectives.foundry == ObjectiveStatus.SECURED
 
     with pytest.raises(RuntimeError, match="already secured"):
-        state.raid(target)
+        state.start_operation_phased(OperationIntent(target=target, op_type=OperationTypeId.CAMPAIGN))
